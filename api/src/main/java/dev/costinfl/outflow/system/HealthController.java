@@ -1,7 +1,10 @@
 package dev.costinfl.outflow.system;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfo;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,12 +15,16 @@ import org.springframework.web.bind.annotation.RestController;
  * Liveness plus a database round-trip, so the SPA placeholder can prove the whole stack is wired.
  */
 @RestController
-@RequestMapping("/api/health")
+@RequestMapping(path = "/api/health", produces = MediaType.APPLICATION_JSON_VALUE)
+@Tag(name = "system")
 public class HealthController {
 
     public enum Status { UP, DOWN }
 
-    public record HealthResponse(Status status, Status database, String schemaVersion) {}
+    public record HealthResponse(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Status status,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Status database,
+            @Schema(description = "Applied Flyway version; absent when the database is down") String schemaVersion) {}
 
     private final JdbcTemplate jdbc;
     private final Flyway flyway;

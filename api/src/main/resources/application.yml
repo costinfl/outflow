@@ -5,6 +5,8 @@ spring:
     url: ${OUTFLOW_DB_URL:jdbc:postgresql://localhost:5432/outflow}
     username: ${OUTFLOW_DB_USER:outflow}
     password: ${OUTFLOW_DB_PASSWORD:outflow}
+  jackson:
+    default-property-inclusion: non_null
   flyway:
     locations: classpath:db/migration
 
