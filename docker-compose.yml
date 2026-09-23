@@ -1,5 +1,5 @@
-# CP0.1: database only, so `./mvnw -pl api spring-boot:run` has something to talk to.
-# CP0.3 adds the api and web services.
+# Full local stack: http://localhost:3000 (SPA, proxies /api), API on :8080, Postgres on :5432.
+# `docker compose up -d postgres` alone is enough for `./mvnw -pl api spring-boot:run`.
 services:
   postgres:
     image: postgres:16-alpine
@@ -16,6 +16,27 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    environment:
+      OUTFLOW_DB_URL: jdbc:postgresql://postgres:5432/outflow
+      OUTFLOW_DB_USER: outflow
+      OUTFLOW_DB_PASSWORD: outflow
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build: ./web
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
 
 volumes:
   pgdata:

@@ -14,7 +14,7 @@ recurring payments for the user to confirm.
 
 - `api/` — Java 21, Spring Boot 3.5, Maven (wrapper), Spring Data JDBC (no JPA), Flyway, Postgres 16.
   Tests: JUnit 5, AssertJ, Testcontainers.
-- `web/` — React 19, Vite, TypeScript, Tailwind v4. TS client (`openapi-fetch`) typed from `api/openapi.json` via `openapi-typescript`.
+- `web/` — React 19, Vite, TypeScript, Tailwind v4, react-router (hash routing, for GitHub Pages). TS client (`openapi-fetch`) typed from `api/openapi.json` via `openapi-typescript`.
 - Base package `dev.costinfl.outflow`. Packages are feature slices (`ingest`, `txn`, `merchant`,
   `category`, `recurring`, `review`, `insight`, `system`); each owns its tables, service and controller.
 
@@ -30,7 +30,7 @@ npm --prefix web run typecheck
 npm --prefix web run build:demo    # static GitHub Pages build (synthetic fixtures, base /outflow/)
 ./mvnw -pl api verify -Dopenapi.update=true  # refresh api/openapi.json after changing endpoints/DTOs
 npm --prefix web run gen:api       # regenerate web/src/api/schema.gen.ts from api/openapi.json
-docker compose up                  # full stack (CP0.1: postgres only; api + web from CP0.3)
+docker compose up --build          # full stack: SPA http://localhost:3000 (proxies /api), API :8080, Postgres :5432
 ```
 
 API endpoints: `/api/health`, OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
@@ -39,6 +39,9 @@ After an API change: refresh the spec, run `gen:api`, commit both.
 
 Demo mode (GitHub Pages): `VITE_DEMO=true` swaps the client's fetch for `web/src/demo/demoFetch.ts`, which answers
 from `web/src/demo/fixtures.ts`. Fixtures are typed so every GET endpoint needs one; synthetic data only, ever.
+
+CI (`.github/workflows/ci.yml`): api `verify`; web gen:api-is-current + typecheck + builds; compose smoke test.
+Pages (`.github/workflows/pages.yml`): demo build deployed on push to `main` and the current dev branch.
 
 DB connection: env `OUTFLOW_DB_URL`, `OUTFLOW_DB_USER`, `OUTFLOW_DB_PASSWORD` (defaults: local `outflow`/`outflow`).
 

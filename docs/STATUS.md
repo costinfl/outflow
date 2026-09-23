@@ -4,10 +4,19 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M0 — Scaffold** |
-| Last completed | **CP0.2** — `web` Vite + React 19 + TS + Tailwind v4, placeholder home, OpenAPI client generation, Pages demo mode |
-| Next | **CP0.3** — Docker Compose full stack, GitHub Actions CI (`verify` + `typecheck`), Pages deploy of the demo build |
+| Milestone | **M0 — Scaffold: complete** (PR to `main` pending — see Open question 6) |
+| Last completed | **CP0.3** — Docker Compose full stack, CI, GitHub Pages demo deploy, hash routing |
+| Next | **M1 / CP1.1** — schema: household (seeded single), app_user, account, statement_file, raw_row, transaction, transaction_source |
 | Branch | `claude/outflow-project-setup-vbwx3f` (see Open questions) |
+
+## CP0.3 — done
+
+- `docker compose up --build` → SPA on http://localhost:3000 shows the placeholder calling `/api/health` through
+  nginx → api → postgres. Verified locally in a browser; CI job `compose` proves it on every push.
+- CI (`ci.yml`): `api — verify`, `web — typecheck + build` (also fails if `schema.gen.ts` is stale vs
+  `api/openapi.json`), `docker compose — full stack smoke`.
+- Pages (`pages.yml`): demo build deployed on push to `main` and `claude/outflow-project-setup-vbwx3f`.
+- react-router v7 with `HashRouter`; home route + not-found route.
 
 ## CP0.2 — done
 
@@ -32,16 +41,17 @@ _Resume entrypoint. Updated at every checkpoint._
    `claude/outflow-project-setup-vbwx3f`. Commits use the `CPx.y:` convention on that branch; the M0 PR will
    come from it.
 4. **GitHub Pages (Actions source)** — approved: demo mode built in CP0.2, deploy workflow in CP0.3, on push
-   to `main`. Synthetic fixtures only. Note: the default `github-pages` environment only accepts deployments
-   from `main`; to preview branches, allow them in Settings → Environments → github-pages.
-5. **Client-side routing.** The placeholder is a single page. M3 needs several screens (home, transactions,
-   category detail, recurring). Proposal: add `react-router` (not in the stack table, so asking), using hash
-   routing, since Pages has no server-side SPA fallback.
+   to `main` and the dev branch (allowed in the github-pages environment). Synthetic fixtures only.
+5. ~~Client-side routing~~ — approved: react-router with hash routing, added in CP0.3.
+6. **No `main` branch exists yet**, so the M0 PR has no base. Proposal: you create `main` (e.g. from an empty
+   initial commit, or let me push one with your OK), then I open the PR `claude/outflow-project-setup-vbwx3f → main`.
 
 ## Known issues
 
 - Dev-container only: Docker Hub rate-limits image pulls here (429); images were pulled via `mirror.gcr.io`.
   Not a project issue; CI and local machines pull normally.
+- Dev-container only: `docker build` needs the sandbox proxy + CA injected, so compose images were verified with
+  sandbox-only Dockerfile copies (committed Dockerfiles unchanged). The CI `compose` job builds the real ones.
 
 ## Spec questions
 
