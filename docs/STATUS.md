@@ -4,10 +4,31 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M1 — Import and identity** (M0 complete, PR #1 open against `main`) |
-| Last completed | **CP1.2** — `StatementParser` SPI, detector, configurable CSV parser (YAML profiles), synthetic golden files |
-| Next | **CP1.3** — normalization for hashing (`key_v1`), identity key, occurrence index, upsert; file-level sha256 no-op |
+| Milestone | **M1 — Import and identity** (M0 + CP1.1 merged to `main` via PR #1) |
+| Last completed | **CP1.3** — `key_v1` hash normalization, identity keys + occurrence index, upsert, file-level no-op |
+| Next | **CP1.4** — upload endpoint (multipart, several files, one DB transaction per file), import summary |
 | Branch | `claude/outflow-project-setup-vbwx3f` (see Open questions) |
+
+## CP1.3 — done
+
+Packages `ingest.identity` and `ingest` (`ImportService`). 124 backend tests green.
+
+- `HashNormalizer` (`key_v1`, frozen): uppercase, diacritics stripped (cedilla and comma-below), whitespace
+  collapsed, card masks / auth codes / times / dates dropped → `HashNormalizerTest`
+- `IdentityKeys`: `ref:<ref>` when the bank gives one, else
+  `key_v1:sha256(account|booking date|amount|currency|norm)#n`, with `n` ordered by (value date, raw description,
+  row no). The pinned hashes were computed outside Java → `IdentityKeysTest.keyV1IsFrozen`
+- `ImportService.importFile(account, name, bytes, parser)`: one DB transaction. Parse first (a bad file stores
+  nothing), sha256 file no-op, immutable raw rows, upsert by (account, identity_key), every raw row linked to
+  exactly one transaction → `ImportServiceTest`:
+  - same file twice → duplicate, 0 new, nothing stored
+  - Jan–Mar then Feb–Apr → exactly the union: 84 transactions, sum 1,243,801 (computed independently); 126 raw rows
+  - either import order → identical key set
+  - two identical same-day rows → `#1`/`#2`, stable on re-import; a third seen later is new
+  - a failure after writes rolls back the whole file
+- `IdentityPropertyTest`: 12 seeds × random overlapping day-boundary splits, rows shuffled within files, random
+  import order, one file uploaded twice → same 84 keys as a single import. A planted bug (row number in the hash)
+  fails 20 of 29 identity tests, so the suite catches key drift.
 
 ## CP1.2 — done
 
@@ -67,18 +88,14 @@ Health tests now derive the expected schema version from the migrations instead 
 
 ## Open questions
 
-1. ~~`docs/DESIGN.md` missing~~ — resolved, added in CP0.2.
-2. **`samples/` is empty.** Per plan, M1 will build the configurable generic CSV parser + a synthetic sample.
+1. ~~`docs/DESIGN.md` missing~~ — resolved in CP0.2.
+2. **`samples/` has no real statements.** M1 uses the configurable generic CSV parser + synthetic samples. Add
+   anonymized exports of your bank to `samples/<bank>/` and I'll write its profile and golden test.
 3. **Branch naming.** The plan says `milestone/Mx`; this cloud session is pinned to
-   `claude/outflow-project-setup-vbwx3f`. Commits use the `CPx.y:` convention on that branch; the M0 PR will
-   come from it.
-4. **GitHub Pages (Actions source)** — approved: demo mode built in CP0.2, deploy workflow in CP0.3, on push
-   to `main` and the dev branch (allowed in the github-pages environment). Synthetic fixtures only.
-5. ~~Client-side routing~~ — approved: react-router with hash routing, added in CP0.3.
-6. ~~No `main` branch~~ — resolved: empty initial commit pushed to `main`, M0 PR is #1.
-7. **PR #1 will absorb M1 commits.** This session can only push to one branch, so M1 commits land on the same
-   branch as the M0 PR. Merge PR #1 whenever you're happy with M0 to keep milestones separate. Otherwise
-   the PR simply grows, and I'll retitle it at the end of M1.
+   `claude/outflow-project-setup-vbwx3f`. Commits use `CPx.y:`; the M1 PR will come from this branch.
+4. ~~GitHub Pages~~ — done: demo build deployed from `main` and the dev branch.
+5. ~~Client-side routing~~ — done: react-router, hash routing (CP0.3).
+6. ~~No `main` branch~~ — resolved: PR #1 merged M0 + CP1.1; `main` was merged back into the dev branch (no rewrite).
 
 ## Known issues
 
@@ -95,9 +112,16 @@ Health tests now derive the expected schema version from the migrations instead 
 3. DESIGN open question "Frontend stack" is settled by the plan: React SPA.
 4. `statement_file.account_id` (DESIGN) assumes one account per file. CAMT.053 files can hold several accounts.
    Conservative choice for now: one account per file; revisit when a multi-account format is added (M5).
-6. DESIGN says the user can override parser detection. The detector refuses to guess on a tie or a score below 0.75,
-   and CP1.4 will return the candidates so the user picks one. Conservative choice: no import without a confident
-   or explicit parser.
 5. DESIGN lists `transaction.merchant_id`, `category_id`, `category_source`, `category_confidence`,
    `transfer_pair_id`, `subscription_id`. They are added in the milestones that create the referenced tables
    (M2, M4, M5) so every column has a real foreign key from day one.
+6. DESIGN lets the user override parser detection. The detector refuses to guess on a tie or below 0.75; CP1.4
+   returns the candidates so the user picks. Conservative choice: no import without a confident or explicit parser.
+7. **Disjoint mid-day cuts.** The occurrence index handles a later file that repeats a day partially (DESIGN's edge
+   case). It cannot handle two files that each hold a *different* part of the same day with identical rows (file A
+   ends with coffee #1, file B starts with coffee #2): both are `#1`, so one coffee is lost. Bank exports are cut at
+   day boundaries, so this should not happen in practice. The property test covers day-boundary cuts only. A fix
+   would need the bank's reference or a running balance. Flagging it rather than guessing.
+8. **Reference vs content keys across formats.** A `ref:` key and a `key_v1:` key never match, so the same account
+   imported once as CSV without references and once as a format with references (e.g. CAMT.053) would duplicate.
+   Conservative choice: keep DESIGN's priority; revisit when a second format for the same bank arrives (M5).

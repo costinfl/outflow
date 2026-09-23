@@ -101,6 +101,14 @@ public record CsvProfile(
                 groupingSeparator, currency, ibanInPreamble, columns);
     }
 
+    /** A copy that also maps a bank reference column (used by tests; real formats declare it in YAML). */
+    public CsvProfile withReference(String referenceColumn) {
+        var c = columns;
+        return new CsvProfile(id, name, encoding, delimiter, dateFormat, valueDateFormat, decimalSeparator,
+                groupingSeparator, currency, ibanInPreamble, new Columns(c.bookingDate(), c.valueDate(), c.amount(),
+                        c.debit(), c.credit(), c.currency(), c.description(), referenceColumn, c.accountIban()));
+    }
+
     public Charset charset() {
         return Charset.forName(encoding);
     }
