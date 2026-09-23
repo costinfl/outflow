@@ -4,10 +4,25 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M0 — Scaffold: complete** (PR to `main` pending — see Open question 6) |
-| Last completed | **CP0.3** — Docker Compose full stack, CI, GitHub Pages demo deploy, hash routing |
-| Next | **M1 / CP1.1** — schema: household (seeded single), app_user, account, statement_file, raw_row, transaction, transaction_source |
+| Milestone | **M1 — Import and identity** (M0 complete, PR #1 open against `main`) |
+| Last completed | **CP1.1** — import schema: household, app_user, account, statement_file, raw_row, transaction, transaction_source |
+| Next | **CP1.2** — `StatementParser` SPI, detector, configurable generic CSV parser (YAML column mapping) + synthetic sample |
 | Branch | `claude/outflow-project-setup-vbwx3f` (see Open questions) |
+
+## CP1.1 — done
+
+Migration `V2__import_schema.sql`. Proven by `ImportSchemaTest` (10 tests, real Postgres):
+
+- one household and one user seeded (single local user, no auth)
+- `statement_file` unique on (account_id, sha256): the exact same file twice for one account is rejected
+- `transaction` unique on (account_id, identity_key); the same key in another account is allowed
+- `raw_row` is immutable: a trigger rejects UPDATE and DELETE; `row_no` is unique per file
+- `transaction_source`: several raw rows (from different files) → one transaction; a raw row → at most one transaction
+- amounts are `bigint` minor units (signed, negative = out); currency must be an uppercase 3-letter ISO code
+- `account` has no plain IBAN column; `iban_hash` must be 32 bytes (HMAC-SHA256); `iban_masked` rejects a full IBAN;
+  an account without an IBAN is allowed (detection may fail)
+
+Health tests now derive the expected schema version from the migrations instead of hard-coding `1`.
 
 ## CP0.3 — done
 
@@ -43,8 +58,10 @@ _Resume entrypoint. Updated at every checkpoint._
 4. **GitHub Pages (Actions source)** — approved: demo mode built in CP0.2, deploy workflow in CP0.3, on push
    to `main` and the dev branch (allowed in the github-pages environment). Synthetic fixtures only.
 5. ~~Client-side routing~~ — approved: react-router with hash routing, added in CP0.3.
-6. **No `main` branch exists yet**, so the M0 PR has no base. Proposal: you create `main` (e.g. from an empty
-   initial commit, or let me push one with your OK), then I open the PR `claude/outflow-project-setup-vbwx3f → main`.
+6. ~~No `main` branch~~ — resolved: empty initial commit pushed to `main`, M0 PR is #1.
+7. **PR #1 will absorb M1 commits.** This session can only push to one branch, so M1 commits land on the same
+   branch as the M0 PR. Merge PR #1 whenever you're happy with M0 to keep milestones separate. Otherwise
+   the PR simply grows, and I'll retitle it at the end of M1.
 
 ## Known issues
 
@@ -59,3 +76,8 @@ _Resume entrypoint. Updated at every checkpoint._
 2. Plan CP3.2 says "matching the mockup", but there is no mockup in DESIGN or the repo. Needed before M3, else
    the Home screen section of DESIGN is the reference.
 3. DESIGN open question "Frontend stack" is settled by the plan: React SPA.
+4. `statement_file.account_id` (DESIGN) assumes one account per file. CAMT.053 files can hold several accounts.
+   Conservative choice for now: one account per file; revisit when a multi-account format is added (M5).
+5. DESIGN lists `transaction.merchant_id`, `category_id`, `category_source`, `category_confidence`,
+   `transfer_pair_id`, `subscription_id`. They are added in the milestones that create the referenced tables
+   (M2, M4, M5) so every column has a real foreign key from day one.

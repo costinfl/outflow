@@ -28,12 +28,20 @@ class HealthControllerTest {
         var response = http.getForEntity("/api/health", HealthResponse.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isEqualTo(new HealthResponse(Status.UP, Status.UP, "1"));
+        assertThat(response.getBody()).isEqualTo(new HealthResponse(Status.UP, Status.UP, latestMigrationVersion()));
     }
 
     @Test
-    void flywayAppliedBaselineAgainstRealPostgres() {
-        assertThat(flyway.info().applied()).extracting(m -> m.getVersion().getVersion()).containsExactly("1");
+    void flywayAppliedEveryMigrationAgainstRealPostgres() {
+        assertThat(flyway.info().pending()).isEmpty();
+        assertThat(flyway.info().applied()).extracting(m -> m.getVersion().getVersion()).startsWith("1");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo(latestMigrationVersion());
+    }
+
+    /** Highest V<n> in db/migration, read from the classpath rather than hard-coded. */
+    private String latestMigrationVersion() {
+        var all = flyway.info().all();
+        return all[all.length - 1].getVersion().getVersion();
     }
 
     @Test
