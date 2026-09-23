@@ -1,0 +1,21 @@
+# CP0.1: database only, so `./mvnw -pl api spring-boot:run` has something to talk to.
+# CP0.3 adds the api and web services.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: outflow
+      POSTGRES_USER: outflow
+      POSTGRES_PASSWORD: outflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U outflow -d outflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

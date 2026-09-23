@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: outflow
+  datasource:
+    url: ${OUTFLOW_DB_URL:jdbc:postgresql://localhost:5432/outflow}
+    username: ${OUTFLOW_DB_USER:outflow}
+    password: ${OUTFLOW_DB_PASSWORD:outflow}
+  flyway:
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+
+springdoc:
+  api-docs:
+    path: /api/openapi.json
+  swagger-ui:
+    path: /api/docs

@@ -1,0 +1,20 @@
+# Build output
+target/
+node_modules/
+dist/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Local env
+.env
+*.local
+
+# Never commit real statements outside samples/
+*.csv
+*.xlsx
+*.pdf
+!samples/**
