@@ -5,9 +5,26 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | **M1 — Import and identity** (M0 complete, PR #1 open against `main`) |
-| Last completed | **CP1.1** — import schema: household, app_user, account, statement_file, raw_row, transaction, transaction_source |
-| Next | **CP1.2** — `StatementParser` SPI, detector, configurable generic CSV parser (YAML column mapping) + synthetic sample |
+| Last completed | **CP1.2** — `StatementParser` SPI, detector, configurable CSV parser (YAML profiles), synthetic golden files |
+| Next | **CP1.3** — normalization for hashing (`key_v1`), identity key, occurrence index, upsert; file-level sha256 no-op |
 | Branch | `claude/outflow-project-setup-vbwx3f` (see Open questions) |
+
+## CP1.2 — done
+
+Package `ingest.parse`. 80 backend tests green.
+
+- SPI exactly as DESIGN: `StatementParser.id() / detect(FileSample) → DetectionScore / parse(InputStream) → ParsedStatement`
+  (account hint + period + rows with raw payload and parsed fields) → `ConfigurableCsvParserTest`
+- `StatementDetector`: best score ≥ 0.75 wins; unknown files and ties choose nothing but explain every candidate;
+  override by id; duplicate ids rejected → `StatementDetectorTest`
+- One `ConfigurableCsvParser` per YAML profile (`classpath:parsers/*.yml`, extensible via
+  `outflow.parsers.locations`); profile keys documented in `docs/parsers.md`; unknown keys and invalid settings fail
+  at startup → `CsvProfileTest`, `ParserConfigTest`
+- Exact money parsing into minor units, strict about separators and currency decimals → `MoneyParserTest`
+- IBAN: mod-97 validated, masked `RO49 •••• 0000`; plain value in memory only, never in `toString()` → `IbanTest`
+- Golden files in `samples/synthetic/` (generic Jan–Mar and Feb–Apr, Romanian-style Feb in Windows-1250 with
+  debit/credit and preamble IBAN); row count, sums and periods match values computed independently → `GoldenFileTest`
+- A row that can't be read fails the whole file with its row number; rows are never skipped silently
 
 ## CP1.1 — done
 
@@ -78,6 +95,9 @@ Health tests now derive the expected schema version from the migrations instead 
 3. DESIGN open question "Frontend stack" is settled by the plan: React SPA.
 4. `statement_file.account_id` (DESIGN) assumes one account per file. CAMT.053 files can hold several accounts.
    Conservative choice for now: one account per file; revisit when a multi-account format is added (M5).
+6. DESIGN says the user can override parser detection. The detector refuses to guess on a tie or a score below 0.75,
+   and CP1.4 will return the candidates so the user picks one. Conservative choice: no import without a confident
+   or explicit parser.
 5. DESIGN lists `transaction.merchant_id`, `category_id`, `category_source`, `category_confidence`,
    `transfer_pair_id`, `subscription_id`. They are added in the milestones that create the referenced tables
    (M2, M4, M5) so every column has a real foreign key from day one.

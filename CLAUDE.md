@@ -34,6 +34,9 @@ docker compose up --build          # full stack: SPA http://localhost:3000 (prox
 ```
 
 API endpoints: `/api/health`, OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
+Parsers: one YAML profile per CSV format in `api/src/main/resources/parsers/` (keys: `docs/parsers.md`).
+Golden files in `samples/`, byte-exact (`.gitattributes`); expected values in `samples/synthetic/README.md`.
+
 API contract: `api/openapi.json` is committed; `OpenApiContractTest` fails when it drifts from the live API.
 After an API change: refresh the spec, run `gen:api`, commit both.
 

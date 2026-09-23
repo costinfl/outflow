@@ -1,0 +1,19 @@
+# Synthetic samples
+
+Made-up statements used as golden files. No real person, account or bank; the IBAN is the standard documentation
+example `RO49AAAA1B31007593840000`. Real anonymized exports go in `samples/` (one folder per bank).
+
+| File | Parser | Rows | Sum (minor units) | Period |
+| --- | --- | --- | --- | --- |
+| `generic-2026-01-to-03.csv` | `generic-csv-v1` | 63 | 912726 | 2026-01-01 – 2026-03-26 |
+| `generic-2026-02-to-04.csv` | `generic-csv-v1` | 63 | 953449 | 2026-02-01 – 2026-04-26 |
+| `ro-style-2026-02.csv` | `ro-style-csv-v1` (test profile) | 21 | 306308 (debit 543692, credit 850000) | 2026-02-01 – 2026-02-26 |
+
+Both generic files come from one Jan–Apr history, so Feb–Mar rows are identical in both (overlap tests, CP1.3).
+Each month contains two identical Starbucks rows on the 12th (legitimate duplicates). The history covers monthly rent,
+Spotify, Netflix, salary, a savings transfer, variable utility bills and weekly groceries.
+
+`ro-style-2026-02.csv` is February of the same history in a Romanian-bank style: Windows-1250, `;`, `dd.MM.yyyy`,
+`1.234,56`, separate debit/credit columns, IBAN in the preamble, diacritics (`Plată`, `BUCUREŞTI`).
+
+The counts and sums above were computed by the generator script, independently of the Java parser.
