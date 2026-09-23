@@ -49,10 +49,12 @@ jobs:
       - run: docker compose up -d --build
       - name: SPA serves and proxies /api/health to the API
         run: |
+          # No pipe in the condition: the step shell has no pipefail, so `curl | tee` would always succeed.
           for i in $(seq 1 60); do
-            if curl -fsS http://localhost:3000/api/health | tee /tmp/health.json; then break; fi
+            if curl -fsS -o /tmp/health.json http://localhost:3000/api/health; then break; fi
             sleep 2
           done
+          cat /tmp/health.json
           grep -q '"database":"UP"' /tmp/health.json
           curl -fsS http://localhost:3000/ | grep -q '<div id="root">'
       - if: failure()
