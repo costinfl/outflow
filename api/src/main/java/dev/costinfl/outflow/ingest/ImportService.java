@@ -78,14 +78,16 @@ public class ImportService {
                     Long.class, fileId.get(), r.row().rowNo(), toJson(r));
             Optional<Long> newId = jdbc.query("""
                             INSERT INTO transaction (household_id, account_id, identity_key, booking_date, value_date,
-                                                     amount_minor, currency, description_raw, description_norm, status)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'POSTED')
+                                                     amount_minor, currency, description_raw, description_norm,
+                                                     counterparty_raw, status)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'POSTED')
                             ON CONFLICT ON CONSTRAINT transaction_account_identity_uq DO NOTHING
                             RETURNING id""",
                     (rs, i) -> rs.getLong(1),
                     householdId, accountId, r.identityKey(), Date.valueOf(r.row().bookingDate()),
                     r.row().valueDate().map(Date::valueOf).orElse(null), r.row().amountMinor(), r.row().currency(),
-                    r.row().description(), r.descriptionNorm()).stream().findFirst();
+                    r.row().description(), r.descriptionNorm(), r.row().counterparty().orElse(null))
+                    .stream().findFirst();
             long transactionId = newId.orElseGet(() -> jdbc.queryForObject(
                     "SELECT id FROM transaction WHERE account_id = ? AND identity_key = ?",
                     Long.class, accountId, r.identityKey()));

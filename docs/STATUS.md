@@ -9,6 +9,21 @@ _Resume entrypoint. Updated at every checkpoint._
 | Next | **CP3.3** — transactions screen with pre-filtered chips; category detail with trend and top merchants |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M3 work) |
 
+## ING Bank Romania parser (done)
+
+- `ing-ro-csv-v1` (`ingest.parse.ing.IngRoCsvParser`): multi-line Home'Bank records, page chrome anywhere (also inside
+  a record), wrapped detail lines, Romanian month names, `1.234,56`, Debit/Credit, running balance kept in the payload.
+  ING's "Referinta" is reused by standing orders, so it is part of the description, never the identity reference.
+- `ParsedRow.counterparty` + `transaction.counterparty_raw` (V5): bank parsers name the payee; merchant detection uses it
+  before the description. V5 also seeds Round Up / deposit / currency exchange → Transfer, deposit interest → Income.
+- Golden test on the real export: 4,026 records, debit and credit totals, 16 types and period, all computed
+  independently; the running balance accounts for every movement over 21 months; chrome never leaks; 4 standing-order
+  payments sharing one reference stay 4.
+- Real-data M2 check: only **13% of spending (excluding transfers) is categorized** by the seed keywords, far below the
+  80% target. Biggest gaps: person-to-person transfers (review inbox M4 / transfer pairing M5) and merchants the seeds
+  do not know. Normalizer issues seen: payment-processor prefixes (PAYU*, MOBILPAY*, NYX*, MPY*, EP*), brand names with
+  digits dropped by the volatile-token step. To tune once the sample is fixed.
+
 ## Detour after CP3.2 — anonymizer in the browser (done)
 
 - `#/anonymize` (works on the Pages demo too): pick or drop a file, optional names + seed, report (counts, partial
@@ -225,6 +240,10 @@ Health tests now derive the expected schema version from the migrations instead 
 6. ~~No `main` branch~~ — resolved: PR #1 merged M0 + CP1.1; `main` was merged back into the dev branch (no rewrite).
 
 ## Known issues
+
+- **The committed ING sample still contains real names of private people** (Beneficiar / Ordonator fields and some
+  card-transfer lines). The repository was made private (2026-09-24). Still to do: purge the file from history before
+  it is ever public again, and re-anonymize once the anonymizer replaces those fields. Never copy a name from that file.
 
 - Dev-container only: Docker Hub rate-limits image pulls here (429); images were pulled via `mirror.gcr.io`.
   Not a project issue; CI and local machines pull normally.

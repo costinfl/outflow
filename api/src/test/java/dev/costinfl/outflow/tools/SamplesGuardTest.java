@@ -55,9 +55,12 @@ class SamplesGuardTest {
                 out.add(name + ": email");
             }
         }
-        var pan = Pattern.compile("(?<![\\dA-Za-z])(?:\\d{13,19}|\\d{4}(?:[ -]\\d{4}){2}[ -]\\d{1,7})(?!\\d)").matcher(text);
+        // A card number is written in 4-digit groups, or follows a word saying it is one. A bare long digit run is
+        // usually a reference (the anonymizer's random fakes pass the Luhn check 1 time in 10).
+        var pan = Pattern.compile("(?i)(?:\\b(?:card|pan|nr\\.? card|numar card)\\W{0,3})(\\d{13,19})(?!\\d)"
+                + "|(?<![\\dA-Za-z])(\\d{4}(?:[ -]\\d{4}){2}[ -]\\d{1,7})(?!\\d)").matcher(text);
         while (pan.find()) {
-            String d = pan.group().replaceAll("\\D", "");
+            String d = (pan.group(1) != null ? pan.group(1) : pan.group(2)).replaceAll("\\D", "");
             if (d.length() >= 13 && d.length() <= 19 && luhn(d) && !d.startsWith("0")) {
                 out.add(name + ": card-number-like digits");
             }
@@ -72,6 +75,8 @@ class SamplesGuardTest {
         assertThat(scan("x", "cnp 1800101221144")).singleElement().asString().contains("CNP");
         assertThat(scan("x", "a@b.ro person1@example.invalid")).singleElement().asString().contains("email");
         assertThat(scan("x", "4111 1111 1111 1111")).singleElement().asString().contains("card");
+        assertThat(scan("x", "Card: 4111111111111111")).singleElement().asString().contains("card");
+        assertThat(scan("x", "Detalii:INQ:4111111111111111+(1)")).as("a bare reference").isEmpty();
         assertThat(scan("x", "2026-02-01,LIDL 1234 BUCURESTI,-45.10,RON")).isEmpty();
     }
 
