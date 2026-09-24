@@ -7,6 +7,7 @@ example `RO49AAAA1B31007593840000`. Real anonymized exports go in `samples/` (on
 | --- | --- | --- | --- | --- |
 | `generic-2026-01-to-03.csv` | `generic-csv-v1` | 63 | 912726 | 2026-01-01 – 2026-03-26 |
 | `generic-2026-02-to-04.csv` | `generic-csv-v1` | 63 | 953449 | 2026-02-01 – 2026-04-26 |
+| `ing-ro-2026-q1.csv` | `ing-ro-csv-v1` | 193 | debit 2335532, credit 2553247 | 2026-01-02 – 2026-03-31 |
 | `ro-style-2026-02.csv` | `ro-style-csv-v1` (test profile) | 21 | 306308 (debit 543692, credit 850000) | 2026-02-01 – 2026-02-26 |
 
 Both generic files come from one Jan–Apr history, so Feb–Mar rows are identical in both (overlap tests, CP1.3).
@@ -17,3 +18,7 @@ Spotify, Netflix, salary, a savings transfer, variable utility bills and weekly 
 `1.234,56`, separate debit/credit columns, IBAN in the preamble, diacritics (`Plată`, `BUCUREŞTI`).
 
 The counts and sums above were computed by the generator script, independently of the Java parser.
+
+`ing-ro-2026-q1.csv` is fabricated data in the exact layout of an ING Bank Romania Home'Bank export: multi-line
+records, page chrome (also inside a record), a wrapped detail line, a monthly standing order that reuses one reference,
+Round Ups to a savings account, a refund and a cash withdrawal. Balances are consistent on every line.

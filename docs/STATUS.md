@@ -16,9 +16,10 @@ _Resume entrypoint. Updated at every checkpoint._
   ING's "Referinta" is reused by standing orders, so it is part of the description, never the identity reference.
 - `ParsedRow.counterparty` + `transaction.counterparty_raw` (V5): bank parsers name the payee; merchant detection uses it
   before the description. V5 also seeds Round Up / deposit / currency exchange → Transfer, deposit interest → Income.
-- Golden test on the real export: 4,026 records, debit and credit totals, 16 types and period, all computed
-  independently; the running balance accounts for every movement over 21 months; chrome never leaks; 4 standing-order
-  payments sharing one reference stay 4.
+- Golden test (synthetic ING-format file, numbers from its generator): 193 records, totals, types, period; every
+  running balance follows from the previous one; chrome never leaks; a standing order sharing one reference stays 3 rows.
+  Measured on the real export before it was purged: 4,026 records parsed, totals and the 21-month balance identity
+  matched values computed independently.
 - Real-data M2 check: only **13% of spending (excluding transfers) is categorized** by the seed keywords, far below the
   80% target. Biggest gaps: person-to-person transfers (review inbox M4 / transfer pairing M5) and merchants the seeds
   do not know. Normalizer issues seen: payment-processor prefixes (PAYU*, MOBILPAY*, NYX*, MPY*, EP*), brand names with
@@ -241,9 +242,10 @@ Health tests now derive the expected schema version from the migrations instead 
 
 ## Known issues
 
-- **The committed ING sample still contains real names of private people** (Beneficiar / Ordonator fields and some
-  card-transfer lines). The repository was made private (2026-09-24). Still to do: purge the file from history before
-  it is ever public again, and re-anonymize once the anonymizer replaces those fields. Never copy a name from that file.
+- The first ING sample contained real names of private people (Beneficiar / Ordonator fields). The repository was made
+  private and, at the user's request, the file was purged from the dev branch history (force-push, 2026-09-24; `main`
+  never had it). The ING parser's golden test now uses `samples/synthetic/ing-ro-2026-q1.csv`. Next: the anonymizer
+  learns to replace those fields; the user re-anonymizes and a real golden test is added.
 
 - Dev-container only: Docker Hub rate-limits image pulls here (429); images were pulled via `mirror.gcr.io`.
   Not a project issue; CI and local machines pull normally.

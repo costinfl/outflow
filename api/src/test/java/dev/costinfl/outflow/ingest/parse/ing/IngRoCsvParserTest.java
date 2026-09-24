@@ -20,12 +20,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * Golden test on a real, anonymized ING Home'Bank export. Expected numbers were computed independently from the raw CSV
- * (Python csv module), not with this parser.
+ * Golden test on a synthetic ING Home'Bank export in the exact layout of a real one (page chrome inside records,
+ * wrapped details, a standing order reusing its reference, Round Ups). Expected numbers come from the generator
+ * (see samples/synthetic/README.md), not from this parser. A real anonymized export gets its own golden test once it is
+ * re-anonymized.
  */
 class IngRoCsvParserTest {
 
-    static final Path FILE = Path.of("..", "samples", "ING Bank Romania", "Tranzactii_24-09-2026_11-36-40-anonymized.csv");
+    static final Path FILE = Path.of("..", "samples", "synthetic", "ing-ro-2026-q1.csv");
     static ParsedStatement golden;
 
     @BeforeAll
@@ -42,11 +44,11 @@ class IngRoCsvParserTest {
 
     @Test
     void rowCountSumsAndPeriod() {
-        assertThat(golden.rows()).hasSize(4026);
-        assertThat(golden.rows().stream().mapToLong(ParsedRow::amountMinor).filter(a -> a < 0).sum()).isEqualTo(-101_837_589L);
-        assertThat(golden.rows().stream().mapToLong(ParsedRow::amountMinor).filter(a -> a > 0).sum()).isEqualTo(102_480_553L);
-        assertThat(golden.periodFrom()).contains(LocalDate.of(2025, 1, 1));
-        assertThat(golden.periodTo()).contains(LocalDate.of(2026, 9, 24));
+        assertThat(golden.rows()).hasSize(193);
+        assertThat(golden.rows().stream().mapToLong(ParsedRow::amountMinor).filter(a -> a < 0).sum()).isEqualTo(-2_335_532L);
+        assertThat(golden.rows().stream().mapToLong(ParsedRow::amountMinor).filter(a -> a > 0).sum()).isEqualTo(2_553_247L);
+        assertThat(golden.periodFrom()).contains(LocalDate.of(2026, 1, 2));
+        assertThat(golden.periodTo()).contains(LocalDate.of(2026, 3, 31));
         assertThat(golden.rows()).extracting(ParsedRow::currency).containsOnly("RON");
         assertThat(golden.accountHint()).isEmpty();
     }
@@ -56,72 +58,63 @@ class IngRoCsvParserTest {
         Map<String, Long> types = golden.rows().stream()
                 .collect(Collectors.groupingBy(r -> r.payload().get("Detalii tranzactie"), Collectors.counting()));
 
-        assertThat(types).containsEntry("Tranzactie Round Up", 1562L).containsEntry("Cumparare POS", 1548L)
-                .containsEntry("Transfer Home'Bank", 419L).containsEntry("Incasare", 401L).hasSize(16);
+        assertThat(types).isEqualTo(Map.of("Tranzactie Round Up", 91L, "Cumparare POS", 91L, "Plata debit direct", 3L,
+                "Transfer Home'Bank", 3L, "Incasare", 3L, "Cumparare POS - stornare", 1L, "Retragere numerar", 1L));
         assertThat(golden.rows().stream().filter(r -> r.payload().get("Detalii tranzactie").equals("Tranzactie Round Up"))
-                .mapToLong(ParsedRow::amountMinor).sum()).isEqualTo(-2_525_565L);
+                .mapToLong(ParsedRow::amountMinor).sum()).isEqualTo(-5_202L);
     }
 
-    /**
-     * The running balance proves no transaction was lost or misread: newest balance = oldest balance + every movement
-     * after the oldest. Locally ING lists two neighbours of 22–23 July 2025 out of balance order; those two breaks
-     * cancel out (+9.00 / −9.00), which is all that is allowed.
-     */
+    /** The running balance proves no transaction was lost or misread: every record follows from the one before it. */
     @Test
     void runningBalanceAccountsForEveryTransaction() {
         var rows = golden.rows(); // newest first, as in the file
-        long movementsAfterOldest = rows.subList(0, rows.size() - 1).stream().mapToLong(ParsedRow::amountMinor).sum();
-        assertThat(balance(rows.getFirst())).isEqualTo(balance(rows.getLast()) + movementsAfterOldest);
-
-        long breaks = 0;
-        long drift = 0;
         for (int i = 0; i < rows.size() - 1; i++) {
-            long diff = balance(rows.get(i)) - (balance(rows.get(i + 1)) + rows.get(i).amountMinor());
-            if (diff != 0) {
-                breaks++;
-                drift += diff;
-            }
+            assertThat(balance(rows.get(i))).as("row %d", i + 1).isEqualTo(balance(rows.get(i + 1)) + rows.get(i).amountMinor());
         }
-        assertThat(breaks).isEqualTo(2);
-        assertThat(drift).isZero();
+        assertThat(balance(rows.getLast())).isEqualTo(493_057);
+        assertThat(balance(rows.getFirst())).isEqualTo(717_715);
     }
 
     @Test
     void pageChromeNeverLeaksIntoTransactions() {
         assertThat(golden.rows()).allSatisfy(r -> {
             assertThat(r.description()).doesNotContain("Titular cont", "ING Bank N.V.", "Sucursala");
-            assertThat(r.payload().values()).noneMatch(v -> v.contains("Şef Serviciu"));
+            assertThat(r.payload().values()).noneMatch(v -> v.contains("Sef Serviciu") || v.contains("Jane Doe"));
         });
     }
 
     @Test
     void detailsCounterpartiesAndDates() {
-        ParsedRow newest = golden.rows().getFirst();
-        assertThat(newest.bookingDate()).isEqualTo(LocalDate.of(2026, 9, 24));
-        assertThat(newest.valueDate()).contains(LocalDate.of(2026, 9, 24));
-        assertThat(newest.amountMinor()).isEqualTo(-3952);
-        assertThat(newest.counterparty()).contains("1MINUTE HERMES (B) C1"); // "  RO  BUCURESTI" stripped
-        assertThat(newest.payload().get("Numar card")).matches("\\*{4} \\d{4}"); // digits are anonymizer fakes
-        assertThat(newest.payload()).containsEntry("Balanta", "6.745,27");
-
-        var roundUp = golden.rows().get(1);
+        ParsedRow roundUp = golden.rows().getFirst();
+        assertThat(roundUp.bookingDate()).isEqualTo(LocalDate.of(2026, 3, 31));
+        assertThat(roundUp.amountMinor()).isEqualTo(-50);
         assertThat(roundUp.counterparty()).contains("ING Round Up");
-        assertThat(roundUp.description()).isEqualTo("Tranzactie Round Up · Suma tranzactiei: 88.1 RON · la EASYBOX YAHOOBEST · ref 34880");
+        assertThat(roundUp.description()).isEqualTo("Tranzactie Round Up · Suma tranzactiei: 18.5 RON · la STARBUCKS AFI · ref 40192");
+
+        ParsedRow pos = golden.rows().get(1);
+        assertThat(pos.counterparty()).contains("STARBUCKS AFI"); // "  RO  BUCURESTI" stripped
+        assertThat(pos.valueDate()).contains(LocalDate.of(2026, 4, 1));
+        assertThat(pos.payload()).containsEntry("Numar card", "**** 4412").containsEntry("Balanta", "7.177,65");
 
         var incoming = golden.rows().stream().filter(r -> r.payload().get("Detalii tranzactie").equals("Incasare")).findFirst().orElseThrow();
-        assertThat(incoming.amountMinor()).isPositive();
-        assertThat(incoming.counterparty()).hasValueSatisfying(c -> assertThat(c).matches("PERSON_\\d+"));
+        assertThat(incoming.amountMinor()).isEqualTo(850_000);
+        assertThat(incoming.counterparty()).contains("ACME SOFTWARE SRL");
+
+        var refund = golden.rows().stream().filter(r -> r.payload().get("Detalii tranzactie").endsWith("stornare")).findFirst().orElseThrow();
+        assertThat(refund.amountMinor()).isEqualTo(3_247);
+        assertThat(refund.counterparty()).contains("MOL 91151 Rasnov");
     }
 
     @Test
     void wrappedDetailLinesAreJoined() {
-        assertThat(golden.rows()).anySatisfy(r -> assertThat(r.payload().get("Detalii")).isEqualTo("37741995 60439508"));
+        assertThat(golden.rows()).filteredOn(r -> r.payload().get("Detalii tranzactie").equals("Plata debit direct"))
+                .hasSize(3).allSatisfy(r -> assertThat(r.payload().get("Detalii")).isEqualTo("37741995 60439508"));
         assertThat(golden.rows()).noneSatisfy(r -> assertThat(r.payload().keySet()).anyMatch(k -> k.matches("\\d.*")));
     }
 
     @Test
-    void theMonthlyStandingOrderWithOneReferenceStaysFourTransactions() {
-        assertThat(golden.rows()).filteredOn(r -> "948872823".equals(r.payload().get("Referinta"))).hasSize(4)
+    void theMonthlyStandingOrderWithOneReferenceStaysThreeTransactions() {
+        assertThat(golden.rows()).filteredOn(r -> "948800001".equals(r.payload().get("Referinta"))).hasSize(3)
                 .allSatisfy(r -> assertThat(r.reference()).isEmpty())
                 .extracting(ParsedRow::bookingDate).doesNotHaveDuplicates();
     }
