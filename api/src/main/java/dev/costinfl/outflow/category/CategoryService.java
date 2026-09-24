@@ -60,6 +60,73 @@ public class CategoryService {
         return changed;
     }
 
+    /** Minimum number of consistent manual edits before a merchant learns a category (tier 2). */
+    static final int LEARN_AFTER = 2;
+
+    /**
+     * The user sets a category on one transaction (DESIGN: "one tap"). Without {@code applyToMerchant} only this
+     * transaction changes and becomes {@code USER}. With it, a tier-1 rule for the merchant replaces any earlier one
+     * and every non-USER transaction of the merchant follows it. Returns how many transactions changed in total.
+     */
+    @Transactional
+    public int setCategory(long transactionId, long categoryId, boolean applyToMerchant) {
+        long merchantId = jdbc.queryForObject("SELECT merchant_id FROM transaction WHERE id = ?", Long.class, transactionId);
+        int changed;
+        if (applyToMerchant) {
+            String key = jdbc.queryForObject("SELECT key FROM merchant WHERE id = ?", String.class, merchantId);
+            jdbc.update("DELETE FROM category_rule WHERE household_id = ? AND source = 'USER' AND match_type = 'MERCHANT' AND pattern = ?",
+                    HOUSEHOLD, key);
+            jdbc.update("""
+                    INSERT INTO category_rule (household_id, source, priority, match_type, pattern, category_id)
+                    VALUES (?, 'USER', 10, 'MERCHANT', ?, ?)""", HOUSEHOLD, key, categoryId);
+            // This transaction now follows the rule (even if it was a manual exception before): it is the one the user
+            // answered "apply to this merchant" on. Other manual exceptions stay as they are.
+            changed = jdbc.update("""
+                    UPDATE transaction SET category_id = ?, category_source = 'RULE', category_confidence = 1.00
+                    WHERE id = ? AND (category_id, category_source) IS DISTINCT FROM (?::bigint, 'RULE')""",
+                    categoryId, transactionId, categoryId);
+        } else {
+            changed = jdbc.update("""
+                    UPDATE transaction SET category_id = ?, category_source = 'USER', category_confidence = 1.00
+                    WHERE id = ? AND (category_id, category_source) IS DISTINCT FROM (?::bigint, 'USER')""",
+                    categoryId, transactionId, categoryId);
+        }
+        relearn(merchantId);
+        return changed + categorizeAll();
+    }
+
+    /** Undo a manual category: the transaction goes back to automatic categorization. Returns how many changed. */
+    @Transactional
+    public int clearManual(long transactionId) {
+        long merchantId = jdbc.queryForObject("SELECT merchant_id FROM transaction WHERE id = ?", Long.class, transactionId);
+        jdbc.update("""
+                UPDATE transaction SET category_id = NULL, category_source = NULL, category_confidence = NULL
+                WHERE id = ? AND category_source = 'USER'""", transactionId);
+        relearn(merchantId);
+        return categorizeAll();
+    }
+
+    /**
+     * Tier 2 is derived from the user's own manual edits: a merchant learns a category once at least
+     * {@link #LEARN_AFTER} of its transactions were set by hand, all to that same category. Any disagreement unlearns.
+     */
+    void relearn(long merchantId) {
+        var manual = jdbc.queryForList(
+                "SELECT category_id FROM transaction WHERE merchant_id = ? AND category_source = 'USER'", Long.class, merchantId);
+        Long learned = manual.size() >= LEARN_AFTER && manual.stream().distinct().count() == 1 ? manual.getFirst() : null;
+        jdbc.update("UPDATE merchant SET default_category_id = ? WHERE id = ?", learned, merchantId);
+    }
+
+    public List<Category> list() {
+        return jdbc.query("SELECT id, parent_id, code, name, kind FROM category ORDER BY sort_order, id",
+                (rs, i) -> new Category(rs.getLong(1), (Long) rs.getObject(2), rs.getString(3), rs.getString(4),
+                        Category.Kind.valueOf(rs.getString(5))));
+    }
+
+    public boolean exists(long categoryId) {
+        return jdbc.queryForObject("SELECT count(*) FROM category WHERE id = ?", Long.class, categoryId) > 0;
+    }
+
     public long categoryId(String code) {
         return jdbc.queryForObject("SELECT id FROM category WHERE code = ?", Long.class, code);
     }

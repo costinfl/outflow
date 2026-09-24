@@ -2,6 +2,19 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## M2 — Merchants and categories (2026-09-24)
+
+- **Merchants (V3):** normalizer as a chain of unit-tested steps (cleanup, channel prefixes, web addresses, volatile
+  tokens, filler words, trailing location, aliases); `merchant` and `merchant_alias` (45 seeded chains);
+  `transaction.merchant_id` assigned on upload and recomputable from raw descriptions.
+- **Categories (V4):** 18 seeded categories with kind SPEND / INCOME / TRANSFER; resolver tiers user rule → learned →
+  keyword (~130 seeds) → uncategorized, with DESIGN confidences; manual categories (`USER`) are never recomputed.
+- **Endpoints:** recategorize a transaction (with "apply to this merchant" rule), undo, `GET /api/categories`;
+  debug view `GET /api/merchants`, `GET /api/merchants/explain`, `POST /api/merchants/aliases`.
+- **Learning:** two consistent manual edits teach a merchant its category; a disagreement unteaches.
+- **Tests:** per-step normalizer tables, samples collapse to 11 merchants, resolver tiers, ≥ 80% spend coverage,
+  user decisions survive re-runs and re-uploads; 228 backend tests.
+
 ## M1 — Import and identity (2026-09-24)
 
 - **Schema (V2):** household + user (seeded), account (IBAN only as 32-byte HMAC + masked form), statement_file

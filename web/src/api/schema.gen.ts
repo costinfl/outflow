@@ -20,6 +20,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -52,6 +68,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/merchants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/merchants/aliases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addAlias"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/merchants/explain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["explain"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/transactions/{id}/category": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set"];
+        post?: never;
+        delete: operations["clear"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -79,6 +159,42 @@ export interface components {
             periodFrom?: string;
             /** Format: date */
             periodTo?: string;
+        };
+        AliasResult: {
+            /** Format: int32 */
+            movedTransactions: number;
+            /** Format: int32 */
+            recategorizedTransactions: number;
+        };
+        Category: {
+            /** @example GROCERIES */
+            code: string;
+            /** Format: int64 */
+            id: number;
+            /**
+             * @description Only SPEND counts towards spent
+             * @enum {string}
+             */
+            kind: "SPEND" | "INCOME" | "TRANSFER";
+            /** @example Groceries */
+            name: string;
+            /** Format: int64 */
+            parentId?: number;
+        };
+        CategoryChange: {
+            /**
+             * Format: int32
+             * @description Transactions whose category changed, this one included
+             */
+            changedTransactions: number;
+            transaction: components["schemas"]["TransactionView"];
+        };
+        Explanation: {
+            categoryCode?: string;
+            /** @description Which tier would categorize it: RULE, LEARNED or KEYWORD; absent when none */
+            categorySource?: string;
+            key: string;
+            steps: components["schemas"]["Step"][];
         };
         FileOutcome: {
             /** Format: int64 */
@@ -121,12 +237,30 @@ export interface components {
             /** Format: int32 */
             newTransactions: number;
         };
+        MerchantSummary: {
+            categoryCode?: string;
+            displayName: string;
+            /** Format: int64 */
+            id: number;
+            key: string;
+            /** @description Up to 3 distinct raw descriptions, IBANs masked */
+            sampleDescriptions: string[];
+            /** Format: int64 */
+            transactionCount: number;
+        };
         NewAccount: {
             /** @example RON */
             currency: string;
             /** @enum {string} */
             kind: "CURRENT" | "SAVINGS" | "CARD";
             name: string;
+        };
+        NewAlias: {
+            /** @enum {string} */
+            matchType: "EXACT" | "PREFIX";
+            merchantKey: string;
+            /** @description Matched against the merchant key */
+            pattern: string;
         };
         ParserCandidate: {
             name: string;
@@ -137,6 +271,41 @@ export interface components {
              * @description 0..1
              */
             score: number;
+        };
+        SetCategory: {
+            /** @description Answer to 'apply to this merchant from now on?': creates a rule for the merchant */
+            applyToMerchant?: boolean;
+            /** Format: int64 */
+            categoryId: number;
+        };
+        Step: {
+            name?: string;
+            output?: string;
+        };
+        TransactionView: {
+            /** Format: int64 */
+            accountId: number;
+            /**
+             * Format: int64
+             * @description Signed minor units; negative = money out
+             */
+            amountMinor: number;
+            /** Format: date */
+            bookingDate: string;
+            categoryCode?: string;
+            categoryConfidence?: number;
+            /** Format: int64 */
+            categoryId?: number;
+            /** @description USER, RULE, LEARNED, MCC, KEYWORD, SYSTEM; absent when uncategorized */
+            categorySource?: string;
+            /** @example RON */
+            currency: string;
+            /** @description Bank text with IBANs masked */
+            description: string;
+            /** Format: int64 */
+            id: number;
+            merchantKey: string;
+            merchantName: string;
         };
     };
     responses: never;
@@ -191,6 +360,26 @@ export interface operations {
             };
         };
     };
+    list_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Category"][];
+                };
+            };
+        };
+    };
     health: {
         parameters: {
             query?: never;
@@ -238,6 +427,120 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImportSummary"];
+                };
+            };
+        };
+    };
+    list_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MerchantSummary"][];
+                };
+            };
+        };
+    };
+    addAlias: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewAlias"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AliasResult"];
+                };
+            };
+        };
+    };
+    explain: {
+        parameters: {
+            query: {
+                raw: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Explanation"];
+                };
+            };
+        };
+    };
+    set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetCategory"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryChange"];
+                };
+            };
+        };
+    };
+    clear: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryChange"];
                 };
             };
         };

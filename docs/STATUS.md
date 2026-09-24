@@ -4,10 +4,30 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M2 — Merchants and categories** (M1 merged to `main` via PR #2) |
-| Last completed | **CP2.2** — category tree, resolver tiers 1/2/4, recategorization that never overrides the user |
-| Next | **CP2.3** — endpoints: recategorize one transaction (+ "apply to merchant" rule); debug raw → merchant key |
+| Milestone | **M2 — Merchants and categories: complete** (PR to `main` open) |
+| Last completed | **CP2.3** — recategorize endpoint with "apply to merchant", learning, raw → key debug view, user aliases |
+| Next | **M3 / CP3.1** — insight queries: month total, 3-month average, income, net, top-5 + Other with deltas, accuracy % |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M2 work) |
+
+## CP2.3 — done
+
+228 backend tests green; web typecheck and both builds green.
+
+- `PUT /api/transactions/{id}/category {categoryId, applyToMerchant}`: without apply → this transaction only (`USER`);
+  with apply → a tier-1 MERCHANT rule replaces any earlier one, the transaction and every non-USER one of the merchant
+  follow it; manual exceptions stay. `DELETE` → back to automatic → `CategoryControllerTest`
+- Tier 2 learning: ≥ 2 manual edits of a merchant, all the same category → `merchant.default_category_id`; any
+  disagreement unlearns; derived from USER transactions, so recomputable
+- M2 acceptance over HTTP: an "apply to merchant" rule survives a re-upload and re-runs (11 → 15 Lidl rows on RULE,
+  the earlier exception untouched)
+- Debug view: `GET /api/merchants` (count, dominant category, 3 raw samples with IBANs masked),
+  `GET /api/merchants/explain?raw=` (each step's output, key, category tier), `POST /api/merchants/aliases` (USER
+  alias, recompute merchants then categories) → `MerchantControllerTest`
+- `GET /api/categories`; `TransactionView` (merchant name, masked description, category + source + confidence)
+- OpenAPI spec, TS client and demo fixtures updated
+
+**M2 acceptance** (plan): ≥ 80% of spend categorized on the samples (100% on synthetic; see Open question 2); a user
+rule never gets overwritten by a re-run. Both automated.
 
 ## CP2.2 — done
 

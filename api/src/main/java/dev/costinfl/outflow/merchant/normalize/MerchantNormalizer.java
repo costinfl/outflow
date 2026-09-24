@@ -32,6 +32,22 @@ public final class MerchantNormalizer {
         return s.isEmpty() ? fallback(rawDescription) : s;
     }
 
+    /** One line per step, for the raw → key debug view. */
+    public record Step(String name, String output) {}
+
+    public List<Step> trace(String rawDescription) {
+        var out = new java.util.ArrayList<Step>();
+        String s = rawDescription;
+        for (MerchantStep step : steps) {
+            s = step.apply(s);
+            out.add(new Step(step.getClass().getSimpleName(), s));
+        }
+        if (s.isEmpty()) {
+            out.add(new Step("Fallback", fallback(rawDescription)));
+        }
+        return out;
+    }
+
     private String fallback(String raw) {
         String cleaned = basic.apply(raw);
         return cleaned.isEmpty() ? "UNKNOWN" : cleaned.length() > 60 ? cleaned.substring(0, 60).strip() : cleaned;

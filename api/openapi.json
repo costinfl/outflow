@@ -55,6 +55,83 @@
         "required" : [ "account", "alreadyImported", "created", "newTransactions" ],
         "type" : "object"
       },
+      "AliasResult" : {
+        "properties" : {
+          "movedTransactions" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "recategorizedTransactions" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "movedTransactions", "recategorizedTransactions" ],
+        "type" : "object"
+      },
+      "Category" : {
+        "properties" : {
+          "code" : {
+            "example" : "GROCERIES",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "kind" : {
+            "description" : "Only SPEND counts towards spent",
+            "enum" : [ "SPEND", "INCOME", "TRANSFER" ],
+            "type" : "string"
+          },
+          "name" : {
+            "example" : "Groceries",
+            "type" : "string"
+          },
+          "parentId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "code", "id", "kind", "name" ],
+        "type" : "object"
+      },
+      "CategoryChange" : {
+        "properties" : {
+          "changedTransactions" : {
+            "description" : "Transactions whose category changed, this one included",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "transaction" : {
+            "$ref" : "#/components/schemas/TransactionView"
+          }
+        },
+        "required" : [ "changedTransactions", "transaction" ],
+        "type" : "object"
+      },
+      "Explanation" : {
+        "properties" : {
+          "categoryCode" : {
+            "type" : "string"
+          },
+          "categorySource" : {
+            "description" : "Which tier would categorize it: RULE, LEARNED or KEYWORD; absent when none",
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "steps" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Step"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "key", "steps" ],
+        "type" : "object"
+      },
       "FileOutcome" : {
         "properties" : {
           "accountId" : {
@@ -151,6 +228,36 @@
         "required" : [ "accounts", "alreadyImported", "files", "newTransactions" ],
         "type" : "object"
       },
+      "MerchantSummary" : {
+        "properties" : {
+          "categoryCode" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "sampleDescriptions" : {
+            "description" : "Up to 3 distinct raw descriptions, IBANs masked",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "transactionCount" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "displayName", "id", "key", "sampleDescriptions", "transactionCount" ],
+        "type" : "object"
+      },
       "NewAccount" : {
         "properties" : {
           "currency" : {
@@ -166,6 +273,23 @@
           }
         },
         "required" : [ "currency", "kind", "name" ],
+        "type" : "object"
+      },
+      "NewAlias" : {
+        "properties" : {
+          "matchType" : {
+            "enum" : [ "EXACT", "PREFIX" ],
+            "type" : "string"
+          },
+          "merchantKey" : {
+            "type" : "string"
+          },
+          "pattern" : {
+            "description" : "Matched against the merchant key",
+            "type" : "string"
+          }
+        },
+        "required" : [ "matchType", "merchantKey", "pattern" ],
         "type" : "object"
       },
       "ParserCandidate" : {
@@ -186,6 +310,82 @@
           }
         },
         "required" : [ "name", "parserId", "reason", "score" ],
+        "type" : "object"
+      },
+      "SetCategory" : {
+        "properties" : {
+          "applyToMerchant" : {
+            "description" : "Answer to 'apply to this merchant from now on?': creates a rule for the merchant",
+            "type" : "boolean"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "categoryId" ],
+        "type" : "object"
+      },
+      "Step" : {
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "output" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "TransactionView" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amountMinor" : {
+            "description" : "Signed minor units; negative = money out",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "bookingDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "categoryCode" : {
+            "type" : "string"
+          },
+          "categoryConfidence" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "categorySource" : {
+            "description" : "USER, RULE, LEARNED, MCC, KEYWORD, SYSTEM; absent when uncategorized",
+            "type" : "string"
+          },
+          "currency" : {
+            "example" : "RON",
+            "type" : "string"
+          },
+          "description" : {
+            "description" : "Bank text with IBANs masked",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "merchantKey" : {
+            "type" : "string"
+          },
+          "merchantName" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "amountMinor", "bookingDate", "currency", "description", "id", "merchantKey", "merchantName" ],
         "type" : "object"
       }
     }
@@ -241,6 +441,27 @@
           }
         },
         "tags" : [ "accounts" ]
+      }
+    },
+    "/api/categories" : {
+      "get" : {
+        "operationId" : "list_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Category"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "categories" ]
       }
     },
     "/api/health" : {
@@ -314,6 +535,143 @@
           }
         },
         "tags" : [ "imports" ]
+      }
+    },
+    "/api/merchants" : {
+      "get" : {
+        "operationId" : "list_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/MerchantSummary"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "merchants" ]
+      }
+    },
+    "/api/merchants/aliases" : {
+      "post" : {
+        "operationId" : "addAlias",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NewAlias"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AliasResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "merchants" ]
+      }
+    },
+    "/api/merchants/explain" : {
+      "get" : {
+        "operationId" : "explain",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "raw",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Explanation"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "merchants" ]
+      }
+    },
+    "/api/transactions/{id}/category" : {
+      "delete" : {
+        "operationId" : "clear",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CategoryChange"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "categories" ]
+      },
+      "put" : {
+        "operationId" : "set",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetCategory"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CategoryChange"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "categories" ]
       }
     }
   },
