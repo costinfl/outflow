@@ -4,10 +4,57 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M1 — Import and identity: complete** (PR to `main` open) |
-| Last completed | **CP1.4** — upload endpoint, account detection by IBAN HMAC, import summary |
-| Next | **M2 / CP2.1** — merchant normalizer as a chain of unit-tested steps; alias table; `merchant` rows |
-| Branch | `claude/outflow-project-setup-vbwx3f` (see Open questions) |
+| Milestone | **M2 — Merchants and categories: complete** (PR to `main` open) |
+| Last completed | **CP2.3** — recategorize endpoint with "apply to merchant", learning, raw → key debug view, user aliases |
+| Next | **M3 / CP3.1** — insight queries: month total, 3-month average, income, net, top-5 + Other with deltas, accuracy % |
+| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M2 work) |
+
+## CP2.3 — done
+
+228 backend tests green; web typecheck and both builds green.
+
+- `PUT /api/transactions/{id}/category {categoryId, applyToMerchant}`: without apply → this transaction only (`USER`);
+  with apply → a tier-1 MERCHANT rule replaces any earlier one, the transaction and every non-USER one of the merchant
+  follow it; manual exceptions stay. `DELETE` → back to automatic → `CategoryControllerTest`
+- Tier 2 learning: ≥ 2 manual edits of a merchant, all the same category → `merchant.default_category_id`; any
+  disagreement unlearns; derived from USER transactions, so recomputable
+- M2 acceptance over HTTP: an "apply to merchant" rule survives a re-upload and re-runs (11 → 15 Lidl rows on RULE,
+  the earlier exception untouched)
+- Debug view: `GET /api/merchants` (count, dominant category, 3 raw samples with IBANs masked),
+  `GET /api/merchants/explain?raw=` (each step's output, key, category tier), `POST /api/merchants/aliases` (USER
+  alias, recompute merchants then categories) → `MerchantControllerTest`
+- `GET /api/categories`; `TransactionView` (merchant name, masked description, category + source + confidence)
+- OpenAPI spec, TS client and demo fixtures updated
+
+**M2 acceptance** (plan): ≥ 80% of spend categorized on the samples (100% on synthetic; see Open question 2); a user
+rule never gets overwritten by a re-run. Both automated.
+
+## CP2.2 — done
+
+Package `category`. Migration V4. 218 backend tests green.
+
+- 18 seeded categories (DESIGN list) with a `kind`: SPEND, INCOME (Income), TRANSFER (Transfer) → `CategoryServiceTest`
+- `CategoryResolver` (pure): tier 1 USER rules (1.0) → tier 2 learned `merchant.default_category_id` (0.95) →
+  tier 4 SEED keyword rules on whole words of the merchant key (0.70) → uncategorized. Within a tier: priority, then
+  MERCHANT before KEYWORD, then the longer pattern → `CategoryResolverTest`
+- `transaction.category_id / category_source / category_confidence`; `category_source = 'USER'` is never recomputed
+- `CategoryService.categorizeAll()`: runs after merchant assignment on every upload (same DB transaction);
+  recomputes everything else from rules, writes only changes
+- M2 acceptance: ≥ 80% of spend categorized on the samples (it is 100%, see Open question 2); a manual category
+  survives re-runs even against a user rule and a learned category; tiers unwind cleanly when rules are removed
+
+## CP2.1 — done
+
+Package `merchant` (`normalize/` holds the steps). Migration V3. 206 backend tests green.
+
+- `MerchantNormalizer` = ordered steps, each a pure function with its own tests (`MerchantStepsTest`):
+  `BasicCleanup` → `ChannelPrefix` → `WebAddress` → `VolatileTokens` → `FillerWords` → `TrailingLocation` → `AliasStep`
+- Golden raw → key table incl. real-world shapes (PayPal, Amazon, eMAG, OMV, Glovo) → `MerchantNormalizerTest`
+- One merchant, one key: every row of the samples maps to exactly 11 keys (rent across month names, Spotify plan
+  codes, Netflix refs, Starbucks locations, Romanian-style diacritics all collapse) → `samplesCollapseToOneKeyPerMerchant`
+- `merchant` + `merchant_alias` tables (EXACT / PREFIX, SEED / USER; 45 seeded chain aliases), `transaction.merchant_id`
+- `MerchantService`: uploads assign merchants in the same DB transaction; `reassignAll()` recomputes from raw
+  descriptions and writes only changes; a user alias moves exactly the matching transactions → `MerchantServiceTest`
 
 ## CP1.4 — done
 
@@ -110,8 +157,8 @@ Health tests now derive the expected schema version from the migrations instead 
 1. ~~`docs/DESIGN.md` missing~~ — resolved in CP0.2.
 2. **`samples/` has no real statements.** M1 uses the configurable generic CSV parser + synthetic samples. Add
    anonymized exports of your bank to `samples/<bank>/` and I'll write its profile and golden test. This matters
-   most for M2: the ≥ 80% categorized target is measured on the samples, and synthetic merchant strings are tidier
-   than real ones.
+   most for M2: the ≥ 80% categorized target is measured on the samples. On the synthetic samples it is 100%, which
+   proves the mechanism but not the quality: I wrote both the samples and the keyword seeds.
 3. **Branch naming.** The plan says `milestone/Mx`; this cloud session is pinned to
    `claude/outflow-project-setup-vbwx3f`. Commits use `CPx.y:`; milestone PRs come from this branch. Merge the M1
    PR before M2 lands, or it will grow to include M2.
@@ -154,4 +201,8 @@ Health tests now derive the expected schema version from the migrations instead 
    will mask IBAN-shaped text when displaying descriptions. Say if you want them masked at import instead.
 10. **Losing the HMAC key** makes existing accounts unrecognisable by IBAN (uploads would create new accounts). Its
     file lives in the data dir next to the DB volume; back up both. A key-rotation tool is not planned for M1–M5.
+11. Merchant keys are interpretations, not identities: unlike `key_v1`, the normalizer may improve and
+    `reassignAll()` recomputes every merchant. User rules (CP2.2) will key on merchant *keys*; a normalizer change that
+    renames a key would orphan rules on it. Conservative choice: rules store the key, and CP2.3's debug view shows
+    raw → key so a changed key is visible; revisit with real samples.
 

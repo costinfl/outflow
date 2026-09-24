@@ -39,6 +39,17 @@ public final class Iban {
         return Optional.empty();
     }
 
+    /** Free text with every valid IBAN replaced by its masked form, for showing raw descriptions (spec question 9). */
+    public static String maskAll(String text) {
+        var m = CANDIDATE.matcher(text);
+        var out = new StringBuilder();
+        while (m.find()) {
+            m.appendReplacement(out, java.util.regex.Matcher.quoteReplacement(
+                    parse(m.group()).map(Iban::masked).orElse(m.group())));
+        }
+        return m.appendTail(out).toString();
+    }
+
     private static boolean checksumOk(String iban) {
         String rearranged = iban.substring(4) + iban.substring(0, 4);
         var digits = new StringBuilder();
