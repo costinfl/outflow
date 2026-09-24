@@ -1,0 +1,4 @@
+# Test-only overrides (loaded on top of the main application.yml).
+outflow:
+  # Fixed test key (not a secret): avoids writing a key file during tests.
+  iban-hmac-key: dGVzdC1rZXktdGVzdC1rZXktdGVzdC1rZXktdGVzdC1rZXk=

@@ -7,4 +7,8 @@ import type { GetPath, GetResponse } from '../api/types'
  */
 export const fixtures: { [P in GetPath]: GetResponse<P> } = {
   '/api/health': { status: 'UP', database: 'UP', schemaVersion: 'demo' },
+  '/api/accounts': [
+    { id: 1, name: 'Main', ibanMasked: 'RO49 •••• 0000', currency: 'RON', kind: 'CURRENT' },
+    { id: 2, name: 'Savings', currency: 'RON', kind: 'SAVINGS' },
+  ],
 }

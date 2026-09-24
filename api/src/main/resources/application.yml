@@ -5,10 +5,20 @@ spring:
     url: ${OUTFLOW_DB_URL:jdbc:postgresql://localhost:5432/outflow}
     username: ${OUTFLOW_DB_USER:outflow}
     password: ${OUTFLOW_DB_PASSWORD:outflow}
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 50MB
   jackson:
     default-property-inclusion: non_null
   flyway:
     locations: classpath:db/migration
+
+outflow:
+  # Where the API keeps local state outside the database (the IBAN HMAC key). Back it up with the DB.
+  data-dir: ${OUTFLOW_DATA_DIR:./data}
+  # Base64, ≥ 32 bytes. When empty, a key is generated once into <data-dir>/iban-hmac.key.
+  iban-hmac-key: ${OUTFLOW_IBAN_HMAC_KEY:}
 
 server:
   port: 8080

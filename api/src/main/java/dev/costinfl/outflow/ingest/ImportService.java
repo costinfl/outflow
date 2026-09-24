@@ -33,18 +33,27 @@ public class ImportService {
         this.json = json;
     }
 
+    /** Parses and imports one file into a known account. */
     @Transactional
     public ImportResult importFile(long accountId, String fileName, byte[] content, StatementParser parser) {
-        byte[] sha256 = sha256(content);
-        var householdId = jdbc.queryForObject("SELECT household_id FROM account WHERE id = ?", Long.class, accountId);
-
-        // Parse before writing anything: an unreadable file stores nothing.
         ParsedStatement parsed;
         try {
             parsed = parser.parse(new ByteArrayInputStream(content));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+        return importParsed(accountId, fileName, content, parser.id(), parsed);
+    }
+
+    /**
+     * Imports an already parsed file. Parsing happens before any write, so an unreadable file stores nothing; the
+     * caller's transaction (if any) is joined, so account creation and import commit or roll back together.
+     */
+    @Transactional
+    public ImportResult importParsed(long accountId, String fileName, byte[] content, String parserId,
+            ParsedStatement parsed) {
+        byte[] sha256 = sha256(content);
+        var householdId = jdbc.queryForObject("SELECT household_id FROM account WHERE id = ?", Long.class, accountId);
 
         // Exact re-upload for this account is a no-op. ON CONFLICT also covers a concurrent upload of the same file.
         Optional<Long> fileId = jdbc.query("""
@@ -53,11 +62,11 @@ public class ImportService {
                         ON CONFLICT ON CONSTRAINT statement_file_account_sha256_uq DO NOTHING
                         RETURNING id""",
                 (rs, i) -> rs.getLong(1),
-                accountId, sha256, parser.id(), fileName,
+                accountId, sha256, parserId, fileName,
                 parsed.periodFrom().map(Date::valueOf).orElse(null),
                 parsed.periodTo().map(Date::valueOf).orElse(null)).stream().findFirst();
         if (fileId.isEmpty()) {
-            return new ImportResult(accountId, Optional.empty(), parser.id(), true, parsed.rows().size(), 0,
+            return new ImportResult(accountId, Optional.empty(), parserId, true, parsed.rows().size(), 0,
                     parsed.rows().size(), parsed.periodFrom(), parsed.periodTo());
         }
 
@@ -86,7 +95,7 @@ public class ImportService {
             jdbc.update("INSERT INTO transaction_source (transaction_id, raw_row_id) VALUES (?, ?)",
                     transactionId, rawRowId);
         }
-        return new ImportResult(accountId, fileId, parser.id(), false, identified.size(), created,
+        return new ImportResult(accountId, fileId, parserId, false, identified.size(), created,
                 identified.size() - created, parsed.periodFrom(), parsed.periodTo());
     }
 

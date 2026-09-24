@@ -4,10 +4,29 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M1 — Import and identity** (M0 + CP1.1 merged to `main` via PR #1) |
-| Last completed | **CP1.3** — `key_v1` hash normalization, identity keys + occurrence index, upsert, file-level no-op |
-| Next | **CP1.4** — upload endpoint (multipart, several files, one DB transaction per file), import summary |
+| Milestone | **M1 — Import and identity: complete** (PR to `main` open) |
+| Last completed | **CP1.4** — upload endpoint, account detection by IBAN HMAC, import summary |
+| Next | **M2 / CP2.1** — merchant normalizer as a chain of unit-tested steps; alias table; `merchant` rows |
 | Branch | `claude/outflow-project-setup-vbwx3f` (see Open questions) |
+
+## CP1.4 — done
+
+137 backend tests green; web typecheck and both builds green.
+
+- `POST /api/imports` (multipart `files`, optional `accountId`, `parserId`): each file in its own DB transaction;
+  per-file outcome `IMPORTED | DUPLICATE_FILE | NEEDS_PARSER (candidates with reasons) | NEEDS_ACCOUNT | FAILED
+  (message)`; per-account and total new/skipped counts with periods → `ImportControllerTest` (10 tests, real HTTP)
+- Accounts detected from the file's IBAN: HMAC-SHA256 lookup, created on first sight as "Account ••0000" with only
+  hash + masked form stored; a file whose IBAN contradicts the chosen account is refused
+- `GET /api/accounts`, `POST /api/accounts` (for IBAN-less statements); OpenAPI spec, TS client and demo fixtures updated
+- HMAC key: `OUTFLOW_IBAN_HMAC_KEY` or generated once into `<OUTFLOW_DATA_DIR>/iban-hmac.key` (0600), kept
+  outside the DB → `IbanKeyConfigTest`. Docker: `apidata` volume at `/data`
+- Manually verified with the real app: first run (IBAN file → account created; generic file → NEEDS_ACCOUNT),
+  restart then same IBAN → same account (key stable), overlap upload → 84 new / 42 skipped; account sums match the
+  golden values; no plain IBAN anywhere in `account`
+
+**M1 acceptance** (plan): re-upload → 0 new; Jan–Mar then Feb–Apr → exact union; two identical same-day rows →
+2 transactions, stable across re-imports. All proven at service level (CP1.3, incl. property test) and over HTTP.
 
 ## CP1.3 — done
 
@@ -90,9 +109,12 @@ Health tests now derive the expected schema version from the migrations instead 
 
 1. ~~`docs/DESIGN.md` missing~~ — resolved in CP0.2.
 2. **`samples/` has no real statements.** M1 uses the configurable generic CSV parser + synthetic samples. Add
-   anonymized exports of your bank to `samples/<bank>/` and I'll write its profile and golden test.
+   anonymized exports of your bank to `samples/<bank>/` and I'll write its profile and golden test. This matters
+   most for M2: the ≥ 80% categorized target is measured on the samples, and synthetic merchant strings are tidier
+   than real ones.
 3. **Branch naming.** The plan says `milestone/Mx`; this cloud session is pinned to
-   `claude/outflow-project-setup-vbwx3f`. Commits use `CPx.y:`; the M1 PR will come from this branch.
+   `claude/outflow-project-setup-vbwx3f`. Commits use `CPx.y:`; milestone PRs come from this branch. Merge the M1
+   PR before M2 lands, or it will grow to include M2.
 4. ~~GitHub Pages~~ — done: demo build deployed from `main` and the dev branch.
 5. ~~Client-side routing~~ — done: react-router, hash routing (CP0.3).
 6. ~~No `main` branch~~ — resolved: PR #1 merged M0 + CP1.1; `main` was merged back into the dev branch (no rewrite).
@@ -125,3 +147,11 @@ Health tests now derive the expected schema version from the migrations instead 
 8. **Reference vs content keys across formats.** A `ref:` key and a `key_v1:` key never match, so the same account
    imported once as CSV without references and once as a format with references (e.g. CAMT.053) would duplicate.
    Conservative choice: keep DESIGN's priority; revisit when a second format for the same bank arrives (M5).
+9. **Counterparty IBANs in descriptions.** DESIGN stores account IBANs only as hash + masked form, but bank
+   descriptions also carry *counterparty* IBANs (e.g. "TRANSFER CATRE CONT ECONOMII RO49…"), which end up in
+   `raw_row.payload` and `transaction.description_raw` as the bank wrote them. M5 needs them to pair transfers.
+   Conservative choice: keep raw data as-is (raw rows are immutable facts); M5 will hash them for matching and the UI
+   will mask IBAN-shaped text when displaying descriptions. Say if you want them masked at import instead.
+10. **Losing the HMAC key** makes existing accounts unrecognisable by IBAN (uploads would create new accounts). Its
+    file lives in the data dir next to the DB volume; back up both. A key-rotation tool is not planned for M1–M5.
+

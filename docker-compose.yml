@@ -25,6 +25,8 @@ services:
       OUTFLOW_DB_URL: jdbc:postgresql://postgres:5432/outflow
       OUTFLOW_DB_USER: outflow
       OUTFLOW_DB_PASSWORD: outflow
+    volumes:
+      - apidata:/data
     ports:
       - "8080:8080"
     depends_on:
@@ -40,3 +42,4 @@ services:
 
 volumes:
   pgdata:
+  apidata: # holds the IBAN HMAC key; back up together with pgdata
