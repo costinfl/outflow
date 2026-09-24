@@ -22,4 +22,20 @@ public enum Cadence {
         this.minCount = minCount;
         this.stepDays = stepDays;
     }
+
+    /** What one charge of {@code amountMinor} costs per month (DESIGN: yearly ÷ 12), rounded half up. */
+    public long monthlyMinor(long amountMinor) {
+        return switch (this) {
+            case MONTHLY -> amountMinor;
+            case YEARLY -> Math.floorDiv(amountMinor + 6, 12);
+        };
+    }
+
+    /** What one charge of {@code amountMinor} costs per year. */
+    public long yearlyMinor(long amountMinor) {
+        return switch (this) {
+            case MONTHLY -> amountMinor * 12;
+            case YEARLY -> amountMinor;
+        };
+    }
 }

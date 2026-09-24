@@ -13,3 +13,8 @@ export function transactionsLink(month: string, scope?: TransactionScope, extra?
 export function categoryLink(categoryId: number, month: string) {
   return `/categories/${categoryId}?${new URLSearchParams({ month })}`
 }
+
+/** The Recurring payments screen, as of today or as it stood in a month (the home block's drill-through). */
+export function recurringLink(month?: string) {
+  return month ? `/recurring?${new URLSearchParams({ month })}` : '/recurring'
+}

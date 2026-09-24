@@ -1,7 +1,9 @@
 package dev.costinfl.outflow.insight;
 
 import dev.costinfl.outflow.insight.MonthSummary.CategorySpend;
+import dev.costinfl.outflow.insight.MonthSummary.Committed;
 import dev.costinfl.outflow.insight.MonthSummary.Rest;
+import dev.costinfl.outflow.recurring.RecurringService;
 import dev.costinfl.outflow.txn.Scope;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -11,6 +13,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -25,14 +28,17 @@ public class InsightService {
 
     private final JdbcTemplate jdbc;
 
-    public InsightService(JdbcTemplate jdbc) {
+    private final RecurringService recurring;
+
+    public InsightService(JdbcTemplate jdbc, RecurringService recurring) {
+        this.recurring = recurring;
         this.jdbc = jdbc;
     }
 
     static final int TREND = 12;
 
     /** A category's month, its 12-month trend and its merchants; every figure drills to its transactions. */
-    public java.util.Optional<CategoryDetail> category(long categoryId, YearMonth month, String currency) {
+    public Optional<CategoryDetail> category(long categoryId, YearMonth month, String currency) {
         var category = jdbc.query("SELECT id, parent_id, code, name, kind FROM category WHERE id = ?",
                 (rs, i) -> new dev.costinfl.outflow.category.Category(rs.getLong(1), (Long) rs.getObject(2), rs.getString(3),
                         rs.getString(4), dev.costinfl.outflow.category.Category.Kind.valueOf(rs.getString(5))),
@@ -108,6 +114,7 @@ public class InsightService {
                 month.atDay(1), month.atDay(1), currency);
         BigDecimal total = new BigDecimal(trust.get("total").toString());
         var uncategorized = ranked.stream().filter(r -> r.categoryId() == null).findFirst();
+        var committed = recurring.overview(Optional.of(month), currency);
 
         return new MonthSummary(
                 month.toString(), currency, spent, baseline.size(), average,
@@ -118,6 +125,8 @@ public class InsightService {
                 uncategorized.map(CategorySpend::spentMinor).orElse(0L),
                 uncategorized.map(CategorySpend::transactionCount).orElse(0),
                 top, new Rest(restSpent, pct(restSpent, spent), restRows.size()),
+                new Committed(committed.monthlyMinor(), committed.countedCount(),
+                        spent == 0 ? null : pct(committed.monthlyMinor(), spent)),
                 available.stream().map(YearMonth::toString).toList());
     }
 

@@ -1,5 +1,6 @@
 import type { GetPath, GetResponse } from '../api/types'
 import { demoCategory, demoTransactions } from './ledger'
+import { demoCommitted, demoRecurring } from './recurring'
 
 /**
  * Synthetic responses for the GitHub Pages demo. Never put real statement data here.
@@ -79,6 +80,7 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
     categorySource: 'KEYWORD',
   },
   '/api/transactions': demoTransactions,
+  '/api/subscriptions': (url) => demoRecurring(url.searchParams.get('month') ?? undefined),
   // Uncategorized cards are the demo ledger's two uncategorized merchants. The subscription cards are illustrative:
   // the ledger holds one March charge per merchant, the cards describe what four months of them would look like.
   '/api/review': {
@@ -139,6 +141,7 @@ function groceriesOnly(month: string, spentMinor: number, baseline: number[]): M
       { categoryId: 1, code: 'GROCERIES', name: 'Groceries', spentMinor, sharePct: 100, usualMinor: average ?? 0, deltaPct: delta, transactionCount: 1 },
     ],
     rest: { spentMinor: 0, sharePct: 0, categoryCount: 0 },
+    committed: demoCommitted(month, spentMinor),
     availableMonths: MONTHS,
   }
 }
@@ -169,6 +172,7 @@ const demoMonths: Record<string, MonthSummary> = {
       { categoryId: 2, code: 'RESTAURANTS', name: 'Restaurants & cafés', spentMinor: 10000, sharePct: 8, usualMinor: 0, transactionCount: 1 },
     ],
     rest: { spentMinor: 16999, sharePct: 13, categoryCount: 3 },
+    committed: demoCommitted('2026-03', 130000),
     availableMonths: ['2025-12', '2026-01', '2026-02', '2026-03'],
   },
 }

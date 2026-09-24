@@ -2,6 +2,23 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## M4 — Recurring payments and review inbox (2026-09-24)
+
+- **Detection:** charges grouped per account, merchant and currency into 25% amount bands. Monthly payments are
+  matched to a day of the month (month end clamped; weekend anchors count from the next business day), yearly ones
+  to a date. The DESIGN scoring decides between proposed, possible and nothing. Transfers, cash and refunds are
+  excluded.
+- **Lifecycle (V6):** `subscription` holds candidates and confirmed payments by state, plus `subscription_rejection`
+  and `transaction.subscription_id`. Detection is refreshed after every upload, category change and alias. The user's
+  decisions are never overwritten, and rejected patterns are never re-proposed unless they change materially.
+- **Review inbox (V7):** one card per merchant, most money first: subscription suggestions and uncategorized
+  merchants. Confirm / not recurring / edit, one category for all of a merchant's transactions, skip until the next
+  upload, swipe on phones.
+- **Committed every month:** home block 3 and the Recurring payments screen, with totals per month and year, groups,
+  rename / recategorize / mark ended, history coverage per account and the history nudge. The home figure equals the
+  screen for the same month.
+- **Tests:** 303 backend, 10 web.
+
 ## M3 — Home screen (2026-09-24)
 
 - **Insights:** `GET /api/insights/month` (spent, 3-month baseline and delta, income, net, top 5 + folded rest with

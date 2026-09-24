@@ -33,8 +33,19 @@ public record MonthSummary(
         List<CategorySpend> categories,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Everything below the top 5, folded")
         Rest rest,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Block 3: confirmed recurring payments")
+        Committed committed,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Months with data, oldest first, e.g. 2026-01")
         List<String> availableMonths) {
+
+    /**
+     * Committed every month: the monthly equivalents of the recurring payments active in the month (yearly ÷ 12). Equals
+     * the Recurring screen's total for the same month.
+     */
+    public record Committed(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long monthlyMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int count,
+            @Schema(description = "Of the month's spent; absent when nothing was spent") Integer sharePct) {}
 
     /**
      * One category's spending. {@code categoryId} absent = uncategorized spending, which is ranked like a category so

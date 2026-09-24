@@ -212,6 +212,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["overview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subscriptions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["rename"];
+        trace?: never;
+    };
     "/api/subscriptions/{id}/confirm": {
         parameters: {
             query?: never;
@@ -397,6 +429,17 @@ export interface components {
              */
             usualMinor: number;
         };
+        Committed: {
+            /** Format: int32 */
+            count: number;
+            /** Format: int64 */
+            monthlyMinor: number;
+            /**
+             * Format: int32
+             * @description Of the month's spent; absent when nothing was spent
+             */
+            sharePct?: number;
+        };
         /** @description Corrections made while confirming; omitted fields keep the detected value */
         Confirm: {
             /** @enum {string} */
@@ -404,6 +447,24 @@ export interface components {
             /** Format: int64 */
             expectedAmountMinor?: number;
             name?: string;
+        };
+        Coverage: {
+            /** Format: int64 */
+            accountId: number;
+            accountName: string;
+            /** Format: date */
+            from?: string;
+            /** @description 3+ months: monthly payments detectable */
+            monthly: boolean;
+            /**
+             * Format: int32
+             * @description Calendar months from first to last date
+             */
+            months: number;
+            /** Format: date */
+            to?: string;
+            /** @description 13+ months: yearly payments detectable */
+            yearly: boolean;
         };
         Explanation: {
             categoryCode?: string;
@@ -437,6 +498,17 @@ export interface components {
             /** @enum {string} */
             status: "IMPORTED" | "DUPLICATE_FILE" | "NEEDS_PARSER" | "NEEDS_ACCOUNT" | "FAILED";
         };
+        Group: {
+            /** @description Highest monthly equivalent first */
+            items: components["schemas"]["Item"][];
+            /** @enum {string} */
+            kind: "SUBSCRIPTIONS" | "BILLS";
+            /**
+             * Format: int64
+             * @description Counted items only
+             */
+            monthlyMinor: number;
+        };
         HealthResponse: {
             /** @enum {string} */
             database: "UP" | "DOWN";
@@ -462,6 +534,35 @@ export interface components {
             count: number;
             /** @description Subscription suggestions with confidence between 0.45 and 0.65 */
             possible: components["schemas"]["ReviewCard"][];
+        };
+        Item: {
+            /** @enum {string} */
+            amountKind: "FIXED" | "VARIABLE";
+            /** @enum {string} */
+            cadence: "MONTHLY" | "YEARLY";
+            /**
+             * Format: int64
+             * @description Category of its latest charge
+             */
+            categoryId?: number;
+            categoryName?: string;
+            /** @description Part of the totals: active (in the month viewed, when one is given) */
+            counted: boolean;
+            /** Format: int64 */
+            expectedAmountMinor: number;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            merchantId: number;
+            /** Format: int64 */
+            monthlyMinor: number;
+            name: string;
+            /** Format: date */
+            nextExpectedDate?: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "ENDED";
+            /** Format: int64 */
+            yearlyMinor: number;
         };
         MerchantAmount: {
             /** Format: int64 */
@@ -527,6 +628,8 @@ export interface components {
              * @description Share of this month's spending with any category
              */
             categorizedPct: number;
+            /** @description Block 3: confirmed recurring payments */
+            committed: components["schemas"]["Committed"];
             /** @example RON */
             currency: string;
             /**
@@ -578,6 +681,35 @@ export interface components {
              * @description 0..1
              */
             score: number;
+        };
+        RecurringOverview: {
+            /** Format: int32 */
+            countedCount: number;
+            /** @description Per account: how much history detection has */
+            coverage: components["schemas"]["Coverage"][];
+            currency: string;
+            /** @description Non-empty groups, subscriptions first */
+            groups: components["schemas"]["Group"][];
+            /** @description The month viewed (YYYY-MM); absent = as of today */
+            month?: string;
+            /**
+             * Format: int64
+             * @description Committed per month: counted items only
+             */
+            monthlyMinor: number;
+            /**
+             * Format: int32
+             * @description Suggestions waiting in the review inbox
+             */
+            suggestionCount: number;
+            /**
+             * Format: int64
+             * @description Committed per year: counted items only
+             */
+            yearlyMinor: number;
+        };
+        Rename: {
+            name: string;
         };
         Rest: {
             /** Format: int32 */
@@ -1067,6 +1199,56 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    overview: {
+        parameters: {
+            query?: {
+                /** @description YYYY-MM; absent = as of today */
+                month?: string;
+                currency?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringOverview"];
+                };
+            };
+        };
+    };
+    rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Rename"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
             };
         };
     };

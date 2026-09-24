@@ -3,6 +3,7 @@ import { isDemo } from './api/client'
 import { AnonymizePage } from './anonymize/AnonymizePage'
 import { CategoryPage } from './categories/CategoryPage'
 import { HomePage } from './home/HomePage'
+import { RecurringPage } from './recurring/RecurringPage'
 import { ReviewPage } from './review/ReviewPage'
 import { StatusPage } from './system/StatusPage'
 import { TransactionsPage } from './transactions/TransactionsPage'
@@ -17,6 +18,7 @@ export function App() {
           <Route index element={<HomePage />} />
           <Route path="transactions" element={<TransactionsPage />} />
           <Route path="categories/:id" element={<CategoryPage />} />
+          <Route path="recurring" element={<RecurringPage />} />
           <Route path="review" element={<ReviewPage />} />
           <Route path="upload" element={<UploadPage />} />
           <Route path="anonymize" element={<AnonymizePage />} />
@@ -40,7 +42,7 @@ function Layout() {
         <Link to="/" className="text-lg font-semibold tracking-tight text-ink">
           Outflow
         </Link>
-        <nav className="flex gap-4 text-xs text-muted">
+        <nav className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs text-muted">
           <Link to="/review" className="hover:underline">
             Review
           </Link>

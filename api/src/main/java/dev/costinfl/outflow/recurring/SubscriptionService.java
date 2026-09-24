@@ -153,6 +153,14 @@ public class SubscriptionService {
         return find(id).orElseThrow();
     }
 
+    /** Rename a confirmed or ended subscription (the name is the user's; refresh never changes it). */
+    @Transactional
+    public Subscription rename(long id, String name) {
+        require(id, State.CONFIRMED, State.ENDED);
+        jdbc.update("UPDATE subscription SET name = ?, updated_at = now() WHERE id = ?", name.strip(), id);
+        return find(id).orElseThrow();
+    }
+
     public Optional<Subscription> find(long id) {
         return jdbc.query(SELECT + " WHERE id = ?", this::row, id).stream().findFirst();
     }
