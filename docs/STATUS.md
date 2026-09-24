@@ -5,9 +5,23 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | **M2 — Merchants and categories** (M1 merged to `main` via PR #2) |
-| Last completed | **CP2.1** — merchant normalizer (chain of tested steps), alias table, merchant rows |
-| Next | **CP2.2** — category tree seeded; resolver tiers 1, 2, 4 (user rule, learned, keyword); no LLM |
+| Last completed | **CP2.2** — category tree, resolver tiers 1/2/4, recategorization that never overrides the user |
+| Next | **CP2.3** — endpoints: recategorize one transaction (+ "apply to merchant" rule); debug raw → merchant key |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M2 work) |
+
+## CP2.2 — done
+
+Package `category`. Migration V4. 218 backend tests green.
+
+- 18 seeded categories (DESIGN list) with a `kind`: SPEND, INCOME (Income), TRANSFER (Transfer) → `CategoryServiceTest`
+- `CategoryResolver` (pure): tier 1 USER rules (1.0) → tier 2 learned `merchant.default_category_id` (0.95) →
+  tier 4 SEED keyword rules on whole words of the merchant key (0.70) → uncategorized. Within a tier: priority, then
+  MERCHANT before KEYWORD, then the longer pattern → `CategoryResolverTest`
+- `transaction.category_id / category_source / category_confidence`; `category_source = 'USER'` is never recomputed
+- `CategoryService.categorizeAll()`: runs after merchant assignment on every upload (same DB transaction);
+  recomputes everything else from rules, writes only changes
+- M2 acceptance: ≥ 80% of spend categorized on the samples (it is 100%, see Open question 2); a manual category
+  survives re-runs even against a user rule and a learned category; tiers unwind cleanly when rules are removed
 
 ## CP2.1 — done
 
@@ -123,8 +137,8 @@ Health tests now derive the expected schema version from the migrations instead 
 1. ~~`docs/DESIGN.md` missing~~ — resolved in CP0.2.
 2. **`samples/` has no real statements.** M1 uses the configurable generic CSV parser + synthetic samples. Add
    anonymized exports of your bank to `samples/<bank>/` and I'll write its profile and golden test. This matters
-   most for M2: the ≥ 80% categorized target is measured on the samples, and synthetic merchant strings are tidier
-   than real ones.
+   most for M2: the ≥ 80% categorized target is measured on the samples. On the synthetic samples it is 100%, which
+   proves the mechanism but not the quality: I wrote both the samples and the keyword seeds.
 3. **Branch naming.** The plan says `milestone/Mx`; this cloud session is pinned to
    `claude/outflow-project-setup-vbwx3f`. Commits use `CPx.y:`; milestone PRs come from this branch. Merge the M1
    PR before M2 lands, or it will grow to include M2.

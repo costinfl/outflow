@@ -10,6 +10,7 @@ import dev.costinfl.outflow.ingest.parse.ParsedStatement;
 import dev.costinfl.outflow.ingest.parse.StatementDetector;
 import dev.costinfl.outflow.ingest.parse.StatementParseException;
 import dev.costinfl.outflow.ingest.parse.StatementParser;
+import dev.costinfl.outflow.category.CategoryService;
 import dev.costinfl.outflow.merchant.MerchantService;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -19,7 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * One uploaded file, end to end, in one DB transaction: pick parser → parse → resolve account → import → merchants.
+ * One uploaded file, end to end, in one DB transaction: pick parser → parse → resolve account → import → merchants →
+ * categories.
  */
 @Service
 public class UploadService {
@@ -36,13 +38,15 @@ public class UploadService {
     private final AccountService accounts;
     private final ImportService imports;
     private final MerchantService merchants;
+    private final CategoryService categories;
 
     public UploadService(StatementDetector detector, AccountService accounts, ImportService imports,
-            MerchantService merchants) {
+            MerchantService merchants, CategoryService categories) {
         this.detector = detector;
         this.accounts = accounts;
         this.imports = imports;
         this.merchants = merchants;
+        this.categories = categories;
     }
 
     /**
@@ -90,7 +94,9 @@ public class UploadService {
         }
 
         ImportResult r = imports.importParsed(account.id(), fileName, content, parser.get().id(), parsed);
-        merchants.assignMissing(); // stage H: new transactions get their merchant in the same DB transaction
+        // Stage H in the same DB transaction: new transactions get their merchant, then their category.
+        merchants.assignMissing();
+        categories.categorizeAll();
         var outcome = new FileOutcome(fileName, r.duplicateFile() ? Status.DUPLICATE_FILE : Status.IMPORTED, null,
                 r.parserId(), account.id(), r.rows(), r.newTransactions(), r.alreadyImported(),
                 r.periodFrom().orElse(null), r.periodTo().orElse(null), List.of());

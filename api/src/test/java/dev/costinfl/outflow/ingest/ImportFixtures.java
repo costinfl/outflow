@@ -27,6 +27,7 @@ public final class ImportFixtures {
         jdbc.execute("TRUNCATE transaction_source, transaction, raw_row, statement_file, account, merchant "
                 + "RESTART IDENTITY CASCADE");
         jdbc.update("DELETE FROM merchant_alias WHERE source = 'USER'");
+        jdbc.update("DELETE FROM category_rule WHERE source = 'USER'");
     }
 
     public static long newAccount(JdbcTemplate jdbc, String name) {
