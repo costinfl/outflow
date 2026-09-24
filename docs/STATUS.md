@@ -4,10 +4,23 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M1 — Import and identity: complete** (PR to `main` open) |
-| Last completed | **CP1.4** — upload endpoint, account detection by IBAN HMAC, import summary |
-| Next | **M2 / CP2.1** — merchant normalizer as a chain of unit-tested steps; alias table; `merchant` rows |
-| Branch | `claude/outflow-project-setup-vbwx3f` (see Open questions) |
+| Milestone | **M2 — Merchants and categories** (M1 merged to `main` via PR #2) |
+| Last completed | **CP2.1** — merchant normalizer (chain of tested steps), alias table, merchant rows |
+| Next | **CP2.2** — category tree seeded; resolver tiers 1, 2, 4 (user rule, learned, keyword); no LLM |
+| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M2 work) |
+
+## CP2.1 — done
+
+Package `merchant` (`normalize/` holds the steps). Migration V3. 206 backend tests green.
+
+- `MerchantNormalizer` = ordered steps, each a pure function with its own tests (`MerchantStepsTest`):
+  `BasicCleanup` → `ChannelPrefix` → `WebAddress` → `VolatileTokens` → `FillerWords` → `TrailingLocation` → `AliasStep`
+- Golden raw → key table incl. real-world shapes (PayPal, Amazon, eMAG, OMV, Glovo) → `MerchantNormalizerTest`
+- One merchant, one key: every row of the samples maps to exactly 11 keys (rent across month names, Spotify plan
+  codes, Netflix refs, Starbucks locations, Romanian-style diacritics all collapse) → `samplesCollapseToOneKeyPerMerchant`
+- `merchant` + `merchant_alias` tables (EXACT / PREFIX, SEED / USER; 45 seeded chain aliases), `transaction.merchant_id`
+- `MerchantService`: uploads assign merchants in the same DB transaction; `reassignAll()` recomputes from raw
+  descriptions and writes only changes; a user alias moves exactly the matching transactions → `MerchantServiceTest`
 
 ## CP1.4 — done
 
@@ -154,4 +167,8 @@ Health tests now derive the expected schema version from the migrations instead 
    will mask IBAN-shaped text when displaying descriptions. Say if you want them masked at import instead.
 10. **Losing the HMAC key** makes existing accounts unrecognisable by IBAN (uploads would create new accounts). Its
     file lives in the data dir next to the DB volume; back up both. A key-rotation tool is not planned for M1–M5.
+11. Merchant keys are interpretations, not identities: unlike `key_v1`, the normalizer may improve and
+    `reassignAll()` recomputes every merchant. User rules (CP2.2) will key on merchant *keys*; a normalizer change that
+    renames a key would orphan rules on it. Conservative choice: rules store the key, and CP2.3's debug view shows
+    raw → key so a changed key is visible; revisit with real samples.
 
