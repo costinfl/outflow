@@ -9,6 +9,16 @@ _Resume entrypoint. Updated at every checkpoint._
 | Next | **CP3.2** — SPA home screen: month switcher, four blocks, bars, drill-through links; mobile-first at 390 px |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M3 work) |
 
+## Detour after CP3.1 — statement anonymizer (done)
+
+- `tools/Anonymize.java` (plain Java 21, local only): IBANs → checksum-valid `ANON` fakes, card digits, holder and
+  listed names → `PERSON_n`, CNP, emails, phones, 10+ digit references; everything else byte-for-byte; deterministic
+  with a private seed; prints a review report. Workflow in `docs/anonymize.md`.
+- `AnonymizeToolTest` runs the tool as a user does and proves the output parses to the same rows, dates and amounts
+  with no personal data left; `SamplesGuardTest` fails the build on real-looking IBANs/CNPs/emails/card numbers in
+  `samples/`. 245 backend tests green.
+- Waiting on: an anonymized real export in `samples/<bank>/` → profile + golden test + M2 coverage re-check.
+
 ## CP3.1 — done
 
 Packages `insight`, `txn`. 238 backend tests green (count them from the XML reports: `@Nested` tests are missing

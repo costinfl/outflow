@@ -20,3 +20,7 @@ dist/
 !samples/**
 data/
 api/data/
+
+# Anonymizer inputs: never commit names files or raw exports
+names.txt
+*.names.txt

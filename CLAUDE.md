@@ -38,6 +38,7 @@ API endpoints: `/api/health`, `POST /api/imports` (multipart `files`), `GET/POST
 `POST /api/merchants/aliases`, `GET /api/insights/month`; OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
 Parsers: one YAML profile per CSV format in `api/src/main/resources/parsers/` (keys: `docs/parsers.md`).
 Golden files in `samples/`, byte-exact (`.gitattributes`); expected values in `samples/synthetic/README.md`.
+Real exports only via `java tools/Anonymize.java` (`docs/anonymize.md`); `SamplesGuardTest` blocks leftover PII.
 
 API contract: `api/openapi.json` is committed; `OpenApiContractTest` fails when it drifts from the live API.
 After an API change: refresh the spec, run `gen:api`, commit both.
