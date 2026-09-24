@@ -73,6 +73,7 @@ public class InsightService {
                         + FROM + "WHERE " + Scope.SPEND + " AND " + Scope.MONTH + " AND t.currency = ?",
                 month.atDay(1), month.atDay(1), currency);
         BigDecimal total = new BigDecimal(trust.get("total").toString());
+        var uncategorized = ranked.stream().filter(r -> r.categoryId() == null).findFirst();
 
         return new MonthSummary(
                 month.toString(), currency, spent, baseline.size(), average,
@@ -80,6 +81,8 @@ public class InsightService {
                 income, income - spent,
                 ratioPct(new BigDecimal(trust.get("weighted").toString()), total),
                 ratioPct(new BigDecimal(trust.get("categorized").toString()), total),
+                uncategorized.map(CategorySpend::spentMinor).orElse(0L),
+                uncategorized.map(CategorySpend::transactionCount).orElse(0),
                 top, new Rest(restSpent, pct(restSpent, spent), restRows.size()),
                 available.stream().map(YearMonth::toString).toList());
     }

@@ -121,6 +121,9 @@ class InsightServiceTest {
             assertThat(s.rest().spentMinor()).isEqualTo(16_999); // transport 80 + subscriptions 49.99 + uncategorized 40
             assertThat(s.rest().categoryCount()).isEqualTo(3);
             assertThat(s.rest().sharePct()).isEqualTo(13);
+            // uncategorized ranks 8th, folded into the rest, but is still reported on its own
+            assertThat(s.uncategorizedMinor()).isEqualTo(4_000);
+            assertThat(s.uncategorizedCount()).isEqualTo(1);
         }
 
         @Test
@@ -178,6 +181,8 @@ class InsightServiceTest {
             var s = insights.month(MARCH, "RON");
 
             assertThat(s.categorizedPct()).isEqualTo(100);
+            assertThat(s.uncategorizedMinor()).isZero();
+            assertThat(s.uncategorizedCount()).isZero();
             assertThat(s.accuracyPct()).isEqualTo(71); // (952 + 40) / 1,400 = 70.86%
         }
 

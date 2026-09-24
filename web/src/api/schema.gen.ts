@@ -334,6 +334,13 @@ export interface components {
             rest: components["schemas"]["Rest"];
             /** Format: int64 */
             spentMinor: number;
+            /** Format: int32 */
+            uncategorizedCount: number;
+            /**
+             * Format: int64
+             * @description Spent without a category, wherever it ranks (it may be folded into the rest)
+             */
+            uncategorizedMinor: number;
         };
         NewAccount: {
             /** @example RON */

@@ -2,6 +2,8 @@ import type { components, paths } from './schema.gen'
 
 export type Schemas = components['schemas']
 export type HealthResponse = Schemas['HealthResponse']
+export type MonthSummary = Schemas['MonthSummary']
+export type CategorySpend = Schemas['CategorySpend']
 
 /** Paths that have a GET operation. */
 export type GetPath = { [P in keyof paths]: paths[P] extends { get: object } ? P : never }[keyof paths]

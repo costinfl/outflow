@@ -25,6 +25,10 @@ public record MonthSummary(
         int accuracyPct,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Share of this month's spending with any category")
         int categorizedPct,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Spent without a category, wherever it ranks (it may be folded into the rest)")
+        long uncategorizedMinor,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int uncategorizedCount,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Top 5 by spent, largest first")
         List<CategorySpend> categories,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Everything below the top 5, folded")

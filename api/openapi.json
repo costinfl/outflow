@@ -362,9 +362,18 @@
           "spentMinor" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "uncategorizedCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "uncategorizedMinor" : {
+            "description" : "Spent without a category, wherever it ranks (it may be folded into the rest)",
+            "format" : "int64",
+            "type" : "integer"
           }
         },
-        "required" : [ "accuracyPct", "availableMonths", "baselineMonths", "categories", "categorizedPct", "currency", "incomeMinor", "month", "netMinor", "rest", "spentMinor" ],
+        "required" : [ "accuracyPct", "availableMonths", "baselineMonths", "categories", "categorizedPct", "currency", "incomeMinor", "month", "netMinor", "rest", "spentMinor", "uncategorizedCount", "uncategorizedMinor" ],
         "type" : "object"
       },
       "NewAccount" : {

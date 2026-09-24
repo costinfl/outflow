@@ -5,7 +5,12 @@ import type { GetPath, GetResponse } from '../api/types'
  * Typed against the generated schema: every GET endpoint must have a fixture, and it must
  * match the API contract, or `npm run typecheck` fails.
  */
-export const fixtures: { [P in GetPath]: GetResponse<P> } = {
+/** A fixture is a fixed response or a function of the request URL (e.g. the month query parameter). */
+export type Fixture<T> = T | ((url: URL) => T)
+
+type MonthSummary = GetResponse<'/api/insights/month'>
+
+export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
   '/api/health': { status: 'UP', database: 'UP', schemaVersion: 'demo' },
   '/api/accounts': [
     { id: 1, name: 'Main', ibanMasked: 'RO49 •••• 0000', currency: 'RON', kind: 'CURRENT' },
@@ -72,8 +77,43 @@ export const fixtures: { [P in GetPath]: GetResponse<P> } = {
     categoryCode: 'SUBSCRIPTIONS',
     categorySource: 'KEYWORD',
   },
-  // The hand-computed month from InsightServiceTest, so the demo shows numbers that add up.
-  '/api/insights/month': {
+  '/api/insights/month': (url) => demoMonths[url.searchParams.get('month') ?? '2026-03'] ?? demoMonths['2026-03']!,
+
+}
+
+const MONTHS = ['2025-12', '2026-01', '2026-02', '2026-03']
+
+/** Only groceries in Dec–Feb, as in the InsightServiceTest ledger. */
+function groceriesOnly(month: string, spentMinor: number, baseline: number[]): MonthSummary {
+  const average = baseline.length ? Math.round(baseline.reduce((a, b) => a + b, 0) / baseline.length) : undefined
+  const delta = average ? Math.round(((spentMinor - average) * 100) / average) : undefined
+  return {
+    month,
+    currency: 'RON',
+    spentMinor,
+    baselineMonths: baseline.length,
+    averageSpentMinor: average,
+    deltaPct: delta,
+    incomeMinor: 0,
+    netMinor: -spentMinor,
+    accuracyPct: 70,
+    categorizedPct: 100,
+    uncategorizedMinor: 0,
+    uncategorizedCount: 0,
+    categories: [
+      { categoryId: 1, code: 'GROCERIES', name: 'Groceries', spentMinor, sharePct: 100, usualMinor: average ?? 0, deltaPct: delta, transactionCount: 1 },
+    ],
+    rest: { spentMinor: 0, sharePct: 0, categoryCount: 0 },
+    availableMonths: MONTHS,
+  }
+}
+
+// The hand-computed month from InsightServiceTest, and its three baseline months, so the demo adds up.
+const demoMonths: Record<string, MonthSummary> = {
+  '2025-12': groceriesOnly('2025-12', 100000, []),
+  '2026-01': groceriesOnly('2026-01', 120000, [100000]),
+  '2026-02': groceriesOnly('2026-02', 110000, [100000, 120000]),
+  '2026-03': {
     month: '2026-03',
     currency: 'RON',
     spentMinor: 130000,
@@ -84,6 +124,8 @@ export const fixtures: { [P in GetPath]: GetResponse<P> } = {
     netMinor: 370000,
     accuracyPct: 68,
     categorizedPct: 97,
+    uncategorizedMinor: 4000,
+    uncategorizedCount: 1,
     categories: [
       { categoryId: 1, code: 'GROCERIES', name: 'Groceries', spentMinor: 45000, sharePct: 35, usualMinor: 110000, deltaPct: -59, transactionCount: 3 },
       { categoryId: 4, code: 'FUEL', name: 'Fuel', spentMinor: 25000, sharePct: 19, usualMinor: 0, transactionCount: 1 },
@@ -95,3 +137,4 @@ export const fixtures: { [P in GetPath]: GetResponse<P> } = {
     availableMonths: ['2025-12', '2026-01', '2026-02', '2026-03'],
   },
 }
+

@@ -5,9 +5,30 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | **M3 — Home screen** (M2 merged to `main` via PR #3) |
-| Last completed | **CP3.1** — insight queries: spent, 3-month average, income, net, top 5 + rest with usual, accuracy |
-| Next | **CP3.2** — SPA home screen: month switcher, four blocks, bars, drill-through links; mobile-first at 390 px |
+| Last completed | **CP3.2** — SPA home screen: month switcher, four blocks, bars, drill-through links, 390 px, light + dark |
+| Next | **CP3.3** — transactions screen with pre-filtered chips; category detail with trend and top merchants |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M3 work) |
+
+## CP3.2 — done
+
+245 backend tests green; web typecheck and both builds green. Verified in a browser at 390 px, light and dark,
+on the demo build and on the real API with the samples uploaded: no horizontal overflow, no console errors.
+
+- `#/?month=YYYY-MM` home: month switcher (prev / next / pick from months with data)
+  - Block 1: spent (hero, links to spend transactions), delta vs. the baseline average in words + arrow, income
+    (links to income transactions), net
+  - Block 2: top 5 categories as one-hue horizontal bars (dataviz specs: ≤ 24 px, 4 px rounded tip, square at the
+    baseline), amount + share + delta vs. usual on every row; uncategorized and the folded rest in neutral gray;
+    each row links to its category or transactions
+  - Block 3: placeholder until recurring detection (M4) + DESIGN's "upload 3+ months" nudge
+  - Block 4: accuracy meter + uncategorized payments (links to them)
+- API: `MonthSummary` gained `uncategorizedMinor` / `uncategorizedCount`. Uncategorized money can rank below the top 5,
+  so the screen must not look for it there (found while checking the demo screenshot; covered by `InsightServiceTest`)
+- Money is formatted from exact decimal strings (`Intl.NumberFormat` with a string, never a float); browser locale
+- Design tokens in `web/src/index.css` (reference palette, dark mode with its own steps)
+- Demo fixtures are month-aware and follow the hand-checked `InsightServiceTest` ledger, so the demo adds up
+- Drill targets `#/transactions?...` and `#/categories/:id?...` exist as placeholders showing the filter; CP3.3 fills them
+- The old placeholder moved to `#/status`
 
 ## Detour after CP3.1 — statement anonymizer (done)
 

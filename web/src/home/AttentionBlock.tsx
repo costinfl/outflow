@@ -1,0 +1,43 @@
+import { Link } from 'react-router'
+import type { MonthSummary } from '../api/types'
+import { formatMoney } from '../lib/format'
+import { transactionsLink } from '../lib/links'
+import { Card } from './Card'
+
+/** Block 4: how far to trust the numbers, and what still needs a decision. */
+export function AttentionBlock({ s }: { s: MonthSummary }) {
+  return (
+    <Card title="Needs your attention" id="attention">
+      <div className="flex items-baseline justify-between text-sm">
+        <span className="text-ink-2">Accuracy</span>
+        <span className="font-medium text-ink tabular-nums">{s.accuracyPct}%</span>
+      </div>
+      <div
+        role="meter"
+        aria-label="Accuracy"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={s.accuracyPct}
+        className="mt-1.5 h-2 rounded-full bg-bar-track"
+      >
+        <div className="h-2 rounded-full bg-bar" style={{ width: `${s.accuracyPct}%` }} />
+      </div>
+      <p className="mt-1 text-xs text-muted">
+        How much of this month's spending is categorized, weighted by how sure we are ({s.categorizedPct}% has a category).
+      </p>
+      {s.uncategorizedCount > 0 ? (
+        <Link
+          to={transactionsLink(s.month, 'spend', { uncategorized: true })}
+          className="mt-3 flex items-center justify-between rounded-lg bg-page px-3 py-2 text-sm hover:underline"
+        >
+          <span className="text-ink">
+            {s.uncategorizedCount} uncategorized {s.uncategorizedCount === 1 ? 'payment' : 'payments'}
+          </span>
+          <span className="text-ink tabular-nums">{formatMoney(s.uncategorizedMinor, s.currency)} ›</span>
+        </Link>
+      ) : (
+        <p className="mt-3 text-sm text-ink-2">Every payment this month has a category.</p>
+      )}
+    </Card>
+  )
+}
