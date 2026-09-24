@@ -4,10 +4,25 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M2 — Merchants and categories: complete** (PR to `main` open) |
-| Last completed | **CP2.3** — recategorize endpoint with "apply to merchant", learning, raw → key debug view, user aliases |
-| Next | **M3 / CP3.1** — insight queries: month total, 3-month average, income, net, top-5 + Other with deltas, accuracy % |
-| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M2 work) |
+| Milestone | **M3 — Home screen** (M2 merged to `main` via PR #3) |
+| Last completed | **CP3.1** — insight queries: spent, 3-month average, income, net, top 5 + rest with usual, accuracy |
+| Next | **CP3.2** — SPA home screen: month switcher, four blocks, bars, drill-through links; mobile-first at 390 px |
+| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M3 work) |
+
+## CP3.1 — done
+
+Packages `insight`, `txn`. 238 backend tests green (count them from the XML reports: `@Nested` tests are missing
+from surefire's text summary).
+
+- `GET /api/insights/month?month=YYYY-MM&currency=RON` (default: latest month with data) → `MonthSummary`:
+  spent, baseline months (0–3) + average + delta %, income, net, accuracy % (confidence-weighted), categorized %,
+  top 5 categories (share, usual, delta, count; uncategorized ranked like a category) + folded rest, available months
+- `txn.Scope` holds the SPEND / INCOME / MONTH predicates; `InsightService` and `TransactionQueries.list(filter)`
+  both use them, so every figure drills to exactly its transactions
+- `InsightServiceTest`: a hand-computed month (refund, transfer, salary, unknown inflow, a category without history,
+  .01 rounding) matches every figure; drill-through sums equal the figures; top 5 + rest = spent and net = income −
+  spent for every sample month; short history and an empty DB behave
+- OpenAPI spec, TS client and demo fixture (the hand-computed month) updated
 
 ## CP2.3 — done
 
@@ -205,4 +220,15 @@ Health tests now derive the expected schema version from the migrations instead 
     `reassignAll()` recomputes every merchant. User rules (CP2.2) will key on merchant *keys*; a normalizer change that
     renames a key would orphan rules on it. Conservative choice: rules store the key, and CP2.3's debug view shows
     raw → key so a changed key is visible; revisit with real samples.
+12. **"Accuracy" before the review inbox exists.** DESIGN: share of the month's spend that is "categorized and
+    reviewed". Nothing is reviewed until M4, so a literal reading shows 0%. Chosen: spend weighted by category
+    confidence (user/rule 1.0, learned 0.95, keyword 0.7, none 0), which answers "how far to trust the totals" from day
+    one. The plain categorized share is returned too. Revisit when the review inbox lands.
+13. **Uncategorized money in** is neither income nor spending (it may be a refund or an own-account transfer). It
+    lowers nothing on the home screen; M4's review inbox will surface it. Uncategorized money *out* counts as spent
+    (conservative: better to over- than under-state spending).
+14. **One currency at a time.** Insights take a `currency` parameter (default RON). Transactions in other currencies
+    are not converted; there is no FX in this plan.
+15. **Baseline = previous 3 months that have data.** With one month of history the average uses that one month;
+    `baselineMonths` tells the UI to show the "upload more history" nudge.
 

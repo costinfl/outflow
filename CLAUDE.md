@@ -35,7 +35,7 @@ docker compose up --build          # full stack: SPA http://localhost:3000 (prox
 
 API endpoints: `/api/health`, `POST /api/imports` (multipart `files`), `GET/POST /api/accounts`,
 `GET /api/categories`, `PUT/DELETE /api/transactions/{id}/category`, `GET /api/merchants`, `GET /api/merchants/explain`,
-`POST /api/merchants/aliases`; OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
+`POST /api/merchants/aliases`, `GET /api/insights/month`; OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
 Parsers: one YAML profile per CSV format in `api/src/main/resources/parsers/` (keys: `docs/parsers.md`).
 Golden files in `samples/`, byte-exact (`.gitattributes`); expected values in `samples/synthetic/README.md`.
 
@@ -53,6 +53,9 @@ IBAN HMAC key: `OUTFLOW_IBAN_HMAC_KEY` (base64, ≥ 32 bytes) or generated once 
 (default `./data`, gitignored). Tests use a fixed key from `api/src/test/resources/config/application.yml`.
 Pipeline per upload (one DB transaction): parse → import → `MerchantService.assignMissing` →
 `CategoryService.categorizeAll`. Transactions with `category_source = 'USER'` are never recomputed.
+Home-screen numbers: every figure is a sum over a `txn.Scope` predicate; the transaction list uses the same
+predicates, so figures always equal their drill-through. Never compute a figure outside `Scope`.
+Count tests from `api/target/surefire-reports/TEST-*.xml`: `@Nested` classes are missing from the text summary.
 Tests truncate tables between cases (`ImportFixtures.reset`): TRUNCATE is the only way past the raw_row trigger.
 
 ## Way of working

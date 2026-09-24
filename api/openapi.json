@@ -110,6 +110,45 @@
         "required" : [ "changedTransactions", "transaction" ],
         "type" : "object"
       },
+      "CategorySpend" : {
+        "properties" : {
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "deltaPct" : {
+            "description" : "vs. usual; absent when there is no usual to compare with",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "sharePct" : {
+            "description" : "Of the month's spent",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "spentMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "transactionCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "usualMinor" : {
+            "description" : "Average over the baseline months",
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "name", "sharePct", "spentMinor", "transactionCount", "usualMinor" ],
+        "type" : "object"
+      },
       "Explanation" : {
         "properties" : {
           "categoryCode" : {
@@ -258,6 +297,76 @@
         "required" : [ "displayName", "id", "key", "sampleDescriptions", "transactionCount" ],
         "type" : "object"
       },
+      "MonthSummary" : {
+        "properties" : {
+          "accuracyPct" : {
+            "description" : "Share of this month's spending to trust: weighted by category confidence",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "availableMonths" : {
+            "description" : "Months with data, oldest first, e.g. 2026-01",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "averageSpentMinor" : {
+            "description" : "Average spent over the baseline months; absent without history",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "baselineMonths" : {
+            "description" : "How many of the previous 3 months have data; the average uses only those",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "categories" : {
+            "description" : "Top 5 by spent, largest first",
+            "items" : {
+              "$ref" : "#/components/schemas/CategorySpend"
+            },
+            "type" : "array"
+          },
+          "categorizedPct" : {
+            "description" : "Share of this month's spending with any category",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "currency" : {
+            "example" : "RON",
+            "type" : "string"
+          },
+          "deltaPct" : {
+            "description" : "Spent vs. that average, e.g. 12 for +12%; absent without history or when it is 0",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "incomeMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "month" : {
+            "example" : "2026-03",
+            "type" : "string"
+          },
+          "netMinor" : {
+            "description" : "Income − spent; negative when spending more",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "rest" : {
+            "$ref" : "#/components/schemas/Rest",
+            "description" : "Everything below the top 5, folded"
+          },
+          "spentMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "accuracyPct", "availableMonths", "baselineMonths", "categories", "categorizedPct", "currency", "incomeMinor", "month", "netMinor", "rest", "spentMinor" ],
+        "type" : "object"
+      },
       "NewAccount" : {
         "properties" : {
           "currency" : {
@@ -310,6 +419,24 @@
           }
         },
         "required" : [ "name", "parserId", "reason", "score" ],
+        "type" : "object"
+      },
+      "Rest" : {
+        "properties" : {
+          "categoryCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "sharePct" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "spentMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "categoryCount", "sharePct", "spentMinor" ],
         "type" : "object"
       },
       "SetCategory" : {
@@ -535,6 +662,42 @@
           }
         },
         "tags" : [ "imports" ]
+      }
+    },
+    "/api/insights/month" : {
+      "get" : {
+        "operationId" : "month",
+        "parameters" : [ {
+          "description" : "YYYY-MM; defaults to the latest month with data",
+          "in" : "query",
+          "name" : "month",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "ISO currency; v1 reports one currency at a time",
+          "in" : "query",
+          "name" : "currency",
+          "required" : false,
+          "schema" : {
+            "default" : "RON",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MonthSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "insights" ]
       }
     },
     "/api/merchants" : {

@@ -72,4 +72,26 @@ export const fixtures: { [P in GetPath]: GetResponse<P> } = {
     categoryCode: 'SUBSCRIPTIONS',
     categorySource: 'KEYWORD',
   },
+  // The hand-computed month from InsightServiceTest, so the demo shows numbers that add up.
+  '/api/insights/month': {
+    month: '2026-03',
+    currency: 'RON',
+    spentMinor: 130000,
+    baselineMonths: 3,
+    averageSpentMinor: 110000,
+    deltaPct: 18,
+    incomeMinor: 500000,
+    netMinor: 370000,
+    accuracyPct: 68,
+    categorizedPct: 97,
+    categories: [
+      { categoryId: 1, code: 'GROCERIES', name: 'Groceries', spentMinor: 45000, sharePct: 35, usualMinor: 110000, deltaPct: -59, transactionCount: 3 },
+      { categoryId: 4, code: 'FUEL', name: 'Fuel', spentMinor: 25000, sharePct: 19, usualMinor: 0, transactionCount: 1 },
+      { categoryId: 5, code: 'UTILITIES', name: 'Utilities', spentMinor: 21001, sharePct: 16, usualMinor: 0, transactionCount: 1 },
+      { categoryId: 11, code: 'SHOPPING', name: 'Shopping', spentMinor: 12000, sharePct: 9, usualMinor: 0, transactionCount: 1 },
+      { categoryId: 2, code: 'RESTAURANTS', name: 'Restaurants & cafés', spentMinor: 10000, sharePct: 8, usualMinor: 0, transactionCount: 1 },
+    ],
+    rest: { spentMinor: 16999, sharePct: 13, categoryCount: 3 },
+    availableMonths: ['2025-12', '2026-01', '2026-02', '2026-03'],
+  },
 }

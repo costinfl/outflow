@@ -68,6 +68,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/insights/month": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["month"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/merchants": {
         parameters: {
             query?: never;
@@ -189,6 +205,31 @@ export interface components {
             changedTransactions: number;
             transaction: components["schemas"]["TransactionView"];
         };
+        CategorySpend: {
+            /** Format: int64 */
+            categoryId?: number;
+            code?: string;
+            /**
+             * Format: int32
+             * @description vs. usual; absent when there is no usual to compare with
+             */
+            deltaPct?: number;
+            name: string;
+            /**
+             * Format: int32
+             * @description Of the month's spent
+             */
+            sharePct: number;
+            /** Format: int64 */
+            spentMinor: number;
+            /** Format: int32 */
+            transactionCount: number;
+            /**
+             * Format: int64
+             * @description Average over the baseline months
+             */
+            usualMinor: number;
+        };
         Explanation: {
             categoryCode?: string;
             /** @description Which tier would categorize it: RULE, LEARNED or KEYWORD; absent when none */
@@ -248,6 +289,52 @@ export interface components {
             /** Format: int64 */
             transactionCount: number;
         };
+        MonthSummary: {
+            /**
+             * Format: int32
+             * @description Share of this month's spending to trust: weighted by category confidence
+             */
+            accuracyPct: number;
+            /** @description Months with data, oldest first, e.g. 2026-01 */
+            availableMonths: string[];
+            /**
+             * Format: int64
+             * @description Average spent over the baseline months; absent without history
+             */
+            averageSpentMinor?: number;
+            /**
+             * Format: int32
+             * @description How many of the previous 3 months have data; the average uses only those
+             */
+            baselineMonths: number;
+            /** @description Top 5 by spent, largest first */
+            categories: components["schemas"]["CategorySpend"][];
+            /**
+             * Format: int32
+             * @description Share of this month's spending with any category
+             */
+            categorizedPct: number;
+            /** @example RON */
+            currency: string;
+            /**
+             * Format: int32
+             * @description Spent vs. that average, e.g. 12 for +12%; absent without history or when it is 0
+             */
+            deltaPct?: number;
+            /** Format: int64 */
+            incomeMinor: number;
+            /** @example 2026-03 */
+            month: string;
+            /**
+             * Format: int64
+             * @description Income − spent; negative when spending more
+             */
+            netMinor: number;
+            /** @description Everything below the top 5, folded */
+            rest: components["schemas"]["Rest"];
+            /** Format: int64 */
+            spentMinor: number;
+        };
         NewAccount: {
             /** @example RON */
             currency: string;
@@ -271,6 +358,14 @@ export interface components {
              * @description 0..1
              */
             score: number;
+        };
+        Rest: {
+            /** Format: int32 */
+            categoryCount: number;
+            /** Format: int32 */
+            sharePct: number;
+            /** Format: int64 */
+            spentMinor: number;
         };
         SetCategory: {
             /** @description Answer to 'apply to this merchant from now on?': creates a rule for the merchant */
@@ -427,6 +522,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImportSummary"];
+                };
+            };
+        };
+    };
+    month: {
+        parameters: {
+            query?: {
+                /** @description YYYY-MM; defaults to the latest month with data */
+                month?: string;
+                /** @description ISO currency; v1 reports one currency at a time */
+                currency?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonthSummary"];
                 };
             };
         };

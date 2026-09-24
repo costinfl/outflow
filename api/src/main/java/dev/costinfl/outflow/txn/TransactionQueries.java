@@ -1,12 +1,14 @@
 package dev.costinfl.outflow.txn;
 
 import dev.costinfl.outflow.ingest.parse.Iban;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
-/** Read side for transactions. Grows the list/filter queries in M3. */
+/** Read side for transactions. */
 @Component
 public class TransactionQueries {
 
@@ -30,6 +32,21 @@ public class TransactionQueries {
 
     public TransactionQueries(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
+    }
+
+    /** The transactions behind a home-screen number, newest first. */
+    public List<TransactionView> list(TransactionFilter f) {
+        var where = new StringBuilder(" WHERE " + Scope.MONTH + " AND t.currency = ?");
+        var args = new ArrayList<Object>(List.of(f.month().atDay(1), f.month().atDay(1), f.currency()));
+        f.kind().ifPresent(k -> where.append(" AND ").append(k == TransactionFilter.Kind.SPEND ? Scope.SPEND : Scope.INCOME));
+        f.category().ifPresent(id -> {
+            where.append(" AND t.category_id = ?");
+            args.add(id);
+        });
+        if (f.uncategorized()) {
+            where.append(" AND t.category_id IS NULL");
+        }
+        return jdbc.query(SELECT + where + " ORDER BY t.booking_date DESC, t.id DESC", ROW, args.toArray());
     }
 
     public Optional<TransactionView> find(long id) {
