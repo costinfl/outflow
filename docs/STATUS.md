@@ -4,10 +4,159 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M3 — Home screen: complete** (PR to `main` open) |
-| Last completed | **CP3.4** — upload flow and import summary screen (DESIGN: First-run flow) |
-| Next | **M4 / CP4.1** — recurrence: grouping + amount bands; monthly and yearly cadence fit with anchor-day matching; scoring |
-| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M3 work) |
+| Milestone | **M4 — Recurring and review inbox: complete** (PR to `main` open) |
+| Last completed | **CP4.4** — home "Committed every month" block, Recurring screen, history nudge |
+| Next | **M5 / CP5.1** — transfer pairing incl. counterparty IBAN and one-sided provisional marking; excluded from spend |
+| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M4 work) |
+
+## CP4.4 — done
+
+303 backend tests and 10 web tests green; typecheck, the build and the demo build green; the spec is refreshed and
+`gen:api` is current.
+
+- **`GET /api/subscriptions?month=&currency=`** returns the Recurring screen:
+  - Confirmed and ended subscriptions, grouped into Subscriptions and Bills (the latest charge's category is
+    Utilities, Telecom, Housing or Fees). Within a group, counted rows come first, then the highest monthly equivalent.
+  - Each row has its cadence, amount, next expected date, Active or Ended, its monthly and yearly equivalents
+    (`Cadence.monthlyMinor`: yearly ÷ 12, rounded half up, in `long`) and whether it is counted.
+  - The per-month and per-year totals are sums of the counted rows.
+  - Without a month, confirmed rows count. With a month, rows that had started by the month's end are listed, and
+    they count when confirmed or ended no earlier than its first day.
+  - It also returns per-account coverage (first and last date, months spanned; monthly detection at 3+ months,
+    yearly at 13+) and the number of suggestions waiting.
+- **`PATCH /api/subscriptions/{id}`** renames a confirmed or ended subscription. A blank name returns 400, an unknown
+  id 404, a proposal 409.
+- **`MonthSummary.committed`** (monthly equivalent, count, share of spent) is computed through the same
+  `RecurringService.overview(month)`, so the home figure equals the Recurring screen for that month.
+- **Web:**
+  - Home block 3 shows the total, "N recurring payments · X% of this month's spending", and opens
+    `#/recurring?month=`.
+  - `#/recurring` shows totals per month and per year, the groups with subtotals, and Active / Ended chips.
+  - A row opens to rename, change category (all from the merchant) or mark ended.
+  - It also shows the coverage per account, a link to waiting suggestions, and DESIGN's history nudge instead of an
+    empty list. The "As in <month>" chip returns to today.
+- **Tests:**
+  - `CadenceTest`: equivalents, including half-up rounding.
+  - `RecurringControllerTest` (4):
+    - totals, groups and order, with ended rows listed but not counted
+    - a past month counts what was active then and equals the home figure (February, December 2025)
+    - coverage for 29-month and 2-month accounts
+    - rename and its errors, and a bad month
+- **Verified in Chromium against the real API at 390 px, light and dark:**
+  - home June 2026 showed "RON 339.67 · 4 recurring payments · 30%", and the Recurring screen had the same total
+  - rename and mark ended updated the totals
+  - at 320 px nothing overflows: totals stack below 360 px, and the header nav, which CP4.3's Review link had pushed
+    past 320 px, now wraps
+  - Demo: fixtures computed with the backend's rule, and the home figure equals the Recurring screen for each month.
+- **Deferred:**
+  - the "Standing transfers" group (transfers are never detected as subscriptions; it comes with M5 transfer pairing)
+  - Price changed / Missed chips (CP5.3)
+  - "remind me before next charge"
+  - category detail listing recurring payments first
+
+**M4 acceptance** (plan): seeded fixtures with known subscriptions are detected: fixed (Netflix), variable (Enel),
+month end (Orange, anchor 31), one missed month (World Class), plus a plan next to one-offs (eMAG) and a yearly
+payment. Rejected items never return: `SubscriptionServiceTest` checks this after new charges, and checks that only a
+material change (+60%) re-proposes. Both are automated.
+
+## CP4.3 — done
+
+297 backend tests and 10 web tests green; typecheck, the build and the demo build green; the spec is refreshed and
+`gen:api` is current.
+
+- **`GET /api/review`** returns `{cards, possible, count}`, one card per merchant, sorted by money affected:
+  - **Subscription suggestion:** a PROPOSED row. It carries the charges linked to it, cadence, amount, since and next
+    expected. Confidence ≥ 0.65 goes in `cards`; lower goes in `possible`.
+  - **Uncategorized merchant:** all of a merchant's transactions without a category, with their count and money.
+  - Price-change, missed-charge and duplicate cards come with M5.
+- **Skipping:** `POST /api/review/skip {key}` (V7 `review_skip`). A skipped card stays hidden until the next upload.
+- **Answers:**
+  - `POST /api/subscriptions/{id}/confirm` (optional name, cadence, expected amount), `/reject` and `/end`. An unknown
+    id returns 404; an illegal transition returns 409.
+  - `POST /api/review/merchants/{id}/category`: a USER rule for the merchant, which all its automatic transactions
+    follow.
+  - Category changes (this endpoint and `PUT`/`DELETE /api/transactions/{id}/category`) and merchant aliases re-run
+    `SubscriptionService.refreshNow()`. A merchant marked as a transfer stops being a subscription candidate.
+- **`#/review`** (Review in the header; "N questions to review" on the home screen's attention block):
+  - Subscription cards read "Netflix, RON 49.99 monthly since January 2026. Is this a subscription?" with Yes /
+    Not recurring / Edit (name, amount, how often) / Skip.
+  - Uncategorized cards read "6 transactions, RON 1,500.00 from World Class" with a category picker, Apply and Skip.
+  - Swipe right confirms and left rejects (or skips a merchant card); the buttons do the same. "Possible" payments
+    are collapsed. Typed amounts are parsed exactly (`decimalToMinor`, with a web unit test).
+- **Tests:** `ReviewControllerTest` (7) covers the order and contents of cards, confirm / reject / end with 404, 409
+  and 400, a merchant category that also drops its subscription proposal, a transaction recategorized as a transfer
+  that drops its proposal, and skipping until the next upload.
+- **Verified in Chromium at 390 px, light and dark, against the real API with the seeded ledger:**
+  - home badge "6 questions to review" → inbox
+  - Yes (Netflix); Edit → "Orange phone" at 70,5 (stored as 7050); Not recurring (eMAG); World Class → Health & pharmacy
+  - Skip, then a left swipe rejected Enel → "Nothing needs your attention"
+  - no overflow, no console errors
+  - Demo: illustrative cards consistent with the demo ledger; answering explains that it needs the real app.
+
+## CP4.2 — done
+
+290 backend tests green (10 new); typecheck green. There is no API for this yet; it comes with the inbox in CP4.3.
+
+- **V6:**
+  - `subscription`: DESIGN's columns, plus the name, the amount band, the confidence, first and last seen, `ended_by`
+    and `decided_at`. States PROPOSED / CONFIRMED / REJECTED / ENDED; cadences allow DESIGN's full list.
+  - `transaction.subscription_id`, and `subscription_rejection`.
+- **`SubscriptionService.refresh(today)`** runs in the upload pipeline after categories, in the same transaction. The
+  date comes from a `Clock` bean.
+  - A new stream becomes PROPOSED unless a rejection covers it; its charges are linked.
+  - A PROPOSED row gets the detected fields again and its links are re-synced.
+  - A CONFIRMED row gets its new charges linked and its last seen and next expected dates moved on. Name, cadence and
+    amount stay the user's.
+  - A SYSTEM-ended row resumes on a newer charge.
+  - A PROPOSED row that is no longer detected is dropped and its links are cleared. CONFIRMED, ENDED and REJECTED rows
+    are never touched.
+  - Streams are matched by account, merchant, currency and amount bands that overlap within 25%. Cadence is not
+    compared, so a user's correction survives.
+- **User transitions:**
+  - `confirm(id, edits)`: PROPOSED or ENDED → CONFIRMED, optionally with a new name, cadence or expected amount.
+  - `reject(id)`: PROPOSED → REJECTED. Its charges are unlinked and a rejection row is written.
+  - `end(id)`: CONFIRMED → ENDED by the user.
+  - Anything else throws `TransitionException`.
+- **`SubscriptionServiceTest`:**
+  - an upload proposes the 5 seeded subscriptions and links their charges (eMAG's two one-off purchases stay unlinked)
+  - refresh is idempotent
+  - a rejected subscription never returns, even after new charges, while a +60% price is proposed again
+  - confirmed edits survive refresh, and new charges link and move the dates on
+  - a confirmed subscription stays when the detector loses it
+  - stale proposals are dropped
+  - user-ended stays ended; system-ended resumes
+  - illegal transitions are refused
+- Deferred: merge/split and manual add (DESIGN lifecycle bullets) belong with the screens (CP4.3/CP4.4). Refresh also
+  runs only on upload; recategorizing or adding an alias re-runs it with the inbox API in CP4.3.
+
+## CP4.1 — done
+
+280 backend tests green (16 new); typecheck green. No schema or API change yet: candidates are computed, not stored.
+
+- `recurring.RecurrenceDetector` (pure) follows DESIGN step by step:
+  - **Bands:** a merchant's charges are split where the next amount is more than 25% above the previous one.
+  - **Monthly:** anchored to the median day of the month, clamped to the month's length. A charge counts as on time
+    within ±3 days of the anchor, or of the next business day when the anchor falls on a weekend, and belongs to the
+    nearest month's anchor.
+  - **Yearly:** anchored to the median date across years, measured around the first charge so it works over New Year;
+    ±7 days.
+  - A cadence only fits when the lower-median gap is exactly one step. R_interval is the share of one-step gaps with
+    both ends on time.
+  - **Scoring:** 0.4 / 0.2 / 0.2 / 0.2. Proposed at ≥ 0.65, possible at ≥ 0.45, otherwise dropped.
+  - **Amount:** FIXED when the coefficient of variation is ≤ 0.02. Expected amount = median of the last 3,
+    tolerance = 2 × MAD. The next expected date is snapped to the anchor.
+- `recurring.RecurrenceService.detect(today)`: groups outgoing charges by (account, merchant, currency). Transfers,
+  cash withdrawals and refunds are left out.
+- **Tests:**
+  - `RecurrenceDetectorTest` (hand-computed): fixed monthly with weekend shifts, variable, month-end anchor 31, one
+    missed month (R_interval 0.8, confidence 0.92), weekend anchor 5 days late, yearly, yearly across New Year, a plan
+    next to one-off purchases, the 25% band edge, irregular spending, too few charges, recency decay, a possible-only
+    fit, a fit below the threshold.
+  - `RecurrenceServiceTest` on a seeded 7-month ledger (`RecurringFixtures`): Netflix fixed, Enel variable, Orange month
+    end, World Class with April missed, eMAG plan next to one-offs. Exactly these are found; the savings transfer,
+    ATM withdrawals, Lidl and salary are not. Accounts are separate streams.
+- Quarterly and bi-weekly (in the DESIGN table but not in the plan's CP4.1) are not fitted yet. They add as
+  `Cadence` values with the same anchor logic. Weekly and daily come in CP5.3.
 
 ## CP3.4 — done
 
@@ -288,10 +437,6 @@ Health tests now derive the expected schema version from the migrations instead 
 
 ## Known issues
 
-- **GitHub Pages is disabled** since the repository went private and back to public (deploys fail with "Get Pages
-  site failed … Not Found"). The user re-enables it: Settings → Pages → Source: GitHub Actions; then the next push or
-  a manual run of "Pages (demo)" publishes.
-
 - The first ING sample contained real names of private people (Beneficiar / Ordonator fields). The repository was made
   private and, at the user's request, the file was purged from the dev branch history (force-push, 2026-09-24; `main`
   never had it). The ING parser's golden test now uses `samples/synthetic/ing-ro-2026-q1.csv`. The anonymizer now
@@ -347,4 +492,13 @@ Health tests now derive the expected schema version from the migrations instead 
     are not converted; there is no FX in this plan.
 15. **Baseline = previous 3 months that have data.** With one month of history the average uses that one month;
     `baselineMonths` tells the UI to show the "upload more history" nudge.
-
+16. **ENDED → CONFIRMED "when charges resume" vs. "a user decision is never overwritten".** Resolved as
+    `subscription.ended_by`: SYSTEM-ended (two missed charges, CP5.3) resumes by itself when a newer charge arrives;
+    USER-ended stays ended, and its stream is not proposed again. The user can confirm it again by hand.
+17. **`tolerance_pct` → `tolerance_minor`.** DESIGN's variable tolerance is 2 × MAD, an amount; it is stored in minor
+    units so no amount goes through floating point. A percentage can be shown in the UI.
+18. **Rejection key.** DESIGN keys rejections by (household, merchant, amount band). They also store cadence and
+    currency, because "a new cadence" re-proposes, and the amount is the rejected expected amount (±50% = same band).
+19. **"Committed every month" is not a transaction sum.** DESIGN defines it as monthly equivalents of confirmed
+    recurring payments (yearly ÷ 12), so it cannot be a `txn.Scope` sum. Its drill-through is the Recurring screen for
+    the same month, whose rows sum to it exactly (same `RecurringService.overview`).

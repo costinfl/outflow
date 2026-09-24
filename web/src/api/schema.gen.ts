@@ -164,6 +164,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["inbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/review/merchants/{merchantId}/category": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["categorizeMerchant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/review/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["overview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subscriptions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["rename"];
+        trace?: never;
+    };
+    "/api/subscriptions/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subscriptions/{id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subscriptions/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/transactions": {
         parameters: {
             query?: never;
@@ -301,6 +429,43 @@ export interface components {
              */
             usualMinor: number;
         };
+        Committed: {
+            /** Format: int32 */
+            count: number;
+            /** Format: int64 */
+            monthlyMinor: number;
+            /**
+             * Format: int32
+             * @description Of the month's spent; absent when nothing was spent
+             */
+            sharePct?: number;
+        };
+        /** @description Corrections made while confirming; omitted fields keep the detected value */
+        Confirm: {
+            /** @enum {string} */
+            cadence?: "MONTHLY" | "YEARLY";
+            /** Format: int64 */
+            expectedAmountMinor?: number;
+            name?: string;
+        };
+        Coverage: {
+            /** Format: int64 */
+            accountId: number;
+            accountName: string;
+            /** Format: date */
+            from?: string;
+            /** @description 3+ months: monthly payments detectable */
+            monthly: boolean;
+            /**
+             * Format: int32
+             * @description Calendar months from first to last date
+             */
+            months: number;
+            /** Format: date */
+            to?: string;
+            /** @description 13+ months: yearly payments detectable */
+            yearly: boolean;
+        };
         Explanation: {
             categoryCode?: string;
             /** @description Which tier would categorize it: RULE, LEARNED or KEYWORD; absent when none */
@@ -333,6 +498,17 @@ export interface components {
             /** @enum {string} */
             status: "IMPORTED" | "DUPLICATE_FILE" | "NEEDS_PARSER" | "NEEDS_ACCOUNT" | "FAILED";
         };
+        Group: {
+            /** @description Highest monthly equivalent first */
+            items: components["schemas"]["Item"][];
+            /** @enum {string} */
+            kind: "SUBSCRIPTIONS" | "BILLS";
+            /**
+             * Format: int64
+             * @description Counted items only
+             */
+            monthlyMinor: number;
+        };
         HealthResponse: {
             /** @enum {string} */
             database: "UP" | "DOWN";
@@ -349,6 +525,45 @@ export interface components {
             /** Format: int32 */
             newTransactions: number;
         };
+        Inbox: {
+            cards: components["schemas"]["ReviewCard"][];
+            /**
+             * Format: int32
+             * @description Number of cards, for the home badge
+             */
+            count: number;
+            /** @description Subscription suggestions with confidence between 0.45 and 0.65 */
+            possible: components["schemas"]["ReviewCard"][];
+        };
+        Item: {
+            /** @enum {string} */
+            amountKind: "FIXED" | "VARIABLE";
+            /** @enum {string} */
+            cadence: "MONTHLY" | "YEARLY";
+            /**
+             * Format: int64
+             * @description Category of its latest charge
+             */
+            categoryId?: number;
+            categoryName?: string;
+            /** @description Part of the totals: active (in the month viewed, when one is given) */
+            counted: boolean;
+            /** Format: int64 */
+            expectedAmountMinor: number;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            merchantId: number;
+            /** Format: int64 */
+            monthlyMinor: number;
+            name: string;
+            /** Format: date */
+            nextExpectedDate?: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "ENDED";
+            /** Format: int64 */
+            yearlyMinor: number;
+        };
         MerchantAmount: {
             /** Format: int64 */
             amountMinor: number;
@@ -357,6 +572,17 @@ export interface components {
             name: string;
             /** Format: int32 */
             transactionCount: number;
+        };
+        MerchantCategory: {
+            /** Format: int64 */
+            categoryId: number;
+        };
+        MerchantCategoryResult: {
+            /**
+             * Format: int32
+             * @description Transactions whose category changed
+             */
+            changedTransactions: number;
         };
         MerchantSummary: {
             categoryCode?: string;
@@ -402,6 +628,8 @@ export interface components {
              * @description Share of this month's spending with any category
              */
             categorizedPct: number;
+            /** @description Block 3: confirmed recurring payments */
+            committed: components["schemas"]["Committed"];
             /** @example RON */
             currency: string;
             /**
@@ -454,6 +682,35 @@ export interface components {
              */
             score: number;
         };
+        RecurringOverview: {
+            /** Format: int32 */
+            countedCount: number;
+            /** @description Per account: how much history detection has */
+            coverage: components["schemas"]["Coverage"][];
+            currency: string;
+            /** @description Non-empty groups, subscriptions first */
+            groups: components["schemas"]["Group"][];
+            /** @description The month viewed (YYYY-MM); absent = as of today */
+            month?: string;
+            /**
+             * Format: int64
+             * @description Committed per month: counted items only
+             */
+            monthlyMinor: number;
+            /**
+             * Format: int32
+             * @description Suggestions waiting in the review inbox
+             */
+            suggestionCount: number;
+            /**
+             * Format: int64
+             * @description Committed per year: counted items only
+             */
+            yearlyMinor: number;
+        };
+        Rename: {
+            name: string;
+        };
         Rest: {
             /** Format: int32 */
             categoryCount: number;
@@ -462,15 +719,111 @@ export interface components {
             /** Format: int64 */
             spentMinor: number;
         };
+        ReviewCard: {
+            /**
+             * Format: int64
+             * @description Money the answer affects (positive minor units); cards are sorted by it, largest first
+             */
+            affectedMinor: number;
+            /** @enum {string} */
+            amountKind?: "FIXED" | "VARIABLE";
+            /** @enum {string} */
+            cadence?: "MONTHLY" | "YEARLY";
+            /** @description Detector confidence, 0–1 */
+            confidence?: number;
+            currency: string;
+            /** Format: int64 */
+            expectedAmountMinor?: number;
+            /**
+             * @description Stable id, used to skip the card
+             * @example subscription:12
+             */
+            key: string;
+            /** @enum {string} */
+            kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT";
+            /** Format: int64 */
+            merchantId: number;
+            /** @description Subscription name or merchant display name */
+            name: string;
+            /** Format: date */
+            nextExpectedDate?: string;
+            /**
+             * Format: int32
+             * @description Charges linked to the subscription
+             */
+            occurrences?: number;
+            /**
+             * Format: date
+             * @description First charge of the subscription
+             */
+            since?: string;
+            /** Format: int64 */
+            subscriptionId?: number;
+            /**
+             * Format: int32
+             * @description Uncategorized transactions of the merchant
+             */
+            transactionCount?: number;
+        };
         SetCategory: {
             /** @description Answer to 'apply to this merchant from now on?': creates a rule for the merchant */
             applyToMerchant?: boolean;
             /** Format: int64 */
             categoryId: number;
         };
+        Skip: {
+            key: string;
+        };
         Step: {
             name?: string;
             output?: string;
+        };
+        Subscription: {
+            /** Format: int64 */
+            accountId: number;
+            /** @enum {string} */
+            amountKind: "FIXED" | "VARIABLE";
+            /**
+             * Format: int32
+             * @description Day of month the charge is due (clamped in shorter months)
+             */
+            anchorDay?: number;
+            /**
+             * Format: int32
+             * @description Month of year, for yearly cadences
+             */
+            anchorMonth?: number;
+            /** Format: int64 */
+            bandMaxMinor: number;
+            /** Format: int64 */
+            bandMinMinor: number;
+            /** @enum {string} */
+            cadence: "MONTHLY" | "YEARLY";
+            /** @description Detector confidence, 0–1 */
+            confidence: number;
+            currency: string;
+            /** @enum {string} */
+            endedBy?: "USER" | "SYSTEM";
+            /** Format: int64 */
+            expectedAmountMinor: number;
+            /** Format: date */
+            firstSeen: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: date */
+            lastSeen: string;
+            /** Format: int64 */
+            merchantId: number;
+            name: string;
+            /** Format: date */
+            nextExpectedDate?: string;
+            /** @enum {string} */
+            state: "PROPOSED" | "CONFIRMED" | "REJECTED" | "ENDED";
+            /**
+             * Format: int64
+             * @description A charge within expected ± tolerance matches
+             */
+            toleranceMinor: number;
         };
         TransactionList: {
             /** Format: int32 */
@@ -777,6 +1130,194 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Explanation"];
+                };
+            };
+        };
+    };
+    inbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Inbox"];
+                };
+            };
+        };
+    };
+    categorizeMerchant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                merchantId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MerchantCategory"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MerchantCategoryResult"];
+                };
+            };
+        };
+    };
+    skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Skip"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    overview: {
+        parameters: {
+            query?: {
+                /** @description YYYY-MM; absent = as of today */
+                month?: string;
+                currency?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringOverview"];
+                };
+            };
+        };
+    };
+    rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Rename"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+        };
+    };
+    confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Confirm"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+        };
+    };
+    end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+        };
+    };
+    reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
                 };
             };
         };

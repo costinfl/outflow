@@ -24,7 +24,8 @@ public final class ImportFixtures {
 
     public static void reset(JdbcTemplate jdbc) {
         // TRUNCATE does not fire row-level triggers: the only way to clear immutable raw rows.
-        jdbc.execute("TRUNCATE transaction_source, transaction, raw_row, statement_file, account, merchant "
+        jdbc.execute("TRUNCATE review_skip, subscription_rejection, subscription, transaction_source, transaction, raw_row, statement_file, "
+                + "account, merchant "
                 + "RESTART IDENTITY CASCADE");
         jdbc.update("DELETE FROM merchant_alias WHERE source = 'USER'");
         jdbc.update("DELETE FROM category_rule WHERE source = 'USER'");

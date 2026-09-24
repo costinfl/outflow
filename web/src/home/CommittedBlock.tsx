@@ -1,15 +1,35 @@
+import { Link } from 'react-router'
 import type { MonthSummary } from '../api/types'
+import { formatMoney } from '../lib/format'
+import { recurringLink } from '../lib/links'
 import { Card } from './Card'
 
 /**
- * Block 3: committed every month. Needs recurring-payment detection (M4); until then it says so plainly, with the
- * DESIGN history nudge when there is too little history to detect anything.
+ * Block 3: committed every month: the monthly equivalents of the confirmed recurring payments active in this month.
+ * Opens the Recurring screen for the same month, whose total is the same number.
  */
 export function CommittedBlock({ s }: { s: MonthSummary }) {
   const months = s.availableMonths.length
+  const { monthlyMinor, count, sharePct } = s.committed
   return (
     <Card title="Committed every month" id="committed">
-      <p className="text-sm text-ink-2">Subscriptions and recurring bills will appear here once detection is in place.</p>
+      {count > 0 ? (
+        <Link to={recurringLink(s.month)} className="block hover:underline">
+          <span className="text-2xl font-semibold text-ink tabular-nums">{formatMoney(monthlyMinor, s.currency)}</span>
+          <span className="mt-1 block text-sm text-ink-2">
+            {count} recurring {count === 1 ? 'payment' : 'payments'}
+            {sharePct !== undefined && sharePct !== null ? ` · ${sharePct}% of this month's spending` : ''} ›
+          </span>
+        </Link>
+      ) : (
+        <p className="text-sm text-ink-2">
+          No confirmed recurring payments yet.{' '}
+          <Link to="/review" className="text-bar underline">
+            Review suggestions
+          </Link>{' '}
+          or see <Link to={recurringLink()} className="text-bar underline">recurring payments</Link>.
+        </p>
+      )}
       {months < 3 && (
         <p className="mt-2 text-sm text-muted">
           Upload 3+ months to detect monthly payments, 12+ for yearly ones. You have {months} {months === 1 ? 'month' : 'months'}.

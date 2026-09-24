@@ -1,5 +1,6 @@
 package dev.costinfl.outflow.category;
 
+import dev.costinfl.outflow.recurring.SubscriptionService;
 import dev.costinfl.outflow.txn.TransactionQueries;
 import dev.costinfl.outflow.txn.TransactionView;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -31,10 +32,13 @@ public class CategoryController {
 
     private final CategoryService categories;
     private final TransactionQueries transactions;
+    private final SubscriptionService subscriptions;
 
-    public CategoryController(CategoryService categories, TransactionQueries transactions) {
+    public CategoryController(CategoryService categories, TransactionQueries transactions,
+            SubscriptionService subscriptions) {
         this.categories = categories;
         this.transactions = transactions;
+        this.subscriptions = subscriptions;
     }
 
     @GetMapping(path = "/api/categories", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -50,6 +54,7 @@ public class CategoryController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown category");
         }
         int changed = categories.setCategory(id, body.categoryId(), body.applyToMerchant());
+        subscriptions.refreshNow(); // e.g. marked as a transfer: no longer a subscription candidate
         return new CategoryChange(requireTransaction(id), changed);
     }
 
@@ -57,6 +62,7 @@ public class CategoryController {
     public CategoryChange clear(@PathVariable long id) {
         requireTransaction(id);
         int changed = categories.clearManual(id);
+        subscriptions.refreshNow();
         return new CategoryChange(requireTransaction(id), changed);
     }
 
