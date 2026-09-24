@@ -79,6 +79,38 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
     categorySource: 'KEYWORD',
   },
   '/api/transactions': demoTransactions,
+  // Uncategorized cards are the demo ledger's two uncategorized merchants. The subscription cards are illustrative:
+  // the ledger holds one March charge per merchant, the cards describe what four months of them would look like.
+  '/api/review': {
+    cards: [
+      {
+        key: 'subscription:2', kind: 'SUBSCRIPTION', affectedMinor: 84004, currency: 'RON', merchantId: 7, name: 'Enel',
+        subscriptionId: 2, cadence: 'MONTHLY', expectedAmountMinor: 21001, amountKind: 'VARIABLE', since: '2025-12-08',
+        occurrences: 4, confidence: 0.93, nextExpectedDate: '2026-04-08',
+      },
+      {
+        key: 'subscription:1', kind: 'SUBSCRIPTION', affectedMinor: 19996, currency: 'RON', merchantId: 5, name: 'Netflix',
+        subscriptionId: 1, cadence: 'MONTHLY', expectedAmountMinor: 4999, amountKind: 'FIXED', since: '2025-12-06',
+        occurrences: 4, confidence: 0.93, nextExpectedDate: '2026-04-06',
+      },
+      {
+        key: 'merchant:8:RON', kind: 'UNCATEGORIZED_MERCHANT', affectedMinor: 4000, currency: 'RON', merchantId: 8,
+        name: 'Zz Widgets', transactionCount: 1,
+      },
+      {
+        key: 'merchant:11:RON', kind: 'UNCATEGORIZED_MERCHANT', affectedMinor: 3000, currency: 'RON', merchantId: 11,
+        name: 'Zz Inflow', transactionCount: 1,
+      },
+    ],
+    possible: [
+      {
+        key: 'subscription:3', kind: 'SUBSCRIPTION', affectedMinor: 24000, currency: 'RON', merchantId: 3, name: 'Bolt',
+        subscriptionId: 3, cadence: 'MONTHLY', expectedAmountMinor: 8000, amountKind: 'FIXED', since: '2026-01-04',
+        occurrences: 3, confidence: 0.55, nextExpectedDate: '2026-04-04',
+      },
+    ],
+    count: 4,
+  },
   '/api/insights/categories/{id}': demoCategory,
   '/api/insights/month': (url) => demoMonths[url.searchParams.get('month') ?? '2026-03'] ?? demoMonths['2026-03']!,
 

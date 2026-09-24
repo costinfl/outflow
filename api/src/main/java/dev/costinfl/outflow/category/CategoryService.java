@@ -73,12 +73,7 @@ public class CategoryService {
         long merchantId = jdbc.queryForObject("SELECT merchant_id FROM transaction WHERE id = ?", Long.class, transactionId);
         int changed;
         if (applyToMerchant) {
-            String key = jdbc.queryForObject("SELECT key FROM merchant WHERE id = ?", String.class, merchantId);
-            jdbc.update("DELETE FROM category_rule WHERE household_id = ? AND source = 'USER' AND match_type = 'MERCHANT' AND pattern = ?",
-                    HOUSEHOLD, key);
-            jdbc.update("""
-                    INSERT INTO category_rule (household_id, source, priority, match_type, pattern, category_id)
-                    VALUES (?, 'USER', 10, 'MERCHANT', ?, ?)""", HOUSEHOLD, key, categoryId);
+            putMerchantRule(merchantId, categoryId);
             // This transaction now follows the rule (even if it was a manual exception before): it is the one the user
             // answered "apply to this merchant" on. Other manual exceptions stay as they are.
             changed = jdbc.update("""
@@ -93,6 +88,26 @@ public class CategoryService {
         }
         relearn(merchantId);
         return changed + categorizeAll();
+    }
+
+    /**
+     * "Pick category (applies to all)" from the review inbox: a tier-1 rule for the merchant, then every non-USER
+     * transaction of the merchant follows it. Manual exceptions stay. Returns how many transactions changed.
+     */
+    @Transactional
+    public int setMerchantCategory(long merchantId, long categoryId) {
+        putMerchantRule(merchantId, categoryId);
+        return categorizeAll();
+    }
+
+    /** The user's rule for a merchant, replacing any earlier one. */
+    private void putMerchantRule(long merchantId, long categoryId) {
+        String key = jdbc.queryForObject("SELECT key FROM merchant WHERE id = ?", String.class, merchantId);
+        jdbc.update("DELETE FROM category_rule WHERE household_id = ? AND source = 'USER' AND match_type = 'MERCHANT' AND pattern = ?",
+                HOUSEHOLD, key);
+        jdbc.update("""
+                INSERT INTO category_rule (household_id, source, priority, match_type, pattern, category_id)
+                VALUES (?, 'USER', 10, 'MERCHANT', ?, ?)""", HOUSEHOLD, key, categoryId);
     }
 
     /** Undo a manual category: the transaction goes back to automatic categorization. Returns how many changed. */

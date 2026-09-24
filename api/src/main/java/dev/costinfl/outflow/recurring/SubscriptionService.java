@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -30,10 +31,18 @@ public class SubscriptionService {
 
     private final JdbcTemplate jdbc;
     private final RecurrenceService recurrence;
+    private final Clock clock;
 
-    public SubscriptionService(JdbcTemplate jdbc, RecurrenceService recurrence) {
+    public SubscriptionService(JdbcTemplate jdbc, RecurrenceService recurrence, Clock clock) {
         this.jdbc = jdbc;
         this.recurrence = recurrence;
+        this.clock = clock;
+    }
+
+    /** {@link #refresh(LocalDate)} as of today: after an upload, a category change or a merchant alias. */
+    @Transactional
+    public RefreshResult refreshNow() {
+        return refresh(LocalDate.now(clock));
     }
 
     public record RefreshResult(int proposed, int updated, int dropped, int linked) {}

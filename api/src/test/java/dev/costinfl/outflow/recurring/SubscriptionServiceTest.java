@@ -52,7 +52,7 @@ class SubscriptionServiceTest {
     void setUp() throws Exception {
         ImportFixtures.reset(jdbc);
         account = ImportFixtures.newAccount(jdbc, "Main");
-        load(RecurringFixture.LEDGER); // the upload pipeline refreshes subscriptions
+        load(RecurringFixtures.LEDGER); // the upload pipeline refreshes subscriptions
     }
 
     void load(String csv) throws Exception {

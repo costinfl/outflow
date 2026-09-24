@@ -4,6 +4,7 @@ import dev.costinfl.outflow.category.CategoryService;
 import dev.costinfl.outflow.ingest.parse.Iban;
 import dev.costinfl.outflow.merchant.normalize.Alias;
 import dev.costinfl.outflow.merchant.normalize.MerchantNormalizer;
+import dev.costinfl.outflow.recurring.SubscriptionService;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Arrays;
@@ -54,11 +55,14 @@ public class MerchantController {
     private final JdbcTemplate jdbc;
     private final MerchantService merchants;
     private final CategoryService categories;
+    private final SubscriptionService subscriptions;
 
-    public MerchantController(JdbcTemplate jdbc, MerchantService merchants, CategoryService categories) {
+    public MerchantController(JdbcTemplate jdbc, MerchantService merchants, CategoryService categories,
+            SubscriptionService subscriptions) {
         this.jdbc = jdbc;
         this.merchants = merchants;
         this.categories = categories;
+        this.subscriptions = subscriptions;
     }
 
     @GetMapping
@@ -108,6 +112,8 @@ public class MerchantController {
         jdbc.update("INSERT INTO merchant_alias (match_type, pattern, merchant_key, source) VALUES (?, ?, ?, 'USER')",
                 alias.matchType().name(), alias.pattern(), alias.merchantKey());
         int moved = merchants.reassignAll();
-        return new AliasResult(moved, categories.categorizeAll());
+        int recategorized = categories.categorizeAll();
+        subscriptions.refreshNow();
+        return new AliasResult(moved, recategorized);
     }
 }

@@ -53,7 +53,7 @@ class RecurrenceServiceTest {
 
     @Test
     void findsTheSeededSubscriptionsAndNothingElse() throws Exception {
-        load(account, RecurringFixture.LEDGER);
+        load(account, RecurringFixtures.LEDGER);
 
         var found = byMerchant(recurrence.detect(TODAY));
 

@@ -5,9 +5,43 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | **M4 — Recurring and review inbox** (M3 merged to `main` in PR #4) |
-| Last completed | **CP4.2** — `subscription` + `subscription_rejection` and the candidate lifecycle |
-| Next | **CP4.3** — review inbox API and screen: subscription suggestions, uncategorized merchants, sorted by RON affected |
+| Last completed | **CP4.3** — review inbox API and screen |
+| Next | **CP4.4** — home "Committed every month" block and Recurring screen; coverage nudge when history is under 3 months |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M4 work) |
+
+## CP4.3 — done
+
+297 backend tests and 10 web tests green; typecheck, the build and the demo build green; the spec is refreshed and
+`gen:api` is current.
+
+- **`GET /api/review`** returns `{cards, possible, count}`, one card per merchant, sorted by money affected:
+  - **Subscription suggestion:** a PROPOSED row. It carries the charges linked to it, cadence, amount, since and next
+    expected. Confidence ≥ 0.65 goes in `cards`; lower goes in `possible`.
+  - **Uncategorized merchant:** all of a merchant's transactions without a category, with their count and money.
+  - Price-change, missed-charge and duplicate cards come with M5.
+- **Skipping:** `POST /api/review/skip {key}` (V7 `review_skip`). A skipped card stays hidden until the next upload.
+- **Answers:**
+  - `POST /api/subscriptions/{id}/confirm` (optional name, cadence, expected amount), `/reject` and `/end`. An unknown
+    id returns 404; an illegal transition returns 409.
+  - `POST /api/review/merchants/{id}/category`: a USER rule for the merchant, which all its automatic transactions
+    follow.
+  - Category changes (this endpoint and `PUT`/`DELETE /api/transactions/{id}/category`) and merchant aliases re-run
+    `SubscriptionService.refreshNow()`. A merchant marked as a transfer stops being a subscription candidate.
+- **`#/review`** (Review in the header; "N questions to review" on the home screen's attention block):
+  - Subscription cards read "Netflix, RON 49.99 monthly since January 2026. Is this a subscription?" with Yes /
+    Not recurring / Edit (name, amount, how often) / Skip.
+  - Uncategorized cards read "6 transactions, RON 1,500.00 from World Class" with a category picker, Apply and Skip.
+  - Swipe right confirms and left rejects (or skips a merchant card); the buttons do the same. "Possible" payments
+    are collapsed. Typed amounts are parsed exactly (`decimalToMinor`, with a web unit test).
+- **Tests:** `ReviewControllerTest` (7) covers the order and contents of cards, confirm / reject / end with 404, 409
+  and 400, a merchant category that also drops its subscription proposal, a transaction recategorized as a transfer
+  that drops its proposal, and skipping until the next upload.
+- **Verified in Chromium at 390 px, light and dark, against the real API with the seeded ledger:**
+  - home badge "6 questions to review" → inbox
+  - Yes (Netflix); Edit → "Orange phone" at 70,5 (stored as 7050); Not recurring (eMAG); World Class → Health & pharmacy
+  - Skip, then a left swipe rejected Enel → "Nothing needs your attention"
+  - no overflow, no console errors
+  - Demo: illustrative cards consistent with the demo ledger; answering explains that it needs the real app.
 
 ## CP4.2 — done
 
@@ -68,7 +102,7 @@ _Resume entrypoint. Updated at every checkpoint._
     missed month (R_interval 0.8, confidence 0.92), weekend anchor 5 days late, yearly, yearly across New Year, a plan
     next to one-off purchases, the 25% band edge, irregular spending, too few charges, recency decay, a possible-only
     fit, a fit below the threshold.
-  - `RecurrenceServiceTest` on a seeded 7-month ledger (`RecurringFixture`): Netflix fixed, Enel variable, Orange month
+  - `RecurrenceServiceTest` on a seeded 7-month ledger (`RecurringFixtures`): Netflix fixed, Enel variable, Orange month
     end, World Class with April missed, eMAG plan next to one-offs. Exactly these are found; the savings transfer,
     ATM withdrawals, Lidl and salary are not. Accounts are separate streams.
 - Quarterly and bi-weekly (in the DESIGN table but not in the plan's CP4.1) are not fitted yet. They add as

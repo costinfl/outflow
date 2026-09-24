@@ -1,0 +1,79 @@
+package dev.costinfl.outflow.review;
+
+import dev.costinfl.outflow.recurring.Cadence;
+import dev.costinfl.outflow.recurring.Candidate.AmountKind;
+import dev.costinfl.outflow.recurring.RecurrenceDetector;
+import dev.costinfl.outflow.review.ReviewCard.Inbox;
+import dev.costinfl.outflow.review.ReviewCard.Kind;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+
+/**
+ * Builds the review inbox (DESIGN: Review inbox): every decision the system needs, one card per merchant, largest money
+ * impact first. Price-change, missed-charge and duplicate cards come with M5.
+ */
+@Service
+public class ReviewService {
+
+    private static final BigDecimal PROPOSE = BigDecimal.valueOf(RecurrenceDetector.PROPOSE);
+
+    private final JdbcTemplate jdbc;
+
+    public ReviewService(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    public Inbox inbox() {
+        var skipped = new HashSet<>(jdbc.queryForList("""
+                SELECT card_key FROM review_skip
+                WHERE skipped_at >= (SELECT coalesce(max(uploaded_at), '-infinity') FROM statement_file)""", String.class));
+        var cards = new ArrayList<ReviewCard>();
+        var possible = new ArrayList<ReviewCard>();
+        jdbc.query("""
+                SELECT s.id, s.merchant_id, s.name, s.currency, s.cadence, s.expected_amount_minor, s.amount_kind,
+                       s.first_seen, s.confidence, s.next_expected_date,
+                       count(t.id), coalesce(sum(-t.amount_minor), 0)
+                FROM subscription s LEFT JOIN transaction t ON t.subscription_id = s.id
+                WHERE s.state = 'PROPOSED'
+                GROUP BY s.id""", rs -> {
+            BigDecimal confidence = rs.getBigDecimal(9);
+            var card = new ReviewCard("subscription:" + rs.getLong(1), Kind.SUBSCRIPTION, rs.getLong(12),
+                    rs.getString(4), rs.getLong(2), rs.getString(3), rs.getLong(1), Cadence.valueOf(rs.getString(5)),
+                    rs.getLong(6), AmountKind.valueOf(rs.getString(7)), rs.getObject(8, LocalDate.class),
+                    rs.getInt(11), confidence, rs.getObject(10, LocalDate.class), null);
+            if (!skipped.contains(card.key())) {
+                (confidence.compareTo(PROPOSE) >= 0 ? cards : possible).add(card);
+            }
+        });
+        jdbc.query("""
+                SELECT t.merchant_id, m.display_name, t.currency, count(*), sum(abs(t.amount_minor))
+                FROM transaction t JOIN merchant m ON m.id = t.merchant_id
+                WHERE t.category_id IS NULL
+                GROUP BY t.merchant_id, m.display_name, t.currency""", rs -> {
+            var card = new ReviewCard("merchant:" + rs.getLong(1) + ":" + rs.getString(3), Kind.UNCATEGORIZED_MERCHANT,
+                    rs.getLong(5), rs.getString(3), rs.getLong(1), rs.getString(2),
+                    null, null, null, null, null, null, null, null, rs.getInt(4));
+            if (!skipped.contains(card.key())) {
+                cards.add(card);
+            }
+        });
+        Comparator<ReviewCard> byImpact = Comparator.comparingLong(ReviewCard::affectedMinor).reversed()
+                .thenComparing(ReviewCard::key);
+        cards.sort(byImpact);
+        possible.sort(byImpact);
+        return new Inbox(cards, possible, cards.size());
+    }
+
+    /** Hides a card until the next upload. */
+    public void skip(String key) {
+        jdbc.update("""
+                INSERT INTO review_skip (card_key) VALUES (?)
+                ON CONFLICT (card_key) DO UPDATE SET skipped_at = now()""", key);
+    }
+}

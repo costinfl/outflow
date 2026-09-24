@@ -164,6 +164,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["inbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/review/merchants/{merchantId}/category": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["categorizeMerchant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/review/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subscriptions/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subscriptions/{id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subscriptions/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/transactions": {
         parameters: {
             query?: never;
@@ -301,6 +397,14 @@ export interface components {
              */
             usualMinor: number;
         };
+        /** @description Corrections made while confirming; omitted fields keep the detected value */
+        Confirm: {
+            /** @enum {string} */
+            cadence?: "MONTHLY" | "YEARLY";
+            /** Format: int64 */
+            expectedAmountMinor?: number;
+            name?: string;
+        };
         Explanation: {
             categoryCode?: string;
             /** @description Which tier would categorize it: RULE, LEARNED or KEYWORD; absent when none */
@@ -349,6 +453,16 @@ export interface components {
             /** Format: int32 */
             newTransactions: number;
         };
+        Inbox: {
+            cards: components["schemas"]["ReviewCard"][];
+            /**
+             * Format: int32
+             * @description Number of cards, for the home badge
+             */
+            count: number;
+            /** @description Subscription suggestions with confidence between 0.45 and 0.65 */
+            possible: components["schemas"]["ReviewCard"][];
+        };
         MerchantAmount: {
             /** Format: int64 */
             amountMinor: number;
@@ -357,6 +471,17 @@ export interface components {
             name: string;
             /** Format: int32 */
             transactionCount: number;
+        };
+        MerchantCategory: {
+            /** Format: int64 */
+            categoryId: number;
+        };
+        MerchantCategoryResult: {
+            /**
+             * Format: int32
+             * @description Transactions whose category changed
+             */
+            changedTransactions: number;
         };
         MerchantSummary: {
             categoryCode?: string;
@@ -462,15 +587,111 @@ export interface components {
             /** Format: int64 */
             spentMinor: number;
         };
+        ReviewCard: {
+            /**
+             * Format: int64
+             * @description Money the answer affects (positive minor units); cards are sorted by it, largest first
+             */
+            affectedMinor: number;
+            /** @enum {string} */
+            amountKind?: "FIXED" | "VARIABLE";
+            /** @enum {string} */
+            cadence?: "MONTHLY" | "YEARLY";
+            /** @description Detector confidence, 0–1 */
+            confidence?: number;
+            currency: string;
+            /** Format: int64 */
+            expectedAmountMinor?: number;
+            /**
+             * @description Stable id, used to skip the card
+             * @example subscription:12
+             */
+            key: string;
+            /** @enum {string} */
+            kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT";
+            /** Format: int64 */
+            merchantId: number;
+            /** @description Subscription name or merchant display name */
+            name: string;
+            /** Format: date */
+            nextExpectedDate?: string;
+            /**
+             * Format: int32
+             * @description Charges linked to the subscription
+             */
+            occurrences?: number;
+            /**
+             * Format: date
+             * @description First charge of the subscription
+             */
+            since?: string;
+            /** Format: int64 */
+            subscriptionId?: number;
+            /**
+             * Format: int32
+             * @description Uncategorized transactions of the merchant
+             */
+            transactionCount?: number;
+        };
         SetCategory: {
             /** @description Answer to 'apply to this merchant from now on?': creates a rule for the merchant */
             applyToMerchant?: boolean;
             /** Format: int64 */
             categoryId: number;
         };
+        Skip: {
+            key: string;
+        };
         Step: {
             name?: string;
             output?: string;
+        };
+        Subscription: {
+            /** Format: int64 */
+            accountId: number;
+            /** @enum {string} */
+            amountKind: "FIXED" | "VARIABLE";
+            /**
+             * Format: int32
+             * @description Day of month the charge is due (clamped in shorter months)
+             */
+            anchorDay?: number;
+            /**
+             * Format: int32
+             * @description Month of year, for yearly cadences
+             */
+            anchorMonth?: number;
+            /** Format: int64 */
+            bandMaxMinor: number;
+            /** Format: int64 */
+            bandMinMinor: number;
+            /** @enum {string} */
+            cadence: "MONTHLY" | "YEARLY";
+            /** @description Detector confidence, 0–1 */
+            confidence: number;
+            currency: string;
+            /** @enum {string} */
+            endedBy?: "USER" | "SYSTEM";
+            /** Format: int64 */
+            expectedAmountMinor: number;
+            /** Format: date */
+            firstSeen: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: date */
+            lastSeen: string;
+            /** Format: int64 */
+            merchantId: number;
+            name: string;
+            /** Format: date */
+            nextExpectedDate?: string;
+            /** @enum {string} */
+            state: "PROPOSED" | "CONFIRMED" | "REJECTED" | "ENDED";
+            /**
+             * Format: int64
+             * @description A charge within expected ± tolerance matches
+             */
+            toleranceMinor: number;
         };
         TransactionList: {
             /** Format: int32 */
@@ -777,6 +998,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Explanation"];
+                };
+            };
+        };
+    };
+    inbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Inbox"];
+                };
+            };
+        };
+    };
+    categorizeMerchant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                merchantId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MerchantCategory"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MerchantCategoryResult"];
+                };
+            };
+        };
+    };
+    skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Skip"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Confirm"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+        };
+    };
+    end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+        };
+    };
+    reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
                 };
             };
         };

@@ -5,11 +5,11 @@ package dev.costinfl.outflow.recurring;
  * month end (Orange), one missed month (World Class, no April), and a plan next to one-off purchases (eMAG). A monthly
  * savings transfer, monthly cash withdrawals, Lidl shopping and a refund are not subscriptions.
  */
-final class RecurringFixture {
+public final class RecurringFixtures {
 
-    private RecurringFixture() {}
+    private RecurringFixtures() {}
 
-    static final String LEDGER = """
+    public static final String LEDGER = """
             Date,Description,Amount,Currency
             2026-01-15,NETFLIX.COM,-49.99,RON
             2026-02-16,NETFLIX.COM,-49.99,RON

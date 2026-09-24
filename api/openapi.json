@@ -201,6 +201,23 @@
         "required" : [ "name", "sharePct", "spentMinor", "transactionCount", "usualMinor" ],
         "type" : "object"
       },
+      "Confirm" : {
+        "description" : "Corrections made while confirming; omitted fields keep the detected value",
+        "properties" : {
+          "cadence" : {
+            "enum" : [ "MONTHLY", "YEARLY" ],
+            "type" : "string"
+          },
+          "expectedAmountMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Explanation" : {
         "properties" : {
           "categoryCode" : {
@@ -319,6 +336,30 @@
         "required" : [ "accounts", "alreadyImported", "files", "newTransactions" ],
         "type" : "object"
       },
+      "Inbox" : {
+        "properties" : {
+          "cards" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ReviewCard"
+            },
+            "type" : "array"
+          },
+          "count" : {
+            "description" : "Number of cards, for the home badge",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "possible" : {
+            "description" : "Subscription suggestions with confidence between 0.45 and 0.65",
+            "items" : {
+              "$ref" : "#/components/schemas/ReviewCard"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "cards", "count", "possible" ],
+        "type" : "object"
+      },
       "MerchantAmount" : {
         "properties" : {
           "amountMinor" : {
@@ -338,6 +379,27 @@
           }
         },
         "required" : [ "amountMinor", "merchantId", "name", "transactionCount" ],
+        "type" : "object"
+      },
+      "MerchantCategory" : {
+        "properties" : {
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "categoryId" ],
+        "type" : "object"
+      },
+      "MerchantCategoryResult" : {
+        "properties" : {
+          "changedTransactions" : {
+            "description" : "Transactions whose category changed",
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "changedTransactions" ],
         "type" : "object"
       },
       "MerchantSummary" : {
@@ -539,6 +601,76 @@
         "required" : [ "categoryCount", "sharePct", "spentMinor" ],
         "type" : "object"
       },
+      "ReviewCard" : {
+        "properties" : {
+          "affectedMinor" : {
+            "description" : "Money the answer affects (positive minor units); cards are sorted by it, largest first",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amountKind" : {
+            "enum" : [ "FIXED", "VARIABLE" ],
+            "type" : "string"
+          },
+          "cadence" : {
+            "enum" : [ "MONTHLY", "YEARLY" ],
+            "type" : "string"
+          },
+          "confidence" : {
+            "description" : "Detector confidence, 0–1",
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "expectedAmountMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "key" : {
+            "description" : "Stable id, used to skip the card",
+            "example" : "subscription:12",
+            "type" : "string"
+          },
+          "kind" : {
+            "enum" : [ "SUBSCRIPTION", "UNCATEGORIZED_MERCHANT" ],
+            "type" : "string"
+          },
+          "merchantId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "description" : "Subscription name or merchant display name",
+            "type" : "string"
+          },
+          "nextExpectedDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "occurrences" : {
+            "description" : "Charges linked to the subscription",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "since" : {
+            "description" : "First charge of the subscription",
+            "format" : "date",
+            "type" : "string"
+          },
+          "subscriptionId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "transactionCount" : {
+            "description" : "Uncategorized transactions of the merchant",
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "affectedMinor", "currency", "key", "kind", "merchantId", "name" ],
+        "type" : "object"
+      },
       "SetCategory" : {
         "properties" : {
           "applyToMerchant" : {
@@ -553,6 +685,15 @@
         "required" : [ "categoryId" ],
         "type" : "object"
       },
+      "Skip" : {
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "key" ],
+        "type" : "object"
+      },
       "Step" : {
         "properties" : {
           "name" : {
@@ -562,6 +703,89 @@
             "type" : "string"
           }
         },
+        "type" : "object"
+      },
+      "Subscription" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amountKind" : {
+            "enum" : [ "FIXED", "VARIABLE" ],
+            "type" : "string"
+          },
+          "anchorDay" : {
+            "description" : "Day of month the charge is due (clamped in shorter months)",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "anchorMonth" : {
+            "description" : "Month of year, for yearly cadences",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "bandMaxMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "bandMinMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "cadence" : {
+            "enum" : [ "MONTHLY", "YEARLY" ],
+            "type" : "string"
+          },
+          "confidence" : {
+            "description" : "Detector confidence, 0–1",
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "endedBy" : {
+            "enum" : [ "USER", "SYSTEM" ],
+            "type" : "string"
+          },
+          "expectedAmountMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "firstSeen" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "lastSeen" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "merchantId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "nextExpectedDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "state" : {
+            "enum" : [ "PROPOSED", "CONFIRMED", "REJECTED", "ENDED" ],
+            "type" : "string"
+          },
+          "toleranceMinor" : {
+            "description" : "A charge within expected ± tolerance matches",
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "accountId", "amountKind", "bandMaxMinor", "bandMinMinor", "cadence", "confidence", "currency", "expectedAmountMinor", "firstSeen", "id", "lastSeen", "merchantId", "name", "state", "toleranceMinor" ],
         "type" : "object"
       },
       "TransactionList" : {
@@ -987,6 +1211,172 @@
           }
         },
         "tags" : [ "merchants" ]
+      }
+    },
+    "/api/review" : {
+      "get" : {
+        "operationId" : "inbox",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Inbox"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "review" ]
+      }
+    },
+    "/api/review/merchants/{merchantId}/category" : {
+      "post" : {
+        "operationId" : "categorizeMerchant",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "merchantId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MerchantCategory"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MerchantCategoryResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "review" ]
+      }
+    },
+    "/api/review/skip" : {
+      "post" : {
+        "operationId" : "skip",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Skip"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "tags" : [ "review" ]
+      }
+    },
+    "/api/subscriptions/{id}/confirm" : {
+      "post" : {
+        "operationId" : "confirm",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Confirm"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Subscription"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "subscriptions" ]
+      }
+    },
+    "/api/subscriptions/{id}/end" : {
+      "post" : {
+        "operationId" : "end",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Subscription"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "subscriptions" ]
+      }
+    },
+    "/api/subscriptions/{id}/reject" : {
+      "post" : {
+        "operationId" : "reject",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Subscription"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "subscriptions" ]
       }
     },
     "/api/transactions" : {

@@ -13,8 +13,6 @@ import dev.costinfl.outflow.ingest.parse.StatementParser;
 import dev.costinfl.outflow.category.CategoryService;
 import dev.costinfl.outflow.merchant.MerchantService;
 import dev.costinfl.outflow.recurring.SubscriptionService;
-import java.time.Clock;
-import java.time.LocalDate;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;
@@ -43,17 +41,15 @@ public class UploadService {
     private final MerchantService merchants;
     private final CategoryService categories;
     private final SubscriptionService subscriptions;
-    private final Clock clock;
 
     public UploadService(StatementDetector detector, AccountService accounts, ImportService imports,
-            MerchantService merchants, CategoryService categories, SubscriptionService subscriptions, Clock clock) {
+            MerchantService merchants, CategoryService categories, SubscriptionService subscriptions) {
         this.detector = detector;
         this.accounts = accounts;
         this.imports = imports;
         this.merchants = merchants;
         this.categories = categories;
         this.subscriptions = subscriptions;
-        this.clock = clock;
     }
 
     /**
@@ -105,7 +101,7 @@ public class UploadService {
         // recurrence detector sees them.
         merchants.assignMissing();
         categories.categorizeAll();
-        subscriptions.refresh(LocalDate.now(clock));
+        subscriptions.refreshNow();
         var outcome = new FileOutcome(fileName, r.duplicateFile() ? Status.DUPLICATE_FILE : Status.IMPORTED, null,
                 r.parserId(), account.id(), r.rows(), r.newTransactions(), r.alreadyImported(),
                 r.periodFrom().orElse(null), r.periodTo().orElse(null), List.of());

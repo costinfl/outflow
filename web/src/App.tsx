@@ -3,6 +3,7 @@ import { isDemo } from './api/client'
 import { AnonymizePage } from './anonymize/AnonymizePage'
 import { CategoryPage } from './categories/CategoryPage'
 import { HomePage } from './home/HomePage'
+import { ReviewPage } from './review/ReviewPage'
 import { StatusPage } from './system/StatusPage'
 import { TransactionsPage } from './transactions/TransactionsPage'
 import { UploadPage } from './upload/UploadPage'
@@ -16,6 +17,7 @@ export function App() {
           <Route index element={<HomePage />} />
           <Route path="transactions" element={<TransactionsPage />} />
           <Route path="categories/:id" element={<CategoryPage />} />
+          <Route path="review" element={<ReviewPage />} />
           <Route path="upload" element={<UploadPage />} />
           <Route path="anonymize" element={<AnonymizePage />} />
           <Route path="status" element={<StatusPage />} />
@@ -39,6 +41,9 @@ function Layout() {
           Outflow
         </Link>
         <nav className="flex gap-4 text-xs text-muted">
+          <Link to="/review" className="hover:underline">
+            Review
+          </Link>
           <Link to="/upload" className="hover:underline">
             Upload
           </Link>
