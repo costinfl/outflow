@@ -20,6 +20,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update"];
+        trace?: never;
+    };
     "/api/categories": {
         parameters: {
             query?: never;
@@ -194,6 +210,11 @@ export interface components {
             /** @enum {string} */
             kind: "CURRENT" | "SAVINGS" | "CARD";
             name: string;
+        };
+        AccountChange: {
+            /** @enum {string} */
+            kind?: "CURRENT" | "SAVINGS" | "CARD";
+            name?: string;
         };
         AccountImport: {
             account: components["schemas"]["Account"];
@@ -537,6 +558,32 @@ export interface operations {
         responses: {
             /** @description Created */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountChange"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -4,10 +4,29 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M3 — Home screen** (M2 merged to `main` via PR #3) |
-| Last completed | **CP3.3** — transactions screen with removable filter chips; category detail with trend and merchants |
-| Next | **CP3.4** — upload flow and import summary screen (DESIGN: First-run flow) |
+| Milestone | **M3 — Home screen: complete** (PR to `main` open) |
+| Last completed | **CP3.4** — upload flow and import summary screen (DESIGN: First-run flow) |
+| Next | **M4 / CP4.1** — recurrence: grouping + amount bands; monthly and yearly cadence fit with anchor-day matching; scoring |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M3 work) |
+
+## CP3.4 — done
+
+264 backend tests, 8 web tests green; typecheck and both builds green.
+
+- `#/upload`: drop or pick up to 20 files; they are imported as-is. Only files that need an answer ask a question:
+  "Which account is X?" (existing account or "New account…" inline) or "Which bank format is X?" (parser candidates);
+  just that file is re-sent. Failed files show their reason; the others are unaffected
+- Import summary: new transactions and "N already imported, skipped", per account with masked IBAN, period and a
+  "new account" mark; rename detected accounts inline; "See where your money went" → home. Empty home links here
+- `PATCH /api/accounts/{id}` (name, kind) → `AccountControllerTest`
+- Verified end to end in a browser against the real API: IBAN file → account detected (21 new); generic file → asked,
+  answered "New account: Main" (63 new, 84 total); rename persisted; same file again → "imported before, nothing
+  changed"; home shows the month. Demo mode explains that uploading needs the real app
+
+**M3 acceptance** (plan): the home screen answers DESIGN's questions 1 (spent vs. usual) and 2 (top categories);
+question 3 (committed every month) needs recurrence detection, which is M4 (placeholder block shown). Every number
+drills to its transactions and sums correctly: automated (`InsightServiceTest`, `TransactionControllerTest`) and
+checked in the browser.
 
 ## CP3.3 — done
 
@@ -269,12 +288,16 @@ Health tests now derive the expected schema version from the migrations instead 
 
 ## Known issues
 
+- **GitHub Pages is disabled** since the repository went private and back to public (deploys fail with "Get Pages
+  site failed … Not Found"). The user re-enables it: Settings → Pages → Source: GitHub Actions; then the next push or
+  a manual run of "Pages (demo)" publishes.
+
 - The first ING sample contained real names of private people (Beneficiar / Ordonator fields). The repository was made
   private and, at the user's request, the file was purged from the dev branch history (force-push, 2026-09-24; `main`
   never had it). The ING parser's golden test now uses `samples/synthetic/ing-ro-2026-q1.csv`. The anonymizer now
   replaces people in Beneficiar / Ordonator / Plătitor fields (both implementations, byte-identical); next the user
   re-anonymizes the export and a real golden test is added. GitHub may keep unreferenced old commits cached: ask GitHub
-  Support to purge them before the repository is made public again.
+  Support to purge them (the repository is public again since 2026-09-24).
 
 - Dev-container only: Docker Hub rate-limits image pulls here (429); images were pulled via `mirror.gcr.io`.
   Not a project issue; CI and local machines pull normally.

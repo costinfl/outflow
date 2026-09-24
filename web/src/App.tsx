@@ -5,6 +5,7 @@ import { CategoryPage } from './categories/CategoryPage'
 import { HomePage } from './home/HomePage'
 import { StatusPage } from './system/StatusPage'
 import { TransactionsPage } from './transactions/TransactionsPage'
+import { UploadPage } from './upload/UploadPage'
 
 // Hash routing: GitHub Pages has no server-side SPA fallback, so deep links must live after the '#'.
 export function App() {
@@ -15,6 +16,7 @@ export function App() {
           <Route index element={<HomePage />} />
           <Route path="transactions" element={<TransactionsPage />} />
           <Route path="categories/:id" element={<CategoryPage />} />
+          <Route path="upload" element={<UploadPage />} />
           <Route path="anonymize" element={<AnonymizePage />} />
           <Route path="status" element={<StatusPage />} />
           <Route path="*" element={<NotFound />} />
@@ -37,6 +39,9 @@ function Layout() {
           Outflow
         </Link>
         <nav className="flex gap-4 text-xs text-muted">
+          <Link to="/upload" className="hover:underline">
+            Upload
+          </Link>
           <Link to="/anonymize" className="hover:underline">
             Anonymize
           </Link>

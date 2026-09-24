@@ -34,7 +34,7 @@ npm --prefix web run gen:api       # regenerate web/src/api/schema.gen.ts from a
 docker compose up --build          # full stack: SPA http://localhost:3000 (proxies /api), API :8080, Postgres :5432
 ```
 
-API endpoints: `/api/health`, `POST /api/imports` (multipart `files`), `GET/POST /api/accounts`,
+API endpoints: `/api/health`, `POST /api/imports` (multipart `files`), `GET/POST /api/accounts`, `PATCH /api/accounts/{id}`,
 `GET /api/categories`, `PUT/DELETE /api/transactions/{id}/category`, `GET /api/merchants`, `GET /api/merchants/explain`,
 `POST /api/merchants/aliases`, `GET /api/insights/month`, `GET /api/insights/categories/{id}`,
 `GET /api/transactions`; OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.

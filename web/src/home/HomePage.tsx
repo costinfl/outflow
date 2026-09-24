@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { api } from '../api/client'
 import type { MonthSummary } from '../api/types'
 import { useApi } from '../lib/useApi'
@@ -29,6 +29,9 @@ export function HomePage() {
       <div className="py-12 text-center">
         <h1 className="text-xl font-semibold text-ink">Where does your money go?</h1>
         <p className="mt-2 text-ink-2">Upload a bank statement to see the answer.</p>
+        <Link to="/upload" className="mt-4 inline-block rounded-lg bg-bar px-4 py-2 font-medium text-white">
+          Upload statements
+        </Link>
       </div>
     )
   }

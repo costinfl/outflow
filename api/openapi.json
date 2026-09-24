@@ -26,6 +26,18 @@
         "required" : [ "currency", "id", "kind", "name" ],
         "type" : "object"
       },
+      "AccountChange" : {
+        "properties" : {
+          "kind" : {
+            "enum" : [ "CURRENT", "SAVINGS", "CARD" ],
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "AccountImport" : {
         "properties" : {
           "account" : {
@@ -687,6 +699,43 @@
               }
             },
             "description" : "Created"
+          }
+        },
+        "tags" : [ "accounts" ]
+      }
+    },
+    "/api/accounts/{id}" : {
+      "patch" : {
+        "operationId" : "update",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AccountChange"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Account"
+                }
+              }
+            },
+            "description" : "OK"
           }
         },
         "tags" : [ "accounts" ]
