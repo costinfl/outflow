@@ -59,7 +59,8 @@ DB connection: env `OUTFLOW_DB_URL`, `OUTFLOW_DB_USER`, `OUTFLOW_DB_PASSWORD` (d
 IBAN HMAC key: `OUTFLOW_IBAN_HMAC_KEY` (base64, ≥ 32 bytes) or generated once into `$OUTFLOW_DATA_DIR/iban-hmac.key`
 (default `./data`, gitignored). Tests use a fixed key from `api/src/test/resources/config/application.yml`.
 Pipeline per upload (one DB transaction): parse → import → `MerchantService.assignMissing` →
-`CategoryService.categorizeAll` → `SubscriptionService.refreshNow` (also after category or alias changes). Transactions with `category_source = 'USER'` are never recomputed.
+`CategoryService.categorizeAll` → `TransferService.pairAll` (recomputes own-account transfer pairs) →
+`SubscriptionService.refreshNow` (also after category or alias changes). Transactions with `category_source = 'USER'` are never recomputed.
 Home-screen numbers: every figure is a sum over a `txn.Scope` predicate; the transaction list uses the same
 predicates, so figures always equal their drill-through. Never compute a figure outside `Scope`.
 Count tests from `api/target/surefire-reports/TEST-*.xml`: `@Nested` classes are missing from the text summary.

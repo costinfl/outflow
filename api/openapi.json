@@ -340,9 +340,14 @@
           "status" : {
             "enum" : [ "IMPORTED", "DUPLICATE_FILE", "NEEDS_PARSER", "NEEDS_ACCOUNT", "FAILED" ],
             "type" : "string"
+          },
+          "transfers" : {
+            "description" : "Transactions this upload recognised as transfers between own accounts (excluded from spending)",
+            "format" : "int32",
+            "type" : "integer"
           }
         },
-        "required" : [ "alreadyImported", "candidates", "fileName", "newTransactions", "rows", "status" ],
+        "required" : [ "alreadyImported", "candidates", "fileName", "newTransactions", "rows", "status", "transfers" ],
         "type" : "object"
       },
       "Group" : {
@@ -406,9 +411,14 @@
           "newTransactions" : {
             "format" : "int32",
             "type" : "integer"
+          },
+          "transfers" : {
+            "description" : "Transactions recognised as transfers between own accounts, excluded from spending",
+            "format" : "int32",
+            "type" : "integer"
           }
         },
-        "required" : [ "accounts", "alreadyImported", "files", "newTransactions" ],
+        "required" : [ "accounts", "alreadyImported", "files", "newTransactions", "transfers" ],
         "type" : "object"
       },
       "Inbox" : {
@@ -1058,6 +1068,14 @@
             "type" : "string"
           },
           "merchantName" : {
+            "type" : "string"
+          },
+          "transferAccountName" : {
+            "description" : "The other own account of a transfer",
+            "type" : "string"
+          },
+          "transferState" : {
+            "description" : "PAIRED: a transfer between own accounts, both sides seen; PROVISIONAL: only this side, recognised by the other account's IBAN; absent: not an own-account transfer",
             "type" : "string"
           }
         },

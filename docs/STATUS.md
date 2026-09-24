@@ -4,10 +4,54 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M4 — Recurring and review inbox: complete** (PR to `main` open) |
-| Last completed | **CP4.4** — home "Committed every month" block, Recurring screen, history nudge |
-| Next | **M5 / CP5.1** — transfer pairing incl. counterparty IBAN and one-sided provisional marking; excluded from spend |
-| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M4 work) |
+| Milestone | **M5 — Multi-account and tracking** (M4 merged to `main` in PR #5) |
+| Last completed | **CP5.1** — own-account transfer pairing, one-sided provisional marking, excluded from spending |
+| Next | **CP5.2** — pending/posted soft match + review card |
+| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M5 work) |
+
+## CP5.1 — done
+
+315 backend tests (12 new) and 10 web tests green; typecheck, the build and the demo build green; the spec is refreshed
+and `gen:api` is current.
+
+- **V8:**
+  - `transfer_pair` (out, in, method IBAN or AMOUNT_DATE, business days)
+  - on `transaction`: `transfer_pair_id`, `transfer_state` (PAIRED / PROVISIONAL), `transfer_account_id`, with a
+    consistency check
+- **`txn.TransferService.pairAll()`** runs in the upload pipeline after categories and before subscriptions (DESIGN
+  stages G–I, run synchronously in the same transaction).
+  - **A pair** is money out of one own account and the same amount into another, same currency, within 3 business
+    days. Accounts must differ.
+  - **Counterparty IBANs:** found in the counterparty and description text, HMAC-hashed and compared with the
+    accounts' `iban_hash`.
+    - They rule out pairs with any other account.
+    - They confirm a pair: IBAN-confirmed pairs win within the same gap.
+    - On their own they mark a one-sided transfer as PROVISIONAL. It becomes PAIRED when the other statement arrives.
+  - **Greedy by smallest gap.** If a transaction has two equally good partners at a level, it and those partners stay
+    unpaired.
+  - **Recomputed on every run:** only the difference is applied, so the result does not depend on upload order. A
+    later upload can turn a pair into a tie; the pair is then dissolved and its SYSTEM category recomputed.
+  - Paired and provisional transactions get category TRANSFER, source SYSTEM. `categorizeAll` leaves them alone.
+  - A user's non-transfer category excludes a transaction from pairing (a user decision wins).
+  - Recurrence ignores transfers.
+- **Import summary** (`FileOutcome.transfers`, `ImportSummary.transfers`): "2 transfers between your accounts,
+  excluded from spending."
+- **`TransactionView.transferState` / `transferAccountName`:** the expanded row says "Transfer to your Savings account:
+  both sides found…" or explains the provisional state. The demo's savings transfer is shown as provisional.
+- **`TransferServiceTest` (12):**
+  - pairing within 3 business days (Fri → Wed); 4 days apart is not a pair
+  - same account and different amounts never pair
+  - greedy by smallest gap
+  - a tie dissolves an earlier pair, and an IBAN decides a tie
+  - rerunning is idempotent
+  - provisional via IBAN, then paired; an unknown IBAN is ignored
+  - a user category is never overwritten; `categorizeAll` keeps transfers
+  - business-day counting
+  - **M5 acceptance:** 6 monthly savings transfers are paired, spending is 0 in every month, nothing recurring is
+    detected and no subscription is proposed
+- **Verified in Chromium (real API):** uploaded Main and Savings statements via `#/upload` and answered the account
+  questions. The summary said "2 transfers between your accounts, excluded from spending". March spending was
+  RON 120.00 (the 1,000 transfer excluded), and the row explained the transfer. No console errors.
 
 ## CP4.4 — done
 
@@ -502,3 +546,11 @@ Health tests now derive the expected schema version from the migrations instead 
 19. **"Committed every month" is not a transaction sum.** DESIGN defines it as monthly equivalents of confirmed
     recurring payments (yearly ÷ 12), so it cannot be a `txn.Scope` sum. Its drill-through is the Recurring screen for
     the same month, whose rows sum to it exactly (same `RecurringService.overview`).
+20. **Transfer ties.** DESIGN: "ties go to review". Tied transactions stay unpaired (so they count as ordinary money
+    out/in) until a later statement or an IBAN decides. A "which transfer is this?" review card can join the
+    CP5.2 soft-match card if you want one.
+21. **Cross-currency transfers** (FX tolerance) are not paired yet: every account so far is RON. They need a rate
+    source that does not leave the machine; proposal: a user-set tolerance per currency pair, when a second currency
+    appears.
+22. **Transfers without an IBAN on one side only** (the other account not uploaded, no IBAN in the text) are still
+    caught by the TRANSFER keyword seeds (ECONOMII, CONT PROPRIU, …), as before.

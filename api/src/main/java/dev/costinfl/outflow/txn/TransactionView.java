@@ -19,4 +19,7 @@ public record TransactionView(
         Long categoryId,
         String categoryCode,
         @Schema(description = "USER, RULE, LEARNED, MCC, KEYWORD, SYSTEM; absent when uncategorized") String categorySource,
-        BigDecimal categoryConfidence) {}
+        BigDecimal categoryConfidence,
+        @Schema(description = "PAIRED: a transfer between own accounts, both sides seen; PROVISIONAL: only this side, "
+                + "recognised by the other account's IBAN; absent: not an own-account transfer") String transferState,
+        @Schema(description = "The other own account of a transfer") String transferAccountName) {}

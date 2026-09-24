@@ -200,6 +200,14 @@ function Row({ t, categories, onChanged }: { t: TransactionView; categories: Cat
       {open && (
         <div className="space-y-2 px-3 pb-3 text-sm">
           <p className="rounded-lg bg-page px-2 py-1.5 font-mono text-xs break-words text-ink-2">{t.description}</p>
+          {t.transferState && (
+            <p className="text-xs text-ink-2">
+              {t.amountMinor < 0 ? 'Transfer to' : 'Transfer from'} your {t.transferAccountName ?? 'other'} account
+              {t.transferState === 'PAIRED'
+                ? ': both sides found, not counted as spending.'
+                : ` (recognised by its IBAN; upload the ${t.transferAccountName ?? 'other'} statement to confirm). Not counted as spending.`}
+            </p>
+          )}
           {t.categorySource && <p className="text-xs text-muted">Category {SOURCE[t.categorySource] ?? t.categorySource}.</p>}
           <label className="block text-xs text-ink-2">
             Category

@@ -497,6 +497,11 @@ export interface components {
             rows: number;
             /** @enum {string} */
             status: "IMPORTED" | "DUPLICATE_FILE" | "NEEDS_PARSER" | "NEEDS_ACCOUNT" | "FAILED";
+            /**
+             * Format: int32
+             * @description Transactions this upload recognised as transfers between own accounts (excluded from spending)
+             */
+            transfers: number;
         };
         Group: {
             /** @description Highest monthly equivalent first */
@@ -524,6 +529,11 @@ export interface components {
             files: components["schemas"]["FileOutcome"][];
             /** Format: int32 */
             newTransactions: number;
+            /**
+             * Format: int32
+             * @description Transactions recognised as transfers between own accounts, excluded from spending
+             */
+            transfers: number;
         };
         Inbox: {
             cards: components["schemas"]["ReviewCard"][];
@@ -866,6 +876,10 @@ export interface components {
             id: number;
             merchantKey: string;
             merchantName: string;
+            /** @description The other own account of a transfer */
+            transferAccountName?: string;
+            /** @description PAIRED: a transfer between own accounts, both sides seen; PROVISIONAL: only this side, recognised by the other account's IBAN; absent: not an own-account transfer */
+            transferState?: string;
         };
     };
     responses: never;

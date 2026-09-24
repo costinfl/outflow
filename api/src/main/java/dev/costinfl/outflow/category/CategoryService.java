@@ -32,7 +32,7 @@ public class CategoryService {
 
     /**
      * Recomputes the category of every automation-categorized or uncategorized transaction from the current rules
-     * and learned merchant categories. Writes only rows that change; returns how many.
+     * and learned merchant categories. Paired and provisional transfers keep their SYSTEM category (TransferService). Writes only rows that change; returns how many.
      */
     @Transactional
     public int categorizeAll() {
@@ -47,14 +47,15 @@ public class CategoryService {
             changed += r.isPresent()
                     ? jdbc.update("""
                             UPDATE transaction SET category_id = ?, category_source = ?, category_confidence = ?
-                            WHERE merchant_id = ? AND category_source IS DISTINCT FROM 'USER'
+                            WHERE merchant_id = ? AND category_source IS DISTINCT FROM 'USER' AND transfer_state IS NULL
                               AND (category_id, category_source, category_confidence)
                                   IS DISTINCT FROM (?::bigint, ?::text, ?::numeric)""",
                             r.get().categoryId(), r.get().source().name(), r.get().confidence(), m.id(),
                             r.get().categoryId(), r.get().source().name(), r.get().confidence())
                     : jdbc.update("""
                             UPDATE transaction SET category_id = NULL, category_source = NULL, category_confidence = NULL
-                            WHERE merchant_id = ? AND category_source IS DISTINCT FROM 'USER' AND category_id IS NOT NULL""",
+                            WHERE merchant_id = ? AND category_source IS DISTINCT FROM 'USER' AND transfer_state IS NULL
+                              AND category_id IS NOT NULL""",
                             m.id());
         }
         return changed;

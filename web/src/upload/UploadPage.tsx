@@ -206,6 +206,11 @@ function Summary({ summary, onRenamed }: { summary: ImportSummary; onRenamed: ()
               {summary.alreadyImported} already imported, skipped.
             </span>
           )}
+          {summary.transfers > 0 && (
+            <span className="block text-sm text-ink-2">
+              {summary.transfers} {summary.transfers === 1 ? 'transfer' : 'transfers'} between your accounts, excluded from spending.
+            </span>
+          )}
         </p>
       )}
       {summary.accounts.map((a) => (

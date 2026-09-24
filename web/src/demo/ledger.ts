@@ -50,6 +50,10 @@ const LEDGER: TransactionView[] = ROWS.map(([date, merchantId, key, name, amount
   ...(categoryId != null
     ? { categoryId, categoryCode: CATEGORIES[categoryId]!.code, categorySource: 'KEYWORD', categoryConfidence: 0.7 }
     : {}),
+  // The savings transfer: the demo has only Main's statement, so it is one-sided, recognised by the Savings IBAN.
+  ...(key === 'CONT ECONOMII'
+    ? { categorySource: 'SYSTEM', categoryConfidence: 1, transferState: 'PROVISIONAL', transferAccountName: 'Savings' }
+    : {}),
   // merchant id is not part of TransactionView; kept for the merchant filter below
   ...({ merchantId } as object),
 }))

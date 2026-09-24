@@ -39,6 +39,18 @@ public final class Iban {
         return Optional.empty();
     }
 
+    /** Every valid IBAN in free text, in order, e.g. a counterparty IBAN in a transfer description. */
+    public static java.util.List<Iban> findAll(String text) {
+        var found = new java.util.ArrayList<Iban>();
+        if (text != null) {
+            var m = CANDIDATE.matcher(text.toUpperCase(Locale.ROOT));
+            while (m.find()) {
+                parse(m.group()).ifPresent(found::add);
+            }
+        }
+        return found;
+    }
+
     /** Free text with every valid IBAN replaced by its masked form, for showing raw descriptions (spec question 9). */
     public static String maskAll(String text) {
         var m = CANDIDATE.matcher(text);

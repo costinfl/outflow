@@ -44,5 +44,6 @@ export function mergeSummaries(a: ImportSummary | null, b: ImportSummary): Impor
     accounts: [...byAccount.values()],
     newTransactions: a.newTransactions + b.newTransactions,
     alreadyImported: a.alreadyImported + b.alreadyImported,
+    transfers: a.transfers + b.transfers,
   }
 }

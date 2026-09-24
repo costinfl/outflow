@@ -18,6 +18,9 @@ public record FileOutcome(
         LocalDate periodFrom,
         LocalDate periodTo,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Transactions this upload recognised as transfers between own accounts (excluded from spending)")
+        int transfers,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "Parser scores, best first; filled when the user has to pick (NEEDS_PARSER)")
         List<ParserCandidate> candidates) {
 
@@ -41,6 +44,6 @@ public record FileOutcome(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String reason) {}
 
     static FileOutcome notImported(String fileName, Status status, String message, List<ParserCandidate> candidates) {
-        return new FileOutcome(fileName, status, message, null, null, 0, 0, 0, null, null, candidates);
+        return new FileOutcome(fileName, status, message, null, null, 0, 0, 0, null, null, 0, candidates);
     }
 }
