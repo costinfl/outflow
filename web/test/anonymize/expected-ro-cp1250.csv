@@ -1,0 +1,11 @@
+Extras de cont
+Titular:;PERSON_1
+IBAN:;RO83ANON6128313121077655
+Email:;person1@example.invalid
+
+Data tranzactie;Data valuta;Descriere;Debit;Credit
+02.02.2026;03.02.2026;"Platã POS KAUFLAND BUCUREªTI card ****3019 autorizare 832052";356,96;
+03.02.2026;04.02.2026;"Platã card 6056 7901 6523 7109 EMAG.RO";1.299,00;
+05.02.2026;05.02.2026;"Transfer cãtre PERSON_1 RO83 ANON 6128 3131 2107 7655 economii";1.000,00;
+06.02.2026;06.02.2026;"Transfer de la PERSON_2 tel 0700270060 CNP 0764482010291";;250,00
+07.02.2026;07.02.2026;"ENEL ENERGIE cod client 5012031837091 factura";210,01;

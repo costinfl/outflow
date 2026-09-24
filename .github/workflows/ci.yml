@@ -38,6 +38,8 @@ jobs:
           npm --prefix web run gen:api
           git diff --exit-code -- web/src/api/schema.gen.ts
       - run: npm --prefix web run typecheck
+      # Browser anonymizer: byte-identical to tools/Anonymize.java on the shared golden files (Node test runner).
+      - run: npm --prefix web test
       - run: npm --prefix web run build
       - run: npm --prefix web run build:demo
 

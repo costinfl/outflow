@@ -1,2 +1,4 @@
 # Golden statement files must stay byte-exact (file hashes, encodings, CRLF line ends).
 samples/** -text
+# Anonymizer golden fixtures: byte-exact (Windows-1250, UTF-8 BOM, CRLF)
+web/test/anonymize/** -text

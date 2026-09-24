@@ -123,6 +123,26 @@ class AnonymizeToolTest {
         assertThat(a).contains(spaced); // the spaced IBAN in the transfer row maps to the same fake
     }
 
+    /**
+     * The golden files shared with the browser version (web/src/anonymize, checked by web/test/anonymize.test.mjs):
+     * both implementations must write exactly these bytes for the same input, seed and names.
+     */
+    @Test
+    void goldenFilesSharedWithTheBrowserVersion() throws Exception {
+        Path fixtures = Path.of("..", "web", "test", "anonymize");
+        for (String name : List.of("ro-cp1250", "generic-utf8-bom")) {
+            Path out = dir.resolve("golden-" + name + ".csv");
+            var process = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java"), TOOL.toString(),
+                    "--in", fixtures.resolve("raw-" + name + ".csv").toString(), "--out", out.toString(),
+                    "--seed", "parity", "--names", fixtures.resolve("names.txt").toString())
+                    .redirectErrorStream(true).start();
+            String report = new String(process.getInputStream().readAllBytes());
+            assertThat(process.waitFor()).as(report).isZero();
+            assertThat(Files.readAllBytes(out)).as(name)
+                    .isEqualTo(Files.readAllBytes(fixtures.resolve("expected-" + name + ".csv")));
+        }
+    }
+
     @Test
     void theReportListsReplacementsAndLinesToReview() throws Exception {
         String report = anonymize("s1").report();

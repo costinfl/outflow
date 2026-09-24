@@ -4,7 +4,15 @@ Real exports make the parser and merchant normalizer good. They must be anonymiz
 they are shared with anyone, including Claude or GitHub. `tools/Anonymize.java` does that locally, with plain Java
 21 (no dependencies, no network).
 
-## Steps
+## In the browser (easiest)
+
+Open the app (or the public demo) at `#/anonymize`, pick the export, optionally add names and a seed, read the report,
+and download the result. The file is read and processed in the browser: nothing is uploaded or stored, and the page
+makes no network request with it (checked by an end-to-end test). The browser version writes exactly the same bytes as
+the command-line tool for the same seed and names, so both can be mixed across exports.
+
+## On the command line
+
 
 1. Keep the raw export **outside** the repository, e.g. `~/Downloads/export.csv`. The tool warns if it is inside one.
 2. Optional: write a names file **outside** the repository, one name per line, for people who appear in transfers

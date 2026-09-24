@@ -9,7 +9,8 @@
     "build:demo": "tsc -b && vite build --mode demo",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "gen:api": "openapi-typescript ../api/openapi.json -o src/api/schema.gen.ts"
+    "gen:api": "openapi-typescript ../api/openapi.json -o src/api/schema.gen.ts",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "openapi-fetch": "^0.17.0",

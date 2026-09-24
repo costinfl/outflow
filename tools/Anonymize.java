@@ -12,7 +12,7 @@
  *   names            -> the account holder ("Titular: ...") and every name in --names become PERSON_1, PERSON_2, ...
  *   CNP              -> 13 fake digits
  *   emails, phones   -> person1@example.invalid, 0700xxxxxx
- *   long references  -> digit runs of 10+ get fake digits of the same length
+ *   long references  -> digit runs of 10+ (not CNPs or phone numbers) get fake digits of the same length
  *
  * With the same --seed, the same original always maps to the same fake (across files and runs), so overlapping
  * exports still overlap. Without a seed a random one is used. No mapping is ever written anywhere.
@@ -105,11 +105,12 @@ public class Anonymize {
         private static final Pattern IBAN = Pattern.compile("\\b([A-Z]{2}\\d{2}(?: ?[A-Z0-9]){11,30})\\b");
         private static final Pattern PAN = Pattern.compile("(?<![\\dA-Za-z])(\\d{4}[ -]?\\d{4}[ -]?\\d{4}[ -]?\\d{1,7})(?!\\d)");
         private static final Pattern MASK_DIGITS = Pattern.compile("(?<![A-Za-z0-9])((?:\\d{0,6})[*X•]{2,}[ *X•]*)(\\d{4})(?!\\d)");
-        private static final Pattern CARD_DIGITS = Pattern.compile("(?i)(\\bcard\\s*(?:nr\\.?|no\\.?)?\\s*)(\\d{4})(?!\\d)");
+        private static final Pattern CARD_DIGITS = Pattern.compile("(?i)(\\bcard\\s*(?:nr\\.?|no\\.?)?\\s*)(\\d{4})(?![ -]?\\d)");
         private static final Pattern CNP = Pattern.compile("(?<!\\d)([1-8]\\d{12})(?!\\d)");
         private static final Pattern EMAIL = Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
         private static final Pattern PHONE = Pattern.compile("(?<![\\d+])(?:\\+40|0040|0)\\s?7\\d{2}[\\s.-]?\\d{3}[\\s.-]?\\d{3}(?!\\d)");
         private static final Pattern LONG_DIGITS = Pattern.compile("(?<![\\p{L}\\d.,])(\\d{10,})(?![\\d.,]\\d)");
+        private static final Pattern MOBILE = Pattern.compile("(?:0040|40|0)?7\\d{8}");
         private static final Pattern HOLDER = Pattern.compile(
                 "(?im)^([ \\t\"]*(?:titular(?: cont)?|nume(?: client)?|client|account holder|holder|name)[ \\t\"]*[:;,\\t]+[ \\t\"]*)([^;,\\t\"\\r\\n]+)");
         private static final Pattern TRANSFERISH = Pattern.compile(
@@ -150,6 +151,9 @@ public class Anonymize {
             });
             s = replace(s, MASK_DIGITS, "card digits", m -> m.group(1) + digits("card4", m.group(2), 4));
             s = replace(s, CARD_DIGITS, "card digits", m -> m.group(1) + digits("card4", m.group(2), 4));
+            // Before CNPs and phones, and skipping their shapes, so no fake is ever replaced twice.
+            s = replace(s, LONG_DIGITS, "long reference", m -> cnpValid(m.group(1)) || MOBILE.matcher(m.group(1)).matches()
+                    ? null : digits("ref", m.group(1), m.group(1).length()));
             s = replace(s, CNP, "CNP", m -> cnpValid(m.group(1)) ? "0" + digits("cnp", m.group(1), 12) : null);
             s = replace(s, EMAIL, "email", m -> emailOf.computeIfAbsent(m.group().toLowerCase(Locale.ROOT),
                     e -> "person" + (emailOf.size() + 1) + "@example.invalid"));
@@ -162,7 +166,6 @@ public class Anonymize {
                     s = replace(s, namePattern(words[1] + " " + words[0]), "name", m -> person);
                 }
             }
-            s = replace(s, LONG_DIGITS, "long reference", m -> digits("ref", m.group(1), m.group(1).length()));
             output = s;
             return s;
         }

@@ -27,6 +27,7 @@ recurring payments for the user to confirm.
 npm --prefix web ci                # install web dependencies
 npm --prefix web run dev           # SPA on :5173, proxies /api to :8080
 npm --prefix web run typecheck
+npm --prefix web test              # web unit tests (Node test runner, no deps), incl. anonymizer parity
 npm --prefix web run build:demo    # static GitHub Pages build (synthetic fixtures, base /outflow/)
 ./mvnw -pl api verify -Dopenapi.update=true  # refresh api/openapi.json after changing endpoints/DTOs
 npm --prefix web run gen:api       # regenerate web/src/api/schema.gen.ts from api/openapi.json
@@ -38,7 +39,9 @@ API endpoints: `/api/health`, `POST /api/imports` (multipart `files`), `GET/POST
 `POST /api/merchants/aliases`, `GET /api/insights/month`; OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
 Parsers: one YAML profile per CSV format in `api/src/main/resources/parsers/` (keys: `docs/parsers.md`).
 Golden files in `samples/`, byte-exact (`.gitattributes`); expected values in `samples/synthetic/README.md`.
-Real exports only via `java tools/Anonymize.java` (`docs/anonymize.md`); `SamplesGuardTest` blocks leftover PII.
+Real exports only via the anonymizer (`#/anonymize` in the app, or `java tools/Anonymize.java`; `docs/anonymize.md`);
+`SamplesGuardTest` blocks leftover PII. The two implementations must stay byte-identical: change both, regenerate
+`web/test/anonymize/expected-*` with the Java tool, and both test suites check them.
 
 API contract: `api/openapi.json` is committed; `OpenApiContractTest` fails when it drifts from the live API.
 After an API change: refresh the spec, run `gen:api`, commit both.

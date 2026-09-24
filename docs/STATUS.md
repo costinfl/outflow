@@ -9,6 +9,18 @@ _Resume entrypoint. Updated at every checkpoint._
 | Next | **CP3.3** — transactions screen with pre-filtered chips; category detail with trend and top merchants |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M3 work) |
 
+## Detour after CP3.2 — anonymizer in the browser (done)
+
+- `#/anonymize` (works on the Pages demo too): pick or drop a file, optional names + seed, report (counts, partial
+  originals, leftovers, transfer lines to review), preview, download in the original encoding. No network request,
+  nothing stored: verified end to end in Chromium (0 requests while anonymizing).
+- `web/src/anonymize/anonymize.ts` is a rule-by-rule port of `tools/Anonymize.java`. Shared golden files in
+  `web/test/anonymize/` (Windows-1250 and UTF-8 with BOM); `npm --prefix web test` (Node test runner, no deps) and
+  `AnonymizeToolTest.goldenFilesSharedWithTheBrowserVersion` both require exactly those bytes. CI runs both.
+- The parity work found two double-replacement bugs in the Java tool (long-reference rule re-replacing fake phone
+  numbers and CNPs; "card + 4 digits" re-replacing the first group of a fake card number). Nothing leaked (fakes were
+  replaced by fakes), but counts and labels were wrong. Fixed in both.
+
 ## CP3.2 — done
 
 245 backend tests green; web typecheck and both builds green. Verified in a browser at 390 px, light and dark,

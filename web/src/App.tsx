@@ -1,5 +1,6 @@
 import { HashRouter, Link, Outlet, Route, Routes } from 'react-router'
 import { isDemo } from './api/client'
+import { AnonymizePage } from './anonymize/AnonymizePage'
 import { CategoryPage } from './categories/CategoryPage'
 import { HomePage } from './home/HomePage'
 import { StatusPage } from './system/StatusPage'
@@ -14,6 +15,7 @@ export function App() {
           <Route index element={<HomePage />} />
           <Route path="transactions" element={<TransactionsPage />} />
           <Route path="categories/:id" element={<CategoryPage />} />
+          <Route path="anonymize" element={<AnonymizePage />} />
           <Route path="status" element={<StatusPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
@@ -34,9 +36,14 @@ function Layout() {
         <Link to="/" className="text-lg font-semibold tracking-tight text-ink">
           Outflow
         </Link>
-        <Link to="/status" className="text-xs text-muted hover:underline">
-          Status
-        </Link>
+        <nav className="flex gap-4 text-xs text-muted">
+          <Link to="/anonymize" className="hover:underline">
+            Anonymize
+          </Link>
+          <Link to="/status" className="hover:underline">
+            Status
+          </Link>
+        </nav>
       </header>
       <main className="mx-auto max-w-md px-4 pt-3 pb-10">
         <Outlet />
