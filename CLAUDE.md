@@ -33,7 +33,10 @@ npm --prefix web run gen:api       # regenerate web/src/api/schema.gen.ts from a
 docker compose up --build          # full stack: SPA http://localhost:3000 (proxies /api), API :8080, Postgres :5432
 ```
 
-API endpoints: `/api/health`, OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
+API endpoints: `/api/health`, `POST /api/imports` (multipart `files`), `GET/POST /api/accounts`; OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
+Parsers: one YAML profile per CSV format in `api/src/main/resources/parsers/` (keys: `docs/parsers.md`).
+Golden files in `samples/`, byte-exact (`.gitattributes`); expected values in `samples/synthetic/README.md`.
+
 API contract: `api/openapi.json` is committed; `OpenApiContractTest` fails when it drifts from the live API.
 After an API change: refresh the spec, run `gen:api`, commit both.
 
@@ -44,6 +47,9 @@ CI (`.github/workflows/ci.yml`): api `verify`; web gen:api-is-current + typechec
 Pages (`.github/workflows/pages.yml`): demo build deployed on push to `main` and the current dev branch.
 
 DB connection: env `OUTFLOW_DB_URL`, `OUTFLOW_DB_USER`, `OUTFLOW_DB_PASSWORD` (defaults: local `outflow`/`outflow`).
+IBAN HMAC key: `OUTFLOW_IBAN_HMAC_KEY` (base64, ≥ 32 bytes) or generated once into `$OUTFLOW_DATA_DIR/iban-hmac.key`
+(default `./data`, gitignored). Tests use a fixed key from `api/src/test/resources/config/application.yml`.
+Tests truncate tables between cases (`ImportFixtures.reset`): TRUNCATE is the only way past the raw_row trigger.
 
 ## Way of working
 

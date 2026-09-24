@@ -4,6 +4,22 @@
  */
 
 export interface paths {
+    "/api/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list"];
+        put?: never;
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -20,10 +36,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["importFiles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Account: {
+            /** @example RON */
+            currency: string;
+            /** @description e.g. RO49 •••• 0000; absent when the IBAN is unknown */
+            ibanMasked?: string;
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "CURRENT" | "SAVINGS" | "CARD";
+            name: string;
+        };
+        AccountImport: {
+            account: components["schemas"]["Account"];
+            /** Format: int32 */
+            alreadyImported: number;
+            /** @description Detected for the first time by this upload */
+            created: boolean;
+            /** Format: int32 */
+            newTransactions: number;
+            /** Format: date */
+            periodFrom?: string;
+            /** Format: date */
+            periodTo?: string;
+        };
+        FileOutcome: {
+            /** Format: int64 */
+            accountId?: number;
+            /**
+             * Format: int32
+             * @description Rows already imported by an earlier file
+             */
+            alreadyImported: number;
+            /** @description Parser scores, best first; filled when the user has to pick (NEEDS_PARSER) */
+            candidates: components["schemas"]["ParserCandidate"][];
+            fileName: string;
+            /** @description Why the file was not imported, in words for the user */
+            message?: string;
+            /** Format: int32 */
+            newTransactions: number;
+            parserId?: string;
+            /** Format: date */
+            periodFrom?: string;
+            /** Format: date */
+            periodTo?: string;
+            /** Format: int32 */
+            rows: number;
+            /** @enum {string} */
+            status: "IMPORTED" | "DUPLICATE_FILE" | "NEEDS_PARSER" | "NEEDS_ACCOUNT" | "FAILED";
+        };
         HealthResponse: {
             /** @enum {string} */
             database: "UP" | "DOWN";
@@ -31,6 +112,31 @@ export interface components {
             schemaVersion?: string;
             /** @enum {string} */
             status: "UP" | "DOWN";
+        };
+        ImportSummary: {
+            accounts: components["schemas"]["AccountImport"][];
+            /** Format: int32 */
+            alreadyImported: number;
+            files: components["schemas"]["FileOutcome"][];
+            /** Format: int32 */
+            newTransactions: number;
+        };
+        NewAccount: {
+            /** @example RON */
+            currency: string;
+            /** @enum {string} */
+            kind: "CURRENT" | "SAVINGS" | "CARD";
+            name: string;
+        };
+        ParserCandidate: {
+            name: string;
+            parserId: string;
+            reason: string;
+            /**
+             * Format: double
+             * @description 0..1
+             */
+            score: number;
         };
     };
     responses: never;
@@ -41,6 +147,50 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"][];
+                };
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewAccount"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+        };
+    };
     health: {
         parameters: {
             query?: never;
@@ -57,6 +207,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    importFiles: {
+        parameters: {
+            query?: {
+                /** @description Account for files that do not name one (no IBAN) */
+                accountId?: number;
+                /** @description Force a parser instead of detection, e.g. after NEEDS_PARSER */
+                parserId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    files: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportSummary"];
                 };
             };
         };

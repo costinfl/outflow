@@ -18,3 +18,5 @@ dist/
 *.xlsx
 *.pdf
 !samples/**
+data/
+api/data/

@@ -1,6 +1,112 @@
 {
   "components" : {
     "schemas" : {
+      "Account" : {
+        "properties" : {
+          "currency" : {
+            "example" : "RON",
+            "type" : "string"
+          },
+          "ibanMasked" : {
+            "description" : "e.g. RO49 •••• 0000; absent when the IBAN is unknown",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "kind" : {
+            "enum" : [ "CURRENT", "SAVINGS", "CARD" ],
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "currency", "id", "kind", "name" ],
+        "type" : "object"
+      },
+      "AccountImport" : {
+        "properties" : {
+          "account" : {
+            "$ref" : "#/components/schemas/Account"
+          },
+          "alreadyImported" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "created" : {
+            "description" : "Detected for the first time by this upload",
+            "type" : "boolean"
+          },
+          "newTransactions" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "periodFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "periodTo" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "required" : [ "account", "alreadyImported", "created", "newTransactions" ],
+        "type" : "object"
+      },
+      "FileOutcome" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "alreadyImported" : {
+            "description" : "Rows already imported by an earlier file",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "candidates" : {
+            "description" : "Parser scores, best first; filled when the user has to pick (NEEDS_PARSER)",
+            "items" : {
+              "$ref" : "#/components/schemas/ParserCandidate"
+            },
+            "type" : "array"
+          },
+          "fileName" : {
+            "type" : "string"
+          },
+          "message" : {
+            "description" : "Why the file was not imported, in words for the user",
+            "type" : "string"
+          },
+          "newTransactions" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "parserId" : {
+            "type" : "string"
+          },
+          "periodFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "periodTo" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "rows" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "status" : {
+            "enum" : [ "IMPORTED", "DUPLICATE_FILE", "NEEDS_PARSER", "NEEDS_ACCOUNT", "FAILED" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "alreadyImported", "candidates", "fileName", "newTransactions", "rows", "status" ],
+        "type" : "object"
+      },
       "HealthResponse" : {
         "properties" : {
           "database" : {
@@ -18,6 +124,69 @@
         },
         "required" : [ "database", "status" ],
         "type" : "object"
+      },
+      "ImportSummary" : {
+        "properties" : {
+          "accounts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AccountImport"
+            },
+            "type" : "array"
+          },
+          "alreadyImported" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "files" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FileOutcome"
+            },
+            "type" : "array"
+          },
+          "newTransactions" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "accounts", "alreadyImported", "files", "newTransactions" ],
+        "type" : "object"
+      },
+      "NewAccount" : {
+        "properties" : {
+          "currency" : {
+            "example" : "RON",
+            "type" : "string"
+          },
+          "kind" : {
+            "enum" : [ "CURRENT", "SAVINGS", "CARD" ],
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "currency", "kind", "name" ],
+        "type" : "object"
+      },
+      "ParserCandidate" : {
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "parserId" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "score" : {
+            "description" : "0..1",
+            "format" : "double",
+            "type" : "number"
+          }
+        },
+        "required" : [ "name", "parserId", "reason", "score" ],
+        "type" : "object"
       }
     }
   },
@@ -27,6 +196,53 @@
   },
   "openapi" : "3.1.0",
   "paths" : {
+    "/api/accounts" : {
+      "get" : {
+        "operationId" : "list",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Account"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "accounts" ]
+      },
+      "post" : {
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NewAccount"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Account"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "tags" : [ "accounts" ]
+      }
+    },
     "/api/health" : {
       "get" : {
         "operationId" : "health",
@@ -43,6 +259,61 @@
           }
         },
         "tags" : [ "system" ]
+      }
+    },
+    "/api/imports" : {
+      "post" : {
+        "operationId" : "importFiles",
+        "parameters" : [ {
+          "description" : "Account for files that do not name one (no IBAN)",
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "description" : "Force a parser instead of detection, e.g. after NEEDS_PARSER",
+          "in" : "query",
+          "name" : "parserId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "files" : {
+                    "items" : {
+                      "format" : "binary",
+                      "type" : "string"
+                    },
+                    "type" : "array"
+                  }
+                },
+                "required" : [ "files" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "imports" ]
       }
     }
   },

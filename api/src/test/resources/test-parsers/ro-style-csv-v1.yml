@@ -1,0 +1,17 @@
+# Test profile in the style of a Romanian bank export (no real bank implied): Windows-1250, ';',
+# dd.MM.yyyy, 1.234,56, separate debit/credit columns, IBAN in the preamble, fixed currency.
+id: ro-style-csv-v1
+name: Romanian-style CSV (test)
+encoding: windows-1250
+delimiter: ";"
+dateFormat: dd.MM.yyyy
+decimalSeparator: ","
+groupingSeparator: "."
+currency: RON
+ibanInPreamble: true
+columns:
+  bookingDate: Data tranzactie
+  valueDate: Data valuta
+  debit: Debit
+  credit: Credit
+  description: [Descriere]

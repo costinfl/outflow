@@ -1,0 +1,13 @@
+# Outflow's own generic CSV: one header row, ISO dates, signed amounts with '.' decimals.
+# Copy this file to add a bank; see docs/parsers.md for every key.
+id: generic-csv-v1
+name: Generic CSV (Date, Description, Amount, Currency)
+encoding: UTF-8
+delimiter: ","
+dateFormat: yyyy-MM-dd
+decimalSeparator: "."
+columns:
+  bookingDate: Date
+  amount: Amount
+  currency: Currency
+  description: [Description]

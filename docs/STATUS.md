@@ -4,10 +4,67 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M1 — Import and identity** (M0 complete, PR #1 open against `main`) |
-| Last completed | **CP1.1** — import schema: household, app_user, account, statement_file, raw_row, transaction, transaction_source |
-| Next | **CP1.2** — `StatementParser` SPI, detector, configurable generic CSV parser (YAML column mapping) + synthetic sample |
+| Milestone | **M1 — Import and identity: complete** (PR to `main` open) |
+| Last completed | **CP1.4** — upload endpoint, account detection by IBAN HMAC, import summary |
+| Next | **M2 / CP2.1** — merchant normalizer as a chain of unit-tested steps; alias table; `merchant` rows |
 | Branch | `claude/outflow-project-setup-vbwx3f` (see Open questions) |
+
+## CP1.4 — done
+
+137 backend tests green; web typecheck and both builds green.
+
+- `POST /api/imports` (multipart `files`, optional `accountId`, `parserId`): each file in its own DB transaction;
+  per-file outcome `IMPORTED | DUPLICATE_FILE | NEEDS_PARSER (candidates with reasons) | NEEDS_ACCOUNT | FAILED
+  (message)`; per-account and total new/skipped counts with periods → `ImportControllerTest` (10 tests, real HTTP)
+- Accounts detected from the file's IBAN: HMAC-SHA256 lookup, created on first sight as "Account ••0000" with only
+  hash + masked form stored; a file whose IBAN contradicts the chosen account is refused
+- `GET /api/accounts`, `POST /api/accounts` (for IBAN-less statements); OpenAPI spec, TS client and demo fixtures updated
+- HMAC key: `OUTFLOW_IBAN_HMAC_KEY` or generated once into `<OUTFLOW_DATA_DIR>/iban-hmac.key` (0600), kept
+  outside the DB → `IbanKeyConfigTest`. Docker: `apidata` volume at `/data`
+- Manually verified with the real app: first run (IBAN file → account created; generic file → NEEDS_ACCOUNT),
+  restart then same IBAN → same account (key stable), overlap upload → 84 new / 42 skipped; account sums match the
+  golden values; no plain IBAN anywhere in `account`
+
+**M1 acceptance** (plan): re-upload → 0 new; Jan–Mar then Feb–Apr → exact union; two identical same-day rows →
+2 transactions, stable across re-imports. All proven at service level (CP1.3, incl. property test) and over HTTP.
+
+## CP1.3 — done
+
+Packages `ingest.identity` and `ingest` (`ImportService`). 124 backend tests green.
+
+- `HashNormalizer` (`key_v1`, frozen): uppercase, diacritics stripped (cedilla and comma-below), whitespace
+  collapsed, card masks / auth codes / times / dates dropped → `HashNormalizerTest`
+- `IdentityKeys`: `ref:<ref>` when the bank gives one, else
+  `key_v1:sha256(account|booking date|amount|currency|norm)#n`, with `n` ordered by (value date, raw description,
+  row no). The pinned hashes were computed outside Java → `IdentityKeysTest.keyV1IsFrozen`
+- `ImportService.importFile(account, name, bytes, parser)`: one DB transaction. Parse first (a bad file stores
+  nothing), sha256 file no-op, immutable raw rows, upsert by (account, identity_key), every raw row linked to
+  exactly one transaction → `ImportServiceTest`:
+  - same file twice → duplicate, 0 new, nothing stored
+  - Jan–Mar then Feb–Apr → exactly the union: 84 transactions, sum 1,243,801 (computed independently); 126 raw rows
+  - either import order → identical key set
+  - two identical same-day rows → `#1`/`#2`, stable on re-import; a third seen later is new
+  - a failure after writes rolls back the whole file
+- `IdentityPropertyTest`: 12 seeds × random overlapping day-boundary splits, rows shuffled within files, random
+  import order, one file uploaded twice → same 84 keys as a single import. A planted bug (row number in the hash)
+  fails 20 of 29 identity tests, so the suite catches key drift.
+
+## CP1.2 — done
+
+Package `ingest.parse`. 80 backend tests green.
+
+- SPI exactly as DESIGN: `StatementParser.id() / detect(FileSample) → DetectionScore / parse(InputStream) → ParsedStatement`
+  (account hint + period + rows with raw payload and parsed fields) → `ConfigurableCsvParserTest`
+- `StatementDetector`: best score ≥ 0.75 wins; unknown files and ties choose nothing but explain every candidate;
+  override by id; duplicate ids rejected → `StatementDetectorTest`
+- One `ConfigurableCsvParser` per YAML profile (`classpath:parsers/*.yml`, extensible via
+  `outflow.parsers.locations`); profile keys documented in `docs/parsers.md`; unknown keys and invalid settings fail
+  at startup → `CsvProfileTest`, `ParserConfigTest`
+- Exact money parsing into minor units, strict about separators and currency decimals → `MoneyParserTest`
+- IBAN: mod-97 validated, masked `RO49 •••• 0000`; plain value in memory only, never in `toString()` → `IbanTest`
+- Golden files in `samples/synthetic/` (generic Jan–Mar and Feb–Apr, Romanian-style Feb in Windows-1250 with
+  debit/credit and preamble IBAN); row count, sums and periods match values computed independently → `GoldenFileTest`
+- A row that can't be read fails the whole file with its row number; rows are never skipped silently
 
 ## CP1.1 — done
 
@@ -50,18 +107,17 @@ Health tests now derive the expected schema version from the migrations instead 
 
 ## Open questions
 
-1. ~~`docs/DESIGN.md` missing~~ — resolved, added in CP0.2.
-2. **`samples/` is empty.** Per plan, M1 will build the configurable generic CSV parser + a synthetic sample.
+1. ~~`docs/DESIGN.md` missing~~ — resolved in CP0.2.
+2. **`samples/` has no real statements.** M1 uses the configurable generic CSV parser + synthetic samples. Add
+   anonymized exports of your bank to `samples/<bank>/` and I'll write its profile and golden test. This matters
+   most for M2: the ≥ 80% categorized target is measured on the samples, and synthetic merchant strings are tidier
+   than real ones.
 3. **Branch naming.** The plan says `milestone/Mx`; this cloud session is pinned to
-   `claude/outflow-project-setup-vbwx3f`. Commits use the `CPx.y:` convention on that branch; the M0 PR will
-   come from it.
-4. **GitHub Pages (Actions source)** — approved: demo mode built in CP0.2, deploy workflow in CP0.3, on push
-   to `main` and the dev branch (allowed in the github-pages environment). Synthetic fixtures only.
-5. ~~Client-side routing~~ — approved: react-router with hash routing, added in CP0.3.
-6. ~~No `main` branch~~ — resolved: empty initial commit pushed to `main`, M0 PR is #1.
-7. **PR #1 will absorb M1 commits.** This session can only push to one branch, so M1 commits land on the same
-   branch as the M0 PR. Merge PR #1 whenever you're happy with M0 to keep milestones separate. Otherwise
-   the PR simply grows, and I'll retitle it at the end of M1.
+   `claude/outflow-project-setup-vbwx3f`. Commits use `CPx.y:`; milestone PRs come from this branch. Merge the M1
+   PR before M2 lands, or it will grow to include M2.
+4. ~~GitHub Pages~~ — done: demo build deployed from `main` and the dev branch.
+5. ~~Client-side routing~~ — done: react-router, hash routing (CP0.3).
+6. ~~No `main` branch~~ — resolved: PR #1 merged M0 + CP1.1; `main` was merged back into the dev branch (no rewrite).
 
 ## Known issues
 
@@ -81,3 +137,21 @@ Health tests now derive the expected schema version from the migrations instead 
 5. DESIGN lists `transaction.merchant_id`, `category_id`, `category_source`, `category_confidence`,
    `transfer_pair_id`, `subscription_id`. They are added in the milestones that create the referenced tables
    (M2, M4, M5) so every column has a real foreign key from day one.
+6. DESIGN lets the user override parser detection. The detector refuses to guess on a tie or below 0.75; CP1.4
+   returns the candidates so the user picks. Conservative choice: no import without a confident or explicit parser.
+7. **Disjoint mid-day cuts.** The occurrence index handles a later file that repeats a day partially (DESIGN's edge
+   case). It cannot handle two files that each hold a *different* part of the same day with identical rows (file A
+   ends with coffee #1, file B starts with coffee #2): both are `#1`, so one coffee is lost. Bank exports are cut at
+   day boundaries, so this should not happen in practice. The property test covers day-boundary cuts only. A fix
+   would need the bank's reference or a running balance. Flagging it rather than guessing.
+8. **Reference vs content keys across formats.** A `ref:` key and a `key_v1:` key never match, so the same account
+   imported once as CSV without references and once as a format with references (e.g. CAMT.053) would duplicate.
+   Conservative choice: keep DESIGN's priority; revisit when a second format for the same bank arrives (M5).
+9. **Counterparty IBANs in descriptions.** DESIGN stores account IBANs only as hash + masked form, but bank
+   descriptions also carry *counterparty* IBANs (e.g. "TRANSFER CATRE CONT ECONOMII RO49…"), which end up in
+   `raw_row.payload` and `transaction.description_raw` as the bank wrote them. M5 needs them to pair transfers.
+   Conservative choice: keep raw data as-is (raw rows are immutable facts); M5 will hash them for matching and the UI
+   will mask IBAN-shaped text when displaying descriptions. Say if you want them masked at import instead.
+10. **Losing the HMAC key** makes existing accounts unrecognisable by IBAN (uploads would create new accounts). Its
+    file lives in the data dir next to the DB volume; back up both. A key-rotation tool is not planned for M1–M5.
+

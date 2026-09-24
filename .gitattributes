@@ -1,0 +1,2 @@
+# Golden statement files must stay byte-exact (file hashes, encodings, CRLF line ends).
+samples/** -text
