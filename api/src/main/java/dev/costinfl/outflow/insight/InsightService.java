@@ -29,6 +29,40 @@ public class InsightService {
         this.jdbc = jdbc;
     }
 
+    static final int TREND = 12;
+
+    /** A category's month, its 12-month trend and its merchants; every figure drills to its transactions. */
+    public java.util.Optional<CategoryDetail> category(long categoryId, YearMonth month, String currency) {
+        var category = jdbc.query("SELECT id, parent_id, code, name, kind FROM category WHERE id = ?",
+                (rs, i) -> new dev.costinfl.outflow.category.Category(rs.getLong(1), (Long) rs.getObject(2), rs.getString(3),
+                        rs.getString(4), dev.costinfl.outflow.category.Category.Kind.valueOf(rs.getString(5))),
+                categoryId).stream().findFirst();
+        if (category.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        // Money in for income categories, money out for everything else.
+        String amount = category.get().kind() == dev.costinfl.outflow.category.Category.Kind.INCOME
+                ? "t.amount_minor" : "-t.amount_minor";
+        var available = availableMonths(currency);
+        var trend = new ArrayList<CategoryDetail.MonthAmount>();
+        for (int i = TREND - 1; i >= 0; i--) {
+            YearMonth m = month.minusMonths(i);
+            long v = jdbc.queryForObject("SELECT coalesce(sum(" + amount + "), 0)" + FROM + "WHERE t.category_id = ? AND "
+                    + Scope.MONTH + " AND t.currency = ?", Long.class, categoryId, m.atDay(1), m.atDay(1), currency);
+            trend.add(new CategoryDetail.MonthAmount(m.toString(), v, available.contains(m)));
+        }
+        var withData = trend.stream().filter(CategoryDetail.MonthAmount::hasData).toList();
+        Long average = withData.isEmpty() ? null
+                : divide(withData.stream().mapToLong(CategoryDetail.MonthAmount::amountMinor).sum(), withData.size());
+        var merchants = jdbc.query("SELECT m.id, m.display_name, sum(" + amount + ") AS v, count(*)" + FROM
+                        + "JOIN merchant m ON m.id = t.merchant_id WHERE t.category_id = ? AND " + Scope.MONTH
+                        + " AND t.currency = ? GROUP BY m.id, m.display_name ORDER BY v DESC, m.display_name",
+                (rs, i) -> new CategoryDetail.MerchantAmount(rs.getLong(1), rs.getString(2), rs.getLong(3), rs.getInt(4)),
+                categoryId, month.atDay(1), month.atDay(1), currency);
+        return java.util.Optional.of(new CategoryDetail(category.get(), month.toString(), currency,
+                trend.getLast().amountMinor(), trend, average, merchants));
+    }
+
     public List<YearMonth> availableMonths(String currency) {
         return jdbc.queryForList("""
                 SELECT DISTINCT to_char(booking_date, 'YYYY-MM') FROM transaction WHERE currency = ? ORDER BY 1""",

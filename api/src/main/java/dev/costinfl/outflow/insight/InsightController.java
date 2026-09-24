@@ -23,6 +23,25 @@ public class InsightController {
         this.insights = insights;
     }
 
+    /** Category detail: the month, a 12-month trend with its average, and the month's merchants. */
+    @GetMapping("/categories/{id}")
+    public CategoryDetail category(
+            @org.springframework.web.bind.annotation.PathVariable long id,
+            @Parameter(description = "YYYY-MM") @RequestParam String month,
+            @RequestParam(defaultValue = "RON") String currency) {
+        if (!currency.matches("[A-Z]{3}")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "currency must be an ISO code like RON");
+        }
+        YearMonth ym;
+        try {
+            ym = YearMonth.parse(month);
+        } catch (DateTimeParseException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "month must be YYYY-MM");
+        }
+        return insights.category(id, ym, currency)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No category " + id));
+    }
+
     /** The home screen's answer for one month. */
     @GetMapping("/month")
     public MonthSummary month(

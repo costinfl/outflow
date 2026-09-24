@@ -5,9 +5,28 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | **M3 — Home screen** (M2 merged to `main` via PR #3) |
-| Last completed | **CP3.2** — SPA home screen: month switcher, four blocks, bars, drill-through links, 390 px, light + dark |
-| Next | **CP3.3** — transactions screen with pre-filtered chips; category detail with trend and top merchants |
+| Last completed | **CP3.3** — transactions screen with removable filter chips; category detail with trend and merchants |
+| Next | **CP3.4** — upload flow and import summary screen (DESIGN: First-run flow) |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M3 work) |
+
+## CP3.3 — done
+
+262 backend tests, 8 web tests green; typecheck and both builds green. Verified in a browser at 390 px, light and dark:
+home → category → merchant → transactions, chip removal, search, recategorize; figures equal across screens.
+
+- `GET /api/transactions?month=&scope=SPEND|INCOME|ALL&category=&uncategorized=&merchant=&q=`: rows newest first, count,
+  total in the number's own sense (spent positive / income / net). `q` matches merchant or bank text, or an exact
+  amount (`18.50`, `18,50`, `1.234,56`); LIKE wildcards are literal
+- `GET /api/insights/categories/{id}?month=`: the month, 12-month trend (months without data flagged), average over
+  months with data, the month's merchants; income categories count money in, others money out
+- `TransactionControllerTest` on the hand-computed ledger (now `LedgerFixture`, shared with `InsightServiceTest`): scopes
+  equal the home figures; every home category row drills to its rows (total and count); search; category trend/average
+- `#/transactions`: chips for scope / category / uncategorized / merchant / search, each removable; rows grouped by day;
+  tap a row → masked bank text, where its category came from, category picker + "apply to all from this merchant"
+- `#/categories/:id`: amount, average, 12 monthly columns (selected month accented, others de-emphasized, average line,
+  only the selected month labelled, each column opens its month), merchants linking to their transactions
+- Demo: fixtures computed from the same ledger (`web/src/demo/ledger.ts`) so demo drill-throughs add up; saving a
+  category in the demo explains that it needs the real app. Recurring payments listed first: M4
 
 ## Anonymizer: payers and payees (done)
 

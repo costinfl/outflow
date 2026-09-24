@@ -27,7 +27,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_2"];
+        get: operations["list_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -68,6 +68,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/insights/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["category"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/insights/month": {
         parameters: {
             query?: never;
@@ -91,7 +107,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_1"];
+        get: operations["list_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -124,6 +140,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["explain"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -205,6 +237,24 @@ export interface components {
             changedTransactions: number;
             transaction: components["schemas"]["TransactionView"];
         };
+        CategoryDetail: {
+            /** Format: int64 */
+            amountMinor: number;
+            /**
+             * Format: int64
+             * @description Average over the trend months that have any data; absent when none has
+             */
+            averageMinor?: number;
+            category: components["schemas"]["Category"];
+            /** @example RON */
+            currency: string;
+            /** @description This month, largest first */
+            merchants: components["schemas"]["MerchantAmount"][];
+            /** @example 2026-03 */
+            month: string;
+            /** @description The 12 months ending with `month`, oldest first */
+            trend: components["schemas"]["MonthAmount"][];
+        };
         CategorySpend: {
             /** Format: int64 */
             categoryId?: number;
@@ -278,6 +328,15 @@ export interface components {
             /** Format: int32 */
             newTransactions: number;
         };
+        MerchantAmount: {
+            /** Format: int64 */
+            amountMinor: number;
+            /** Format: int64 */
+            merchantId: number;
+            name: string;
+            /** Format: int32 */
+            transactionCount: number;
+        };
         MerchantSummary: {
             categoryCode?: string;
             displayName: string;
@@ -288,6 +347,14 @@ export interface components {
             sampleDescriptions: string[];
             /** Format: int64 */
             transactionCount: number;
+        };
+        MonthAmount: {
+            /** Format: int64 */
+            amountMinor: number;
+            /** @description Whether any transaction exists in this month */
+            hasData: boolean;
+            /** @example 2026-03 */
+            month: string;
         };
         MonthSummary: {
             /**
@@ -384,6 +451,23 @@ export interface components {
             name?: string;
             output?: string;
         };
+        TransactionList: {
+            /** Format: int32 */
+            count: number;
+            /** @example RON */
+            currency: string;
+            /** @description Newest first */
+            items: components["schemas"]["TransactionView"][];
+            /** @example 2026-03 */
+            month: string;
+            /** @enum {string} */
+            scope: "SPEND" | "INCOME" | "ALL";
+            /**
+             * Format: int64
+             * @description SPEND: money spent (positive); INCOME: money in; ALL: net (in − out)
+             */
+            totalMinor: number;
+        };
         TransactionView: {
             /** Format: int64 */
             accountId: number;
@@ -462,7 +546,7 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    list_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -533,6 +617,32 @@ export interface operations {
             };
         };
     };
+    category: {
+        parameters: {
+            query: {
+                /** @description YYYY-MM */
+                month: string;
+                currency?: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryDetail"];
+                };
+            };
+        };
+    };
     month: {
         parameters: {
             query?: {
@@ -558,7 +668,7 @@ export interface operations {
             };
         };
     };
-    list_1: {
+    list_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -620,6 +730,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Explanation"];
+                };
+            };
+        };
+    };
+    list_1: {
+        parameters: {
+            query: {
+                /** @description YYYY-MM */
+                month: string;
+                currency?: string;
+                scope?: "SPEND" | "INCOME" | "ALL";
+                category?: number;
+                uncategorized?: boolean;
+                merchant?: number;
+                /** @description Merchant or bank text contains it, or the amount equals it */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionList"];
                 };
             };
         };

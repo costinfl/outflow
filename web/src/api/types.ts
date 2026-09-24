@@ -14,3 +14,7 @@ export type GetResponse<P extends GetPath> = paths[P] extends {
 }
   ? R
   : never
+export type TransactionView = Schemas['TransactionView']
+export type TransactionList = Schemas['TransactionList']
+export type CategoryDetail = Schemas['CategoryDetail']
+export type Category = Schemas['Category']

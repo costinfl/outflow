@@ -1,4 +1,5 @@
 import type { GetPath, GetResponse } from '../api/types'
+import { demoCategory, demoTransactions } from './ledger'
 
 /**
  * Synthetic responses for the GitHub Pages demo. Never put real statement data here.
@@ -77,6 +78,8 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
     categoryCode: 'SUBSCRIPTIONS',
     categorySource: 'KEYWORD',
   },
+  '/api/transactions': demoTransactions,
+  '/api/insights/categories/{id}': demoCategory,
   '/api/insights/month': (url) => demoMonths[url.searchParams.get('month') ?? '2026-03'] ?? demoMonths['2026-03']!,
 
 }

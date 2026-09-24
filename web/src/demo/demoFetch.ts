@@ -7,8 +7,12 @@ const json = (body: unknown, status = 200) =>
 export async function demoFetch(request: Request): Promise<Response> {
   const url = new URL(request.url)
   const path = url.pathname
-  if (request.method === 'GET' && path in fixtures) {
-    const fixture: unknown = fixtures[path as keyof typeof fixtures]
+  // Paths with parameters ("/api/insights/categories/{id}") match any value in that segment.
+  const key = Object.keys(fixtures).find(
+    (k) => k === path || new RegExp('^' + k.replace(/\{[^/]+\}/g, '[^/]+') + '$').test(path),
+  ) as keyof typeof fixtures | undefined
+  if (request.method === 'GET' && key) {
+    const fixture: unknown = fixtures[key]
     return json(typeof fixture === 'function' ? (fixture as (u: URL) => unknown)(url) : fixture)
   }
   return json({ error: `Demo mode: no fixture for ${request.method} ${path}` }, 404)
