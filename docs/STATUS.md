@@ -5,9 +5,45 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | **M4 — Recurring and review inbox** (M3 merged to `main` in PR #4) |
-| Last completed | **CP4.1** — recurrence detection: amount bands, monthly and yearly cadence fit, scoring |
-| Next | **CP4.2** — `subscription` + `subscription_rejection`; states PROPOSED → CONFIRMED / REJECTED / ENDED |
+| Last completed | **CP4.2** — `subscription` + `subscription_rejection` and the candidate lifecycle |
+| Next | **CP4.3** — review inbox API and screen: subscription suggestions, uncategorized merchants, sorted by RON affected |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M4 work) |
+
+## CP4.2 — done
+
+290 backend tests green (10 new); typecheck green. There is no API for this yet; it comes with the inbox in CP4.3.
+
+- **V6:**
+  - `subscription`: DESIGN's columns, plus the name, the amount band, the confidence, first and last seen, `ended_by`
+    and `decided_at`. States PROPOSED / CONFIRMED / REJECTED / ENDED; cadences allow DESIGN's full list.
+  - `transaction.subscription_id`, and `subscription_rejection`.
+- **`SubscriptionService.refresh(today)`** runs in the upload pipeline after categories, in the same transaction. The
+  date comes from a `Clock` bean.
+  - A new stream becomes PROPOSED unless a rejection covers it; its charges are linked.
+  - A PROPOSED row gets the detected fields again and its links are re-synced.
+  - A CONFIRMED row gets its new charges linked and its last seen and next expected dates moved on. Name, cadence and
+    amount stay the user's.
+  - A SYSTEM-ended row resumes on a newer charge.
+  - A PROPOSED row that is no longer detected is dropped and its links are cleared. CONFIRMED, ENDED and REJECTED rows
+    are never touched.
+  - Streams are matched by account, merchant, currency and amount bands that overlap within 25%. Cadence is not
+    compared, so a user's correction survives.
+- **User transitions:**
+  - `confirm(id, edits)`: PROPOSED or ENDED → CONFIRMED, optionally with a new name, cadence or expected amount.
+  - `reject(id)`: PROPOSED → REJECTED. Its charges are unlinked and a rejection row is written.
+  - `end(id)`: CONFIRMED → ENDED by the user.
+  - Anything else throws `TransitionException`.
+- **`SubscriptionServiceTest`:**
+  - an upload proposes the 5 seeded subscriptions and links their charges (eMAG's two one-off purchases stay unlinked)
+  - refresh is idempotent
+  - a rejected subscription never returns, even after new charges, while a +60% price is proposed again
+  - confirmed edits survive refresh, and new charges link and move the dates on
+  - a confirmed subscription stays when the detector loses it
+  - stale proposals are dropped
+  - user-ended stays ended; system-ended resumes
+  - illegal transitions are refused
+- Deferred: merge/split and manual add (DESIGN lifecycle bullets) belong with the screens (CP4.3/CP4.4). Refresh also
+  runs only on upload; recategorizing or adding an alias re-runs it with the inbox API in CP4.3.
 
 ## CP4.1 — done
 
@@ -317,10 +353,6 @@ Health tests now derive the expected schema version from the migrations instead 
 
 ## Known issues
 
-- **GitHub Pages is disabled** since the repository went private and back to public (deploys fail with "Get Pages
-  site failed … Not Found"). The user re-enables it: Settings → Pages → Source: GitHub Actions; then the next push or
-  a manual run of "Pages (demo)" publishes.
-
 - The first ING sample contained real names of private people (Beneficiar / Ordonator fields). The repository was made
   private and, at the user's request, the file was purged from the dev branch history (force-push, 2026-09-24; `main`
   never had it). The ING parser's golden test now uses `samples/synthetic/ing-ro-2026-q1.csv`. The anonymizer now
@@ -376,4 +408,10 @@ Health tests now derive the expected schema version from the migrations instead 
     are not converted; there is no FX in this plan.
 15. **Baseline = previous 3 months that have data.** With one month of history the average uses that one month;
     `baselineMonths` tells the UI to show the "upload more history" nudge.
-
+16. **ENDED → CONFIRMED "when charges resume" vs. "a user decision is never overwritten".** Resolved as
+    `subscription.ended_by`: SYSTEM-ended (two missed charges, CP5.3) resumes by itself when a newer charge arrives;
+    USER-ended stays ended, and its stream is not proposed again. The user can confirm it again by hand.
+17. **`tolerance_pct` → `tolerance_minor`.** DESIGN's variable tolerance is 2 × MAD, an amount; it is stored in minor
+    units so no amount goes through floating point. A percentage can be shown in the UI.
+18. **Rejection key.** DESIGN keys rejections by (household, merchant, amount band). They also store cadence and
+    currency, because "a new cadence" re-proposes, and the amount is the rejected expected amount (±50% = same band).

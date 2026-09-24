@@ -12,6 +12,9 @@ import dev.costinfl.outflow.ingest.parse.StatementParseException;
 import dev.costinfl.outflow.ingest.parse.StatementParser;
 import dev.costinfl.outflow.category.CategoryService;
 import dev.costinfl.outflow.merchant.MerchantService;
+import dev.costinfl.outflow.recurring.SubscriptionService;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;
@@ -21,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * One uploaded file, end to end, in one DB transaction: pick parser → parse → resolve account → import → merchants →
- * categories.
+ * categories → subscriptions.
  */
 @Service
 public class UploadService {
@@ -39,14 +42,18 @@ public class UploadService {
     private final ImportService imports;
     private final MerchantService merchants;
     private final CategoryService categories;
+    private final SubscriptionService subscriptions;
+    private final Clock clock;
 
     public UploadService(StatementDetector detector, AccountService accounts, ImportService imports,
-            MerchantService merchants, CategoryService categories) {
+            MerchantService merchants, CategoryService categories, SubscriptionService subscriptions, Clock clock) {
         this.detector = detector;
         this.accounts = accounts;
         this.imports = imports;
         this.merchants = merchants;
         this.categories = categories;
+        this.subscriptions = subscriptions;
+        this.clock = clock;
     }
 
     /**
@@ -94,9 +101,11 @@ public class UploadService {
         }
 
         ImportResult r = imports.importParsed(account.id(), fileName, content, parser.get().id(), parsed);
-        // Stage H in the same DB transaction: new transactions get their merchant, then their category.
+        // Stage H in the same DB transaction: new transactions get their merchant, then their category; then the
+        // recurrence detector sees them.
         merchants.assignMissing();
         categories.categorizeAll();
+        subscriptions.refresh(LocalDate.now(clock));
         var outcome = new FileOutcome(fileName, r.duplicateFile() ? Status.DUPLICATE_FILE : Status.IMPORTED, null,
                 r.parserId(), account.id(), r.rows(), r.newTransactions(), r.alreadyImported(),
                 r.periodFrom().orElse(null), r.periodTo().orElse(null), List.of());
