@@ -2,6 +2,21 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## M3 — Home screen (2026-09-24)
+
+- **Insights:** `GET /api/insights/month` (spent, 3-month baseline and delta, income, net, top 5 + folded rest with
+  usual and delta, uncategorized totals, confidence-weighted accuracy) and `GET /api/insights/categories/{id}` (12-month
+  trend, average, merchants). One set of `txn.Scope` predicates for figures and lists, so every number drills exactly.
+- **Screens (390 px first, light and dark):** home with month switcher and four blocks; transactions with removable
+  filter chips, search by text or amount, recategorize inline; category detail with trend and merchants; upload flow
+  with per-file questions, account rename and import summary.
+- **Banks:** ING Bank Romania Home'Bank parser (multi-line records, running balance), `counterparty_raw` for payee-based
+  merchants (V5).
+- **Privacy tooling:** statement anonymizer, command line and in the browser (byte-identical), replacing IBANs, cards,
+  CNPs, emails, phones, references and people in payer/payee fields; `SamplesGuardTest` blocks leftover PII.
+- **Demo:** month-aware fixtures derived from the hand-checked test ledger, so demo drill-throughs add up.
+- **Tests:** 264 backend, 8 web.
+
 ## M2 — Merchants and categories (2026-09-24)
 
 - **Merchants (V3):** normalizer as a chain of unit-tested steps (cleanup, channel prefixes, web addresses, volatile

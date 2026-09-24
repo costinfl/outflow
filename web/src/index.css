@@ -1,1 +1,43 @@
 @import "tailwindcss";
+
+/*
+ * Design tokens. Chart colors and inks follow the dataviz reference palette; dark mode has its own steps
+ * (validated against its own surface), not an automatic flip.
+ */
+@theme {
+  --color-page: #f9f9f7;
+  --color-surface: #fcfcfb;
+  --color-ink: #0b0b0b;
+  --color-ink-2: #52514e;
+  --color-muted: #6f6d68;
+  --color-hairline: #e1e0d9;
+  --color-bar: #2a78d6;
+  --color-bar-track: #eef3fb;
+  --color-bar-neutral: #898781;
+  --color-good: #006300;
+  --color-bad: #d03b3b;
+  --color-banner: #fff4d6;
+  --color-banner-ink: #5c4300;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-page: #0d0d0d;
+    --color-surface: #1a1a19;
+    --color-ink: #ffffff;
+    --color-ink-2: #c3c2b7;
+    --color-muted: #9d9b95;
+    --color-hairline: #2c2c2a;
+    --color-bar: #3987e5;
+    --color-bar-track: #1f2a38;
+    --color-bar-neutral: #898781;
+    --color-good: #0ca30c;
+    --color-bad: #e36868;
+    --color-banner: #3a2f10;
+    --color-banner-ink: #f6dd9c;
+  }
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}

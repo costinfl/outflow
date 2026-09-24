@@ -12,7 +12,9 @@ import java.util.Optional;
  * @param rowNo       1-based index among the file's data rows (header and preamble excluded)
  * @param payload     header → cell text, in file column order
  * @param amountMinor signed minor units; negative = money out
- * @param reference   bank-provided transaction reference, when the format has one
+ * @param reference   bank-provided transaction reference that is unique per transaction, when the format has one
+ * @param counterparty who was paid or who paid, when the format says so explicitly (e.g. ING's "Tranzactie la");
+ *                    merchant detection prefers it over the full description
  */
 public record ParsedRow(
         int rowNo,
@@ -22,7 +24,13 @@ public record ParsedRow(
         long amountMinor,
         String currency,
         String description,
-        Optional<String> reference) {
+        Optional<String> reference,
+        Optional<String> counterparty) {
+
+    public ParsedRow(int rowNo, Map<String, String> payload, LocalDate bookingDate, Optional<LocalDate> valueDate,
+            long amountMinor, String currency, String description, Optional<String> reference) {
+        this(rowNo, payload, bookingDate, valueDate, amountMinor, currency, description, reference, Optional.empty());
+    }
 
     public ParsedRow {
         if (rowNo < 1) {

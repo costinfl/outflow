@@ -4,10 +4,130 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M2 — Merchants and categories: complete** (PR to `main` open) |
-| Last completed | **CP2.3** — recategorize endpoint with "apply to merchant", learning, raw → key debug view, user aliases |
-| Next | **M3 / CP3.1** — insight queries: month total, 3-month average, income, net, top-5 + Other with deltas, accuracy % |
-| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M2 work) |
+| Milestone | **M3 — Home screen: complete** (PR to `main` open) |
+| Last completed | **CP3.4** — upload flow and import summary screen (DESIGN: First-run flow) |
+| Next | **M4 / CP4.1** — recurrence: grouping + amount bands; monthly and yearly cadence fit with anchor-day matching; scoring |
+| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M3 work) |
+
+## CP3.4 — done
+
+264 backend tests, 8 web tests green; typecheck and both builds green.
+
+- `#/upload`: drop or pick up to 20 files; they are imported as-is. Only files that need an answer ask a question:
+  "Which account is X?" (existing account or "New account…" inline) or "Which bank format is X?" (parser candidates);
+  just that file is re-sent. Failed files show their reason; the others are unaffected
+- Import summary: new transactions and "N already imported, skipped", per account with masked IBAN, period and a
+  "new account" mark; rename detected accounts inline; "See where your money went" → home. Empty home links here
+- `PATCH /api/accounts/{id}` (name, kind) → `AccountControllerTest`
+- Verified end to end in a browser against the real API: IBAN file → account detected (21 new); generic file → asked,
+  answered "New account: Main" (63 new, 84 total); rename persisted; same file again → "imported before, nothing
+  changed"; home shows the month. Demo mode explains that uploading needs the real app
+
+**M3 acceptance** (plan): the home screen answers DESIGN's questions 1 (spent vs. usual) and 2 (top categories);
+question 3 (committed every month) needs recurrence detection, which is M4 (placeholder block shown). Every number
+drills to its transactions and sums correctly: automated (`InsightServiceTest`, `TransactionControllerTest`) and
+checked in the browser.
+
+## CP3.3 — done
+
+262 backend tests, 8 web tests green; typecheck and both builds green. Verified in a browser at 390 px, light and dark:
+home → category → merchant → transactions, chip removal, search, recategorize; figures equal across screens.
+
+- `GET /api/transactions?month=&scope=SPEND|INCOME|ALL&category=&uncategorized=&merchant=&q=`: rows newest first, count,
+  total in the number's own sense (spent positive / income / net). `q` matches merchant or bank text, or an exact
+  amount (`18.50`, `18,50`, `1.234,56`); LIKE wildcards are literal
+- `GET /api/insights/categories/{id}?month=`: the month, 12-month trend (months without data flagged), average over
+  months with data, the month's merchants; income categories count money in, others money out
+- `TransactionControllerTest` on the hand-computed ledger (now `LedgerFixture`, shared with `InsightServiceTest`): scopes
+  equal the home figures; every home category row drills to its rows (total and count); search; category trend/average
+- `#/transactions`: chips for scope / category / uncategorized / merchant / search, each removable; rows grouped by day;
+  tap a row → masked bank text, where its category came from, category picker + "apply to all from this merchant"
+- `#/categories/:id`: amount, average, 12 monthly columns (selected month accented, others de-emphasized, average line,
+  only the selected month labelled, each column opens its month), merchants linking to their transactions
+- Demo: fixtures computed from the same ledger (`web/src/demo/ledger.ts`) so demo drill-throughs add up; saving a
+  category in the demo explains that it needs the real app. Recurring payments listed first: M4
+
+## Anonymizer: payers and payees (done)
+
+- Both implementations: values of Beneficiar / Ordonator / Plătitor (and payee/payer) fields with 2–5 words, no digits
+  and no organisation marker are treated as people and replaced everywhere, in both word orders; organisations are kept
+  and listed in the report for review. Lowercase card masks and masks glued to a word get fake digits too.
+- New shared golden file `web/test/anonymize/raw-ing-utf8.csv` (invented names, ING layout); the two older golden
+  files are byte-for-byte unchanged. 8 web tests, 256 backend tests green.
+
+## ING Bank Romania parser (done)
+
+- `ing-ro-csv-v1` (`ingest.parse.ing.IngRoCsvParser`): multi-line Home'Bank records, page chrome anywhere (also inside
+  a record), wrapped detail lines, Romanian month names, `1.234,56`, Debit/Credit, running balance kept in the payload.
+  ING's "Referinta" is reused by standing orders, so it is part of the description, never the identity reference.
+- `ParsedRow.counterparty` + `transaction.counterparty_raw` (V5): bank parsers name the payee; merchant detection uses it
+  before the description. V5 also seeds Round Up / deposit / currency exchange → Transfer, deposit interest → Income.
+- Golden test (synthetic ING-format file, numbers from its generator): 193 records, totals, types, period; every
+  running balance follows from the previous one; chrome never leaks; a standing order sharing one reference stays 3 rows.
+  Measured on the real export before it was purged: 4,026 records parsed, totals and the 21-month balance identity
+  matched values computed independently.
+- Real-data M2 check: only **13% of spending (excluding transfers) is categorized** by the seed keywords, far below the
+  80% target. Biggest gaps: person-to-person transfers (review inbox M4 / transfer pairing M5) and merchants the seeds
+  do not know. Normalizer issues seen: payment-processor prefixes (PAYU*, MOBILPAY*, NYX*, MPY*, EP*), brand names with
+  digits dropped by the volatile-token step. To tune once the sample is fixed.
+
+## Detour after CP3.2 — anonymizer in the browser (done)
+
+- `#/anonymize` (works on the Pages demo too): pick or drop a file, optional names + seed, report (counts, partial
+  originals, leftovers, transfer lines to review), preview, download in the original encoding. No network request,
+  nothing stored: verified end to end in Chromium (0 requests while anonymizing).
+- `web/src/anonymize/anonymize.ts` is a rule-by-rule port of `tools/Anonymize.java`. Shared golden files in
+  `web/test/anonymize/` (Windows-1250 and UTF-8 with BOM); `npm --prefix web test` (Node test runner, no deps) and
+  `AnonymizeToolTest.goldenFilesSharedWithTheBrowserVersion` both require exactly those bytes. CI runs both.
+- The parity work found two double-replacement bugs in the Java tool (long-reference rule re-replacing fake phone
+  numbers and CNPs; "card + 4 digits" re-replacing the first group of a fake card number). Nothing leaked (fakes were
+  replaced by fakes), but counts and labels were wrong. Fixed in both.
+
+## CP3.2 — done
+
+245 backend tests green; web typecheck and both builds green. Verified in a browser at 390 px, light and dark,
+on the demo build and on the real API with the samples uploaded: no horizontal overflow, no console errors.
+
+- `#/?month=YYYY-MM` home: month switcher (prev / next / pick from months with data)
+  - Block 1: spent (hero, links to spend transactions), delta vs. the baseline average in words + arrow, income
+    (links to income transactions), net
+  - Block 2: top 5 categories as one-hue horizontal bars (dataviz specs: ≤ 24 px, 4 px rounded tip, square at the
+    baseline), amount + share + delta vs. usual on every row; uncategorized and the folded rest in neutral gray;
+    each row links to its category or transactions
+  - Block 3: placeholder until recurring detection (M4) + DESIGN's "upload 3+ months" nudge
+  - Block 4: accuracy meter + uncategorized payments (links to them)
+- API: `MonthSummary` gained `uncategorizedMinor` / `uncategorizedCount`. Uncategorized money can rank below the top 5,
+  so the screen must not look for it there (found while checking the demo screenshot; covered by `InsightServiceTest`)
+- Money is formatted from exact decimal strings (`Intl.NumberFormat` with a string, never a float); browser locale
+- Design tokens in `web/src/index.css` (reference palette, dark mode with its own steps)
+- Demo fixtures are month-aware and follow the hand-checked `InsightServiceTest` ledger, so the demo adds up
+- Drill targets `#/transactions?...` and `#/categories/:id?...` exist as placeholders showing the filter; CP3.3 fills them
+- The old placeholder moved to `#/status`
+
+## Detour after CP3.1 — statement anonymizer (done)
+
+- `tools/Anonymize.java` (plain Java 21, local only): IBANs → checksum-valid `ANON` fakes, card digits, holder and
+  listed names → `PERSON_n`, CNP, emails, phones, 10+ digit references; everything else byte-for-byte; deterministic
+  with a private seed; prints a review report. Workflow in `docs/anonymize.md`.
+- `AnonymizeToolTest` runs the tool as a user does and proves the output parses to the same rows, dates and amounts
+  with no personal data left; `SamplesGuardTest` fails the build on real-looking IBANs/CNPs/emails/card numbers in
+  `samples/`. 245 backend tests green.
+- Waiting on: an anonymized real export in `samples/<bank>/` → profile + golden test + M2 coverage re-check.
+
+## CP3.1 — done
+
+Packages `insight`, `txn`. 238 backend tests green (count them from the XML reports: `@Nested` tests are missing
+from surefire's text summary).
+
+- `GET /api/insights/month?month=YYYY-MM&currency=RON` (default: latest month with data) → `MonthSummary`:
+  spent, baseline months (0–3) + average + delta %, income, net, accuracy % (confidence-weighted), categorized %,
+  top 5 categories (share, usual, delta, count; uncategorized ranked like a category) + folded rest, available months
+- `txn.Scope` holds the SPEND / INCOME / MONTH predicates; `InsightService` and `TransactionQueries.list(filter)`
+  both use them, so every figure drills to exactly its transactions
+- `InsightServiceTest`: a hand-computed month (refund, transfer, salary, unknown inflow, a category without history,
+  .01 rounding) matches every figure; drill-through sums equal the figures; top 5 + rest = spent and net = income −
+  spent for every sample month; short history and an empty DB behave
+- OpenAPI spec, TS client and demo fixture (the hand-computed month) updated
 
 ## CP2.3 — done
 
@@ -168,6 +288,17 @@ Health tests now derive the expected schema version from the migrations instead 
 
 ## Known issues
 
+- **GitHub Pages is disabled** since the repository went private and back to public (deploys fail with "Get Pages
+  site failed … Not Found"). The user re-enables it: Settings → Pages → Source: GitHub Actions; then the next push or
+  a manual run of "Pages (demo)" publishes.
+
+- The first ING sample contained real names of private people (Beneficiar / Ordonator fields). The repository was made
+  private and, at the user's request, the file was purged from the dev branch history (force-push, 2026-09-24; `main`
+  never had it). The ING parser's golden test now uses `samples/synthetic/ing-ro-2026-q1.csv`. The anonymizer now
+  replaces people in Beneficiar / Ordonator / Plătitor fields (both implementations, byte-identical); next the user
+  re-anonymizes the export and a real golden test is added. GitHub may keep unreferenced old commits cached: ask GitHub
+  Support to purge them (the repository is public again since 2026-09-24).
+
 - Dev-container only: Docker Hub rate-limits image pulls here (429); images were pulled via `mirror.gcr.io`.
   Not a project issue; CI and local machines pull normally.
 - Dev-container only: `docker build` needs the sandbox proxy + CA injected, so compose images were verified with
@@ -205,4 +336,15 @@ Health tests now derive the expected schema version from the migrations instead 
     `reassignAll()` recomputes every merchant. User rules (CP2.2) will key on merchant *keys*; a normalizer change that
     renames a key would orphan rules on it. Conservative choice: rules store the key, and CP2.3's debug view shows
     raw → key so a changed key is visible; revisit with real samples.
+12. **"Accuracy" before the review inbox exists.** DESIGN: share of the month's spend that is "categorized and
+    reviewed". Nothing is reviewed until M4, so a literal reading shows 0%. Chosen: spend weighted by category
+    confidence (user/rule 1.0, learned 0.95, keyword 0.7, none 0), which answers "how far to trust the totals" from day
+    one. The plain categorized share is returned too. Revisit when the review inbox lands.
+13. **Uncategorized money in** is neither income nor spending (it may be a refund or an own-account transfer). It
+    lowers nothing on the home screen; M4's review inbox will surface it. Uncategorized money *out* counts as spent
+    (conservative: better to over- than under-state spending).
+14. **One currency at a time.** Insights take a `currency` parameter (default RON). Transactions in other currencies
+    are not converted; there is no FX in this plan.
+15. **Baseline = previous 3 months that have data.** With one month of history the average uses that one month;
+    `baselineMonths` tells the UI to show the "upload more history" nudge.
 

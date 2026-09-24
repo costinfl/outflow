@@ -174,7 +174,7 @@ class ImportControllerTest {
         assertThat(s.files()).singleElement().satisfies(f -> {
             assertThat(f.status()).isEqualTo(Status.NEEDS_PARSER);
             assertThat(f.candidates()).extracting(FileOutcome.ParserCandidate::parserId)
-                    .containsExactlyInAnyOrder("generic-csv-v1", "ro-style-csv-v1");
+                    .containsExactlyInAnyOrder("generic-csv-v1", "ing-ro-csv-v1", "ro-style-csv-v1");
             assertThat(f.candidates()).allSatisfy(c -> assertThat(c.reason()).isNotBlank());
         });
 

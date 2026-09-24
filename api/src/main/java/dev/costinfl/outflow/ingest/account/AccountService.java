@@ -46,6 +46,14 @@ public class AccountService {
         return find(id).orElseThrow();
     }
 
+    /** Renames an account (e.g. "Account ••0000" → "Main"); the kind can be corrected too. */
+    @Transactional
+    public Optional<Account> update(long id, String name, Account.Kind kind) {
+        int n = jdbc.update("UPDATE account SET name = coalesce(?, name), kind = coalesce(?, kind) WHERE household_id = ? AND id = ?",
+                name, kind == null ? null : kind.name(), HOUSEHOLD, id);
+        return n == 0 ? Optional.empty() : find(id);
+    }
+
     /** The account with this IBAN, created on first sight (DESIGN: First-run flow, "Accounts detected"). */
     @Transactional
     public Resolved resolve(AccountHint hint, String fallbackCurrency) {

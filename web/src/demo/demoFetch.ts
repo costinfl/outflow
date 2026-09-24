@@ -5,9 +5,15 @@ const json = (body: unknown, status = 200) =>
 
 /** A fetch that answers API calls from bundled fixtures; nothing leaves the browser. */
 export async function demoFetch(request: Request): Promise<Response> {
-  const path = new URL(request.url).pathname
-  if (request.method === 'GET' && path in fixtures) {
-    return json(fixtures[path as keyof typeof fixtures])
+  const url = new URL(request.url)
+  const path = url.pathname
+  // Paths with parameters ("/api/insights/categories/{id}") match any value in that segment.
+  const key = Object.keys(fixtures).find(
+    (k) => k === path || new RegExp('^' + k.replace(/\{[^/]+\}/g, '[^/]+') + '$').test(path),
+  ) as keyof typeof fixtures | undefined
+  if (request.method === 'GET' && key) {
+    const fixture: unknown = fixtures[key]
+    return json(typeof fixture === 'function' ? (fixture as (u: URL) => unknown)(url) : fixture)
   }
   return json({ error: `Demo mode: no fixture for ${request.method} ${path}` }, 404)
 }

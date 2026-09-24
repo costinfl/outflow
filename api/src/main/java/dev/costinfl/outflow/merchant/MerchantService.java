@@ -10,7 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Assigns {@code transaction.merchant_id} from each transaction's raw description (pipeline stage H, first half).
+ * Assigns {@code transaction.merchant_id} from each transaction's counterparty when the parser named one, else its raw
+ * description (pipeline stage H, first half).
  * Classify merchants, not transactions: a key is resolved once and every transaction with it shares the row.
  */
 @Service
@@ -31,7 +32,7 @@ public class MerchantService {
     /** Assigns a merchant to every transaction that has none yet (after an import). Returns how many were set. */
     @Transactional
     public int assignMissing() {
-        return assign("SELECT id, description_raw, merchant_id FROM transaction WHERE merchant_id IS NULL");
+        return assign("SELECT id, coalesce(counterparty_raw, description_raw), merchant_id FROM transaction WHERE merchant_id IS NULL");
     }
 
     /**
@@ -40,7 +41,7 @@ public class MerchantService {
      */
     @Transactional
     public int reassignAll() {
-        return assign("SELECT id, description_raw, merchant_id FROM transaction");
+        return assign("SELECT id, coalesce(counterparty_raw, description_raw), merchant_id FROM transaction");
     }
 
     private int assign(String select) {

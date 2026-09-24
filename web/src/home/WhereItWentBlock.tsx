@@ -1,0 +1,94 @@
+import type { ReactNode } from 'react'
+import { Link } from 'react-router'
+import type { CategorySpend, MonthSummary } from '../api/types'
+import { formatMoney } from '../lib/format'
+import { categoryLink, transactionsLink } from '../lib/links'
+import { Card } from './Card'
+import { Delta } from './Delta'
+
+/**
+ * Block 2: which categories take most of it? Horizontal bars (one series, one hue), longest = largest category,
+ * every row labelled in text and linking to what makes it up. Uncategorized and the folded rest are neutral gray.
+ */
+export function WhereItWentBlock({ s }: { s: MonthSummary }) {
+  if (s.categories.length === 0) {
+    return (
+      <Card title="Where it went" id="where">
+        <p className="text-sm text-muted">No spending this month.</p>
+      </Card>
+    )
+  }
+  const max = Math.max(...s.categories.map((c) => c.spentMinor), s.rest.spentMinor, 1)
+  return (
+    <Card title="Where it went" id="where">
+      <ul className="space-y-3">
+        {s.categories.map((c) => (
+          <Row
+            key={c.categoryId ?? 'uncategorized'}
+            to={c.categoryId != null ? categoryLink(c.categoryId, s.month) : transactionsLink(s.month, 'spend', { uncategorized: true })}
+            name={c.name}
+            amount={formatMoney(c.spentMinor, s.currency)}
+            share={c.sharePct}
+            width={c.spentMinor / max}
+            neutral={c.categoryId == null}
+            note={<CategoryNote c={c} s={s} />}
+          />
+        ))}
+        {s.rest.categoryCount > 0 && (
+          <Row
+            to={transactionsLink(s.month, 'spend')}
+            name={`Other (${s.rest.categoryCount} ${s.rest.categoryCount === 1 ? 'category' : 'categories'})`}
+            amount={formatMoney(s.rest.spentMinor, s.currency)}
+            share={s.rest.sharePct}
+            width={s.rest.spentMinor / max}
+            neutral
+          />
+        )}
+      </ul>
+    </Card>
+  )
+}
+
+function CategoryNote({ c, s }: { c: CategorySpend; s: MonthSummary }) {
+  if (c.deltaPct != null) return <Delta pct={c.deltaPct} against={`usual (${formatMoney(c.usualMinor, s.currency)})`} />
+  if (c.categoryId == null) return <span className="text-muted">Tap to categorize</span>
+  return s.baselineMonths > 0 ? <span className="text-muted">New this month</span> : null
+}
+
+function Row({
+  to,
+  name,
+  amount,
+  share,
+  width,
+  neutral = false,
+  note,
+}: {
+  to: string
+  name: string
+  amount: string
+  share: number
+  width: number
+  neutral?: boolean
+  note?: ReactNode
+}) {
+  return (
+    <li>
+      <Link to={to} className="-mx-2 block rounded-lg px-2 py-1 hover:bg-page" title={`${name}: ${amount}, ${share}% of spending`}>
+        <div className="flex items-baseline justify-between gap-3 text-sm">
+          <span className="truncate font-medium text-ink">{name}</span>
+          <span className="shrink-0 text-ink tabular-nums">
+            {amount} <span className="text-muted">· {share}%</span>
+          </span>
+        </div>
+        <div aria-hidden className="mt-1.5 h-3 rounded-r-[4px] bg-bar-track">
+          <div
+            className={`h-3 rounded-r-[4px] ${neutral ? 'bg-bar-neutral' : 'bg-bar'}`}
+            style={{ width: `${Math.max(0, Math.min(1, width)) * 100}%` }}
+          />
+        </div>
+        {note && <p className="mt-1 text-xs">{note}</p>}
+      </Link>
+    </li>
+  )
+}
