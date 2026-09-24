@@ -4,10 +4,39 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M3 — Home screen: complete** (PR to `main` open) |
-| Last completed | **CP3.4** — upload flow and import summary screen (DESIGN: First-run flow) |
-| Next | **M4 / CP4.1** — recurrence: grouping + amount bands; monthly and yearly cadence fit with anchor-day matching; scoring |
-| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M3 work) |
+| Milestone | **M4 — Recurring and review inbox** (M3 merged to `main` in PR #4) |
+| Last completed | **CP4.1** — recurrence detection: amount bands, monthly and yearly cadence fit, scoring |
+| Next | **CP4.2** — `subscription` + `subscription_rejection`; states PROPOSED → CONFIRMED / REJECTED / ENDED |
+| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M4 work) |
+
+## CP4.1 — done
+
+280 backend tests green (16 new); typecheck green. No schema or API change yet: candidates are computed, not stored.
+
+- `recurring.RecurrenceDetector` (pure) follows DESIGN step by step:
+  - **Bands:** a merchant's charges are split where the next amount is more than 25% above the previous one.
+  - **Monthly:** anchored to the median day of the month, clamped to the month's length. A charge counts as on time
+    within ±3 days of the anchor, or of the next business day when the anchor falls on a weekend, and belongs to the
+    nearest month's anchor.
+  - **Yearly:** anchored to the median date across years, measured around the first charge so it works over New Year;
+    ±7 days.
+  - A cadence only fits when the lower-median gap is exactly one step. R_interval is the share of one-step gaps with
+    both ends on time.
+  - **Scoring:** 0.4 / 0.2 / 0.2 / 0.2. Proposed at ≥ 0.65, possible at ≥ 0.45, otherwise dropped.
+  - **Amount:** FIXED when the coefficient of variation is ≤ 0.02. Expected amount = median of the last 3,
+    tolerance = 2 × MAD. The next expected date is snapped to the anchor.
+- `recurring.RecurrenceService.detect(today)`: groups outgoing charges by (account, merchant, currency). Transfers,
+  cash withdrawals and refunds are left out.
+- **Tests:**
+  - `RecurrenceDetectorTest` (hand-computed): fixed monthly with weekend shifts, variable, month-end anchor 31, one
+    missed month (R_interval 0.8, confidence 0.92), weekend anchor 5 days late, yearly, yearly across New Year, a plan
+    next to one-off purchases, the 25% band edge, irregular spending, too few charges, recency decay, a possible-only
+    fit, a fit below the threshold.
+  - `RecurrenceServiceTest` on a seeded 7-month ledger (`RecurringFixture`): Netflix fixed, Enel variable, Orange month
+    end, World Class with April missed, eMAG plan next to one-offs. Exactly these are found; the savings transfer,
+    ATM withdrawals, Lidl and salary are not. Accounts are separate streams.
+- Quarterly and bi-weekly (in the DESIGN table but not in the plan's CP4.1) are not fitted yet. They add as
+  `Cadence` values with the same anchor logic. Weekly and daily come in CP5.3.
 
 ## CP3.4 — done
 
