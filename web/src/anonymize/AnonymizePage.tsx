@@ -150,6 +150,28 @@ function Report({ r, onDownload }: { r: AnonymizeResult; onDownload: () => void 
         </p>
       </div>
 
+      {(r.detectedNames > 0 || r.keptCounterparties.length > 0) && (
+        <div className="rounded-2xl bg-surface p-4 ring-1 ring-hairline">
+          <h2 className="font-medium text-ink">Payers and payees</h2>
+          <p className="mt-1 text-sm text-ink-2">
+            {r.detectedNames} {r.detectedNames === 1 ? 'person' : 'people'} found in Beneficiar / Ordonator fields and
+            replaced everywhere in the file.
+          </p>
+          {r.keptCounterparties.length > 0 && (
+            <>
+              <p className="mt-2 text-sm text-ink-2">
+                Kept as organisations. If any of these is a person, add it to the names list and run again:
+              </p>
+              <ul className="mt-1 max-h-48 overflow-auto rounded-lg bg-page p-2 text-xs text-ink">
+                {r.keptCounterparties.map((k) => (
+                  <li key={k}>{k}</li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+
       {(r.leftovers.length > 0 || r.transferLines.length > 0) && (
         <div className="rounded-2xl bg-surface p-4 ring-1 ring-hairline">
           <h2 className="font-medium text-ink">Review before sharing</h2>

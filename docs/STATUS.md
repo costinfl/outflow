@@ -9,6 +9,14 @@ _Resume entrypoint. Updated at every checkpoint._
 | Next | **CP3.3** — transactions screen with pre-filtered chips; category detail with trend and top merchants |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M3 work) |
 
+## Anonymizer: payers and payees (done)
+
+- Both implementations: values of Beneficiar / Ordonator / Plătitor (and payee/payer) fields with 2–5 words, no digits
+  and no organisation marker are treated as people and replaced everywhere, in both word orders; organisations are kept
+  and listed in the report for review. Lowercase card masks and masks glued to a word get fake digits too.
+- New shared golden file `web/test/anonymize/raw-ing-utf8.csv` (invented names, ING layout); the two older golden
+  files are byte-for-byte unchanged. 8 web tests, 256 backend tests green.
+
 ## ING Bank Romania parser (done)
 
 - `ing-ro-csv-v1` (`ingest.parse.ing.IngRoCsvParser`): multi-line Home'Bank records, page chrome anywhere (also inside
@@ -244,8 +252,10 @@ Health tests now derive the expected schema version from the migrations instead 
 
 - The first ING sample contained real names of private people (Beneficiar / Ordonator fields). The repository was made
   private and, at the user's request, the file was purged from the dev branch history (force-push, 2026-09-24; `main`
-  never had it). The ING parser's golden test now uses `samples/synthetic/ing-ro-2026-q1.csv`. Next: the anonymizer
-  learns to replace those fields; the user re-anonymizes and a real golden test is added.
+  never had it). The ING parser's golden test now uses `samples/synthetic/ing-ro-2026-q1.csv`. The anonymizer now
+  replaces people in Beneficiar / Ordonator / Plătitor fields (both implementations, byte-identical); next the user
+  re-anonymizes the export and a real golden test is added. GitHub may keep unreferenced old commits cached: ask GitHub
+  Support to purge them before the repository is made public again.
 
 - Dev-container only: Docker Hub rate-limits image pulls here (429); images were pulled via `mirror.gcr.io`.
   Not a project issue; CI and local machines pull normally.

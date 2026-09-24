@@ -37,7 +37,7 @@ the command-line tool for the same seed and names, so both can be mixed across e
 | --- | --- |
 | IBANs (valid checksum) | fake IBAN: same country and length, bank code `ANON`, valid checksum |
 | Card numbers (Luhn-valid) and the 4 digits next to masks / "card" | fake digits |
-| Account holder + names from `--names` | `PERSON_1`, `PERSON_2`, … |
+| Account holder, names from `--names`, and people in Beneficiar / Ordonator / Plătitor fields | `PERSON_1`, `PERSON_2`, … |
 | CNP (valid checksum) | 13 fake digits |
 | Emails, Romanian mobile numbers | `person1@example.invalid`, `0700…` |
 | Digit runs of 10+ (customer codes, references) | fake digits, same length |
@@ -46,6 +46,10 @@ Kept exactly: amounts, dates, merchant text, encoding, delimiter, quoting, pream
 
 `SamplesGuardTest` fails the build if anything in `samples/` still holds a real-looking IBAN (anything but `ANON`
 fakes and the documented example), a valid CNP, a real email or a card number.
+
+A value of a Beneficiar / Ordonator / Plătitor field counts as a person when it has 2–5 words, no digits and no
+organisation marker (SRL, SA, BANK, ASIGURARI, CLINICA, …). Everything kept as an organisation is listed in the
+report: check that list for people and add any to the names list.
 
 ## Limits
 

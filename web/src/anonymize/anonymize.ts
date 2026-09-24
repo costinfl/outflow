@@ -25,6 +25,10 @@ export interface AnonymizeResult {
   /** kind → up to 5 "partial original  ->  fake" lines */
   examples: Record<string, string[]>
   namesLookedFor: number
+  /** People found in Beneficiar / Ordonator / Platitor fields and replaced everywhere */
+  detectedNames: number
+  /** Values of those fields kept as organisations: check none is a person */
+  keptCounterparties: string[]
   /** Things kept that deserve a look */
   leftovers: string[]
   /** Lines that look like transfers: check them for names of people */
@@ -36,7 +40,7 @@ const WS = '[ \\t\\n\\x0B\\f\\r]'
 
 const IBAN = /\b([A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30})\b/g
 const PAN = /(?<![\dA-Za-z])(\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{1,7})(?!\d)/g
-const MASK_DIGITS = /(?<![A-Za-z0-9])((?:\d{0,6})[*X•]{2,}[ *X•]*)(\d{4})(?!\d)/g
+const MASK_DIGITS = /(?<!\d)((?:\d{0,6})[*Xx•]{2,}[ *Xx•]*)(\d{4})(?!\d)/g
 const CARD_DIGITS = new RegExp(`(\\bcard${WS}*(?:nr\\.?|no\\.?)?${WS}*)(\\d{4})(?![ -]?\\d)`, 'gi')
 const CNP = /(?<!\d)([1-8]\d{12})(?!\d)/g
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
@@ -45,6 +49,12 @@ const LONG_DIGITS = /(?<![\p{L}\d.,])(\d{10,})(?![\d.,]\d)/gu
 const MOBILE = /^(?:0040|40|0)?7\d{8}$/
 const HOLDER =
   /^([ \t"]*(?:titular(?: cont)?|nume(?: client)?|client|account holder|holder|name)[ \t"]*[:;,\t]+[ \t"]*)([^;,\t"\r\n]+)/gim
+/** Bank fields that hold who paid or who was paid: a person's name unless it looks like an organisation. */
+const NAME_FIELD =
+  /\b(?:beneficiar|ordonator|pl[aAăĂ]titor|nume beneficiar|nume pl[aAăĂ]titor|nume ordonator|payee|payer)[ \t]*:[ \t]*([^,;"\t\r\n]+)/gi
+const ORGANISATION =
+  /\b(?:SRL|SA|SCS|SNC|SCA|LTD|LIMITED|GMBH|AG|BV|NV|INC|LLC|PLC|SAS|SPA|IFN|BANK|BANCA|ROMANIA|ASOCIATIA|FUNDATIA|PRIMARIA|DIRECTIA|MINISTERUL|UNIVERSITATEA|SCOALA|LICEUL|GRADINITA|SPITALUL|CLINICA|CENTRUL|MEDICAL|HOSPITAL|ASIGURARI|INSURANCE|TRADING|SYSTEMS|SERVICES|SERV|GROUP|HOLDING|COMPANY|INTERNATIONAL|TREZORERIA|ADMINISTRATIA|ANAF|CNAS)\b/i
+const PERSON_LIKE = /^[\p{L}'-]+(?:[ .][\p{L}'-]+){1,4}$/u
 const TRANSFERISH = /transfer|catre|către|de la|beneficiar|ordonator|platitor|plătitor|p2p|revolut|incasare|încasare/i
 
 /** Java's String.strip(): Character.isWhitespace, which (unlike JS trim) keeps no-break spaces. */
@@ -163,6 +173,8 @@ class Anonymizer {
   readonly examples: Record<string, string[]> = {}
   private readonly personOf = new Map<string, string>()
   private readonly emailOf = new Map<string, string>()
+  readonly keptCounterparties: string[] = []
+  detectedNames = 0
   private readonly names: string[]
   private readonly key: CryptoKey
 
@@ -232,6 +244,20 @@ class Anonymizer {
         this.names.unshift(name)
       }
     }
+    // Counterparty fields: people are replaced like listed names; organisations are kept and reported.
+    for (const f of s.matchAll(NAME_FIELD)) {
+      const value = strip(f[1]!)
+      if (!value || /^PERSON_\d+$/.test(value)) continue
+      const organisation = ORGANISATION.test(value.replace(/\./g, ''))
+      if (!organisation && PERSON_LIKE.test(value)) {
+        if (!this.names.some((n) => n.toLowerCase() === value.toLowerCase())) {
+          this.names.push(value)
+          this.detectedNames++
+        }
+      } else if (!this.keptCounterparties.includes(value)) {
+        this.keptCounterparties.push(value)
+      }
+    }
     s = await this.replace(s, IBAN, 'IBAN', (m) => (ibanValid(m[1]!) ? this.fakeIban(m[1]!) : null))
     s = await this.replace(s, PAN, 'card number', async (m) => {
       const digits = m[1]!.replace(/[ -]/g, '')
@@ -294,6 +320,8 @@ export async function anonymize(input: Uint8Array, options: AnonymizeOptions = {
     counts: a.counts,
     examples: a.examples,
     namesLookedFor: a.namesLookedFor,
+    detectedNames: a.detectedNames,
+    keptCounterparties: [...a.keptCounterparties].sort(),
     leftovers,
     transferLines,
   }

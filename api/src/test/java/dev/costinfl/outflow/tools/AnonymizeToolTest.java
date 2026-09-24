@@ -130,7 +130,7 @@ class AnonymizeToolTest {
     @Test
     void goldenFilesSharedWithTheBrowserVersion() throws Exception {
         Path fixtures = Path.of("..", "web", "test", "anonymize");
-        for (String name : List.of("ro-cp1250", "generic-utf8-bom")) {
+        for (String name : List.of("ro-cp1250", "generic-utf8-bom", "ing-utf8")) {
             Path out = dir.resolve("golden-" + name + ".csv");
             var process = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java"), TOOL.toString(),
                     "--in", fixtures.resolve("raw-" + name + ".csv").toString(), "--out", out.toString(),

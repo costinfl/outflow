@@ -9,7 +9,8 @@
  *
  *   IBANs            -> checksum-valid fakes with bank code ANON, same country and length
  *   card numbers     -> full PANs and the digits next to masks ("****4412", "card 4412") get fake digits
- *   names            -> the account holder ("Titular: ...") and every name in --names become PERSON_1, PERSON_2, ...
+ *   names            -> the account holder ("Titular: ..."), every name in --names, and people named in Beneficiar /
+ *                       Ordonator / Platitor fields (organisations are kept and listed) become PERSON_1, PERSON_2, ...
  *   CNP              -> 13 fake digits
  *   emails, phones   -> person1@example.invalid, 0700xxxxxx
  *   long references  -> digit runs of 10+ (not CNPs or phone numbers) get fake digits of the same length
@@ -104,7 +105,7 @@ public class Anonymize {
 
         private static final Pattern IBAN = Pattern.compile("\\b([A-Z]{2}\\d{2}(?: ?[A-Z0-9]){11,30})\\b");
         private static final Pattern PAN = Pattern.compile("(?<![\\dA-Za-z])(\\d{4}[ -]?\\d{4}[ -]?\\d{4}[ -]?\\d{1,7})(?!\\d)");
-        private static final Pattern MASK_DIGITS = Pattern.compile("(?<![A-Za-z0-9])((?:\\d{0,6})[*X•]{2,}[ *X•]*)(\\d{4})(?!\\d)");
+        private static final Pattern MASK_DIGITS = Pattern.compile("(?<!\\d)((?:\\d{0,6})[*Xx•]{2,}[ *Xx•]*)(\\d{4})(?!\\d)");
         private static final Pattern CARD_DIGITS = Pattern.compile("(?i)(\\bcard\\s*(?:nr\\.?|no\\.?)?\\s*)(\\d{4})(?![ -]?\\d)");
         private static final Pattern CNP = Pattern.compile("(?<!\\d)([1-8]\\d{12})(?!\\d)");
         private static final Pattern EMAIL = Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
@@ -113,6 +114,15 @@ public class Anonymize {
         private static final Pattern MOBILE = Pattern.compile("(?:0040|40|0)?7\\d{8}");
         private static final Pattern HOLDER = Pattern.compile(
                 "(?im)^([ \\t\"]*(?:titular(?: cont)?|nume(?: client)?|client|account holder|holder|name)[ \\t\"]*[:;,\\t]+[ \\t\"]*)([^;,\\t\"\\r\\n]+)");
+        /** Bank fields that hold who paid or who was paid: a person's name unless it looks like an organisation. */
+        private static final Pattern NAME_FIELD = Pattern.compile(
+                "(?i)\\b(?:beneficiar|ordonator|pl[aAăĂ]titor|nume beneficiar|nume pl[aAăĂ]titor|nume ordonator|payee|payer)"
+                        + "[ \\t]*:[ \\t]*([^,;\"\\t\\r\\n]+)");
+        private static final Pattern ORGANISATION = Pattern.compile("(?i)\\b(?:SRL|SA|SCS|SNC|SCA|LTD|LIMITED|GMBH|AG|BV|NV"
+                + "|INC|LLC|PLC|SAS|SPA|IFN|BANK|BANCA|ROMANIA|ASOCIATIA|FUNDATIA|PRIMARIA|DIRECTIA|MINISTERUL|UNIVERSITATEA"
+                + "|SCOALA|LICEUL|GRADINITA|SPITALUL|CLINICA|CENTRUL|MEDICAL|HOSPITAL|ASIGURARI|INSURANCE|TRADING|SYSTEMS"
+                + "|SERVICES|SERV|GROUP|HOLDING|COMPANY|INTERNATIONAL|TREZORERIA|ADMINISTRATIA|ANAF|CNAS)\\b");
+        private static final Pattern PERSON_LIKE = Pattern.compile("[\\p{L}'-]+(?:[ .][\\p{L}'-]+){1,4}");
         private static final Pattern TRANSFERISH = Pattern.compile(
                 "(?i)transfer|catre|către|de la|beneficiar|ordonator|platitor|plătitor|p2p|revolut|incasare|încasare");
 
@@ -122,6 +132,8 @@ public class Anonymize {
         private final Map<String, Integer> counts = new TreeMap<>();
         private final Map<String, List<String>> examples = new TreeMap<>();
         private final Map<String, String> emailOf = new HashMap<>();
+        private final List<String> keptCounterparties = new ArrayList<>();
+        private int detectedNames;
         private String output = "";
 
         Anonymizer(String seed, List<String> names) throws Exception {
@@ -138,6 +150,23 @@ public class Anonymize {
                 String name = h.group(2).strip();
                 if (!name.isEmpty() && Iban.find(name) == null && names.stream().noneMatch(n -> n.equalsIgnoreCase(name))) {
                     names.add(0, name);
+                }
+            }
+            // Counterparty fields: people are replaced like listed names; organisations are kept and reported.
+            Matcher f = NAME_FIELD.matcher(s);
+            while (f.find()) {
+                String value = f.group(1).strip();
+                if (value.matches("PERSON_\\d+") || value.isEmpty()) {
+                    continue;
+                }
+                boolean organisation = ORGANISATION.matcher(value.replace(".", "")).find();
+                if (!organisation && PERSON_LIKE.matcher(value).matches()) {
+                    if (names.stream().noneMatch(n -> n.equalsIgnoreCase(value))) {
+                        names.add(value);
+                        detectedNames++;
+                    }
+                } else if (!keptCounterparties.contains(value)) {
+                    keptCounterparties.add(value);
                 }
             }
             s = replace(s, IBAN, "IBAN", m -> {
@@ -224,6 +253,13 @@ public class Anonymize {
             }
             if (digitRuns > 0) {
                 leftovers.add(digitRuns + " digit runs of 6-9 digits kept (store/terminal/invoice numbers?)");
+            }
+            if (detectedNames > 0) {
+                r.append("\nNames found in Beneficiar/Ordonator fields and replaced everywhere: ").append(detectedNames).append('\n');
+            }
+            if (!keptCounterparties.isEmpty()) {
+                r.append("\nKept as organisations (make sure none of these is a person; if one is, add it to --names):\n");
+                keptCounterparties.stream().sorted().limit(200).forEach(k -> r.append("      ").append(k).append('\n'));
             }
             var transfers = output.lines().filter(l -> TRANSFERISH.matcher(l).find()).limit(40).toList();
             r.append("\nReview before sharing:\n");

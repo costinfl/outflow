@@ -13,6 +13,7 @@ const names = readFileSync(new URL('names.txt', dir), 'utf8').split('\n')
 for (const [raw, expected, encoding] of [
   ['raw-ro-cp1250.csv', 'expected-ro-cp1250.csv', 'windows-1250'],
   ['raw-generic-utf8-bom.csv', 'expected-generic-utf8-bom.csv', 'utf-8'],
+  ['raw-ing-utf8.csv', 'expected-ing-utf8.csv', 'utf-8'],
 ]) {
   test(`byte-identical to the Java tool: ${raw}`, async () => {
     const r = await anonymize(bytes(raw), { seed: 'parity', names })
@@ -52,4 +53,13 @@ test('checksum helpers', () => {
   assert.ok(!ibanValid('RO48AAAA1B31007593840000'))
   assert.ok(luhn('4111111111111111') && !luhn('4111111111111112'))
   assert.ok(cnpValid('1800101221144') && !cnpValid('1800101221145'))
+})
+
+test('people in Beneficiar / Ordonator fields are replaced everywhere; organisations are kept and listed', async () => {
+  const r = await anonymize(bytes('raw-ing-utf8.csv'), { seed: 'parity', names })
+  for (const person of ['Andrei Fictiv', 'FICTIV ANDREI', 'Maria-Elena Exemplu', 'Ion Testescu', '4323', '2625']) {
+    assert.ok(!r.text.includes(person), `still contains ${person}`)
+  }
+  assert.equal(r.detectedNames, 3)
+  assert.deepEqual(r.keptCounterparties, ['DIGI ROMANIA SA', 'EXEMPLU SOFTWARE S.R.L.', 'Revolut'])
 })
