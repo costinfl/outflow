@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { api } from '../api/client'
 import type { MonthSummary } from '../api/types'
@@ -22,21 +23,24 @@ export function HomePage() {
     }),
   )
 
-  if (state.kind === 'loading') return <p className="py-12 text-center text-muted">Loading…</p>
+  // The accounts filter stays mounted while the numbers reload: its sheet stays open as the user ticks accounts.
+  const page = (body: ReactNode) => (
+    <div className="space-y-4">
+      <h1 className="sr-only">Outflow: where your money went</h1>
+      <AccountsFilter />
+      {body}
+    </div>
+  )
+  if (state.kind === 'loading') return page(<p className="py-12 text-center text-muted">Loading…</p>)
   if (state.kind === 'error')
-    return (
+    return page(
       <p role="alert" className="py-12 text-center text-bad">
         Could not load this month ({state.message}).
-      </p>
+      </p>,
     )
   const s = state.data
   if (s.availableMonths.length === 0 && accounts.ids.length > 0) {
-    return (
-      <div className="space-y-4">
-        <AccountsFilter />
-        <p className="py-8 text-center text-ink-2">No transactions in the selected accounts yet.</p>
-      </div>
-    )
+    return page(<p className="py-8 text-center text-ink-2">No transactions in the selected accounts yet.</p>)
   }
   if (s.availableMonths.length === 0) {
     return (
@@ -49,10 +53,8 @@ export function HomePage() {
       </div>
     )
   }
-  return (
-    <div className="space-y-4">
-      <h1 className="sr-only">Outflow: where your money went</h1>
-      <AccountsFilter />
+  return page(
+    <>
       <MonthSwitcher
         month={s.month}
         available={s.availableMonths}
@@ -75,6 +77,6 @@ export function HomePage() {
       <WhereItWentBlock s={s} />
       <CommittedBlock s={s} />
       <AttentionBlock s={s} />
-    </div>
+    </>,
   )
 }
