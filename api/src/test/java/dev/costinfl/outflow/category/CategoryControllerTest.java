@@ -150,8 +150,10 @@ class CategoryControllerTest {
     void categoriesAreListedInOrder() {
         var list = http.getForObject("/api/categories", Category[].class);
 
-        assertThat(list).hasSize(18);
+        assertThat(list).hasSize(19); // DESIGN's 18 + Insurance (V12, spec question 27)
         assertThat(list[0].code()).isEqualTo("GROCERIES");
-        assertThat(list[14].kind()).isEqualTo(Category.Kind.INCOME);
+        assertThat(list[13].code()).isEqualTo("FEES");
+        assertThat(list[14].code()).isEqualTo("INSURANCE");
+        assertThat(list[15].kind()).isEqualTo(Category.Kind.INCOME);
     }
 }

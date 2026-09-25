@@ -34,6 +34,7 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
     { id: 12, code: 'TRAVEL', name: 'Travel', kind: 'SPEND' },
     { id: 13, code: 'EDUCATION', name: 'Education', kind: 'SPEND' },
     { id: 14, code: 'FEES', name: 'Fees & interest', kind: 'SPEND' },
+    { id: 19, code: 'INSURANCE', name: 'Insurance', kind: 'SPEND' },
     { id: 15, code: 'INCOME', name: 'Income', kind: 'INCOME' },
     { id: 16, code: 'TRANSFER', name: 'Transfer', kind: 'TRANSFER' },
     { id: 17, code: 'CASH', name: 'Cash withdrawal', kind: 'SPEND' },

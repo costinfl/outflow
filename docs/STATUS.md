@@ -5,9 +5,44 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.1** — real ING sample: anonymizer memo fix, golden test, categorization for real data |
-| Next | Candidates: bi-weekly/quarterly cadences; a second bank's format; "Standing transfers" group; insurance category (spec question 27) |
+| Last completed | **CP6.2** — Insurance category (spec question 27) |
+| Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.2 — done
+
+364 backend tests green; typecheck, web tests and the demo build green.
+
+- **V12:** category `INSURANCE` ("Insurance", SPEND, id 19, listed after Fees). Keywords: ASIGURARI / ASIGURARE /
+  INSURANCE / RCA / CASCO and insurers (Allianz, Groupama, Omniasig, Generali, Uniqa, Euroins, Asirom, Signal Iduna,
+  Metropolitan Life, NN, Grawe, Helvetia, PAID).
+- Recurring insurance premiums are **Bills** on the Recurring screen, as DESIGN groups them. The demo category list
+  follows.
+- **Real export:** merchant spending categorized 70.3% → **72.8%**, all spending 21.9% → **22.6%** (floors raised to
+  72 / 22). Allianz premiums are Insurance.
+- The seed-count tests now expect DESIGN's 18 plus Insurance, with Insurance's place in the order checked.
+
+## What is left
+
+From DESIGN, not built yet:
+1. **Home:** the plain-language insight line under "Where it went" ("Restaurants are up 40% vs. your usual…") and the
+   "last 3 months" smoothing toggle.
+2. **Recurring:** the "Standing transfers" group (e.g. the monthly savings transfer, shown but not counted);
+   "remind me before next charge".
+3. **Subscriptions:** merge / split candidates and "mark this one transaction as a subscription" (manual add, useful
+   for yearly items).
+4. **Cadences:** bi-weekly and quarterly (spec question 26).
+5. **Category detail:** recurring payments listed first, separately from variable spending.
+6. **Review:** a card for transfer ties (spec question 20); accuracy as "categorized and reviewed" (spec question 12).
+7. **Money:** more than one currency at a time, and cross-currency transfers (spec questions 14, 21).
+8. **Banks:** a second bank or CAMT.053 (DESIGN roadmap step 2); pending rows need a format with a status column
+   (spec question 23).
+9. **Pipeline:** DESIGN runs stages G–I as an async job; here they run in the upload transaction. That is fine at
+   personal scale.
+10. **Later (outside the plan):** household sharing, LLM classification, PDF statements.
+
+From the real data: the biggest uncategorized amount is transfers to people (`PERSON_n`, ~77% of spending). The
+review inbox asks about these, merchant by merchant. Categorizing the top 3 people would cover most of it.
 
 ## CP6.1 — done
 
@@ -740,6 +775,5 @@ Health tests now derive the expected schema version from the migrations instead 
     when charges return, so nothing the user decided is overwritten.
 26. **Bi-weekly and quarterly** (in DESIGN's table, not in the plan's checkpoints) are not fitted yet. They fit the
     same anchor framework (two-week periods; three-month periods ±5 days) when wanted.
-27. **No insurance category.** DESIGN's seed list has none, so life and general insurance premiums (e.g.
-    Allianz-Tiriac) stay uncategorized. They are the largest uncategorized merchant amount in the real export. Add
-    "Insurance" to the seeds, or map it to an existing category?
+27. **Insurance category** (decided by the user: add it). DESIGN's seed list had none; V12 adds "Insurance" (SPEND,
+    Bills on the Recurring screen).

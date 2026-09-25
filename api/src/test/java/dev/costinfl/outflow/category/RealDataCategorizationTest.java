@@ -54,8 +54,16 @@ class RealDataCategorizationTest {
         double all = coverage(false);
         System.out.printf("Real ING export: merchants %.1f%%, all spending %.1f%% categorized%n", merchants, all);
 
-        assertThat(merchants).isGreaterThanOrEqualTo(70.0);
-        assertThat(all).isGreaterThanOrEqualTo(20.0);
+        assertThat(merchants).isGreaterThanOrEqualTo(72.0);
+        assertThat(all).isGreaterThanOrEqualTo(22.0);
+    }
+
+    @Test
+    void insurancePremiumsAreInsurance() {
+        var categories = jdbc.queryForList("""
+                SELECT DISTINCT c.code FROM transaction t JOIN merchant m ON m.id = t.merchant_id
+                JOIN category c ON c.id = t.category_id WHERE m.key LIKE 'ALLIANZ%'""", String.class);
+        assertThat(categories).containsExactly("INSURANCE");
     }
 
     @Test

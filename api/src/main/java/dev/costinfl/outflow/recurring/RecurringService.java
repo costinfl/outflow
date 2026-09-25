@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service;
 public class RecurringService {
 
     /** Categories whose recurring payments are bills rather than subscriptions (DESIGN: grouping). */
-    static final Set<String> BILLS = Set.of("UTILITIES", "TELECOM", "HOUSING", "FEES");
+    static final Set<String> BILLS = Set.of("UTILITIES", "TELECOM", "HOUSING", "FEES", "INSURANCE");
     static final int MONTHLY_HISTORY = 3;
     static final int YEARLY_HISTORY = 13;
 
