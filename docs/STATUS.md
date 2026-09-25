@@ -5,9 +5,33 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.6** — standing transfers on the Recurring screen |
-| Next | CP6.7 — account picker that scales past 4 accounts (the user's order: standing transfers, then the picker) |
+| Last completed | **CP6.7** — account picker that scales past 4 accounts |
+| Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.7 — done
+
+Web only; 401 backend tests green (unchanged); typecheck, 17 web tests (7 new), build and demo build green. Checked in
+Chromium at 390 px against the API with the real export and 6 accounts (2 current, a card, 3 savings), light and dark.
+
+- **Why** (the user's question: dropdown or tabs?): tabs mean one account at a time, but Outflow's question is answered
+  across accounts. "All accounts" is where own-account transfers cancel out. A plain dropdown picks only one. So the
+  filter stays a multi-select, and only its presentation changes with the number of accounts.
+- **Up to 4 accounts:** the chips, unchanged.
+- **More than 4:** one button with a summary ("All accounts", "Main + Visa", "3 accounts") opens a bottom sheet (a
+  native modal `<dialog>`: focus stays inside, Escape and a tap outside close it). It has:
+  - one checkbox per account, grouped Current accounts, Cards, Savings;
+  - a group checkbox (partly checked when the group is partly selected) and an "Only" shortcut per account;
+  - "All accounts" to reset, and "Done";
+  - under Savings, the note that savings mostly receive transfers.
+  - Every tick applies at once and stays in `?accounts=`, like the chips.
+- **Rules** in `lib/accountSelection.ts`, tested in `test/accountSelection.test.mjs`: every account selected = no
+  filter; the last checked box cannot be unchecked; a group toggle never leaves nothing selected.
+- **Fix found on the way:** the home screen replaced everything with "Loading…" while the numbers reloaded, which
+  unmounted the filter (and would have closed the sheet on every tick). The filter now stays mounted.
+- **The user's savings habit** (for later reading of standing transfers): 5,000 of each salary part goes to savings;
+  for the 10th's part, 3,500 right away by hand plus the 1,500 standing order on the 15th. A late or skipped 1,500 is
+  therefore expected. The savings account's statement will be uploaded; Revolut may need a new parser.
 
 ## CP6.6 — done
 
