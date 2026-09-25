@@ -304,7 +304,7 @@ public class SubscriptionService {
     private static final String SELECT = """
             SELECT id, account_id, merchant_id, name, currency, cadence, anchor_day, anchor_month, amount_kind,
                    expected_amount_minor, tolerance_minor, band_min_minor, band_max_minor, confidence, first_seen,
-                   last_seen, next_expected_date, state, ended_by, direction
+                   last_seen, next_expected_date, state, ended_by, direction, remind_days_before
             FROM subscription""";
 
     private Subscription row(ResultSet rs, int i) throws SQLException {
@@ -317,6 +317,6 @@ public class SubscriptionService {
                 rs.getBigDecimal("confidence"), rs.getObject("first_seen", LocalDate.class),
                 rs.getObject("last_seen", LocalDate.class), rs.getObject("next_expected_date", LocalDate.class),
                 State.valueOf(rs.getString("state")), endedBy == null ? null : EndedBy.valueOf(endedBy),
-                Direction.valueOf(rs.getString("direction")));
+                Direction.valueOf(rs.getString("direction")), rs.getObject("remind_days_before", Integer.class));
     }
 }

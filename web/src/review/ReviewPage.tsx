@@ -46,6 +46,8 @@ export function ReviewPage() {
       <SubscriptionCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
     ) : card.kind === 'POSSIBLE_DUPLICATE' ? (
       <DuplicateCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
+    ) : card.kind === 'UPCOMING_CHARGE' ? (
+      <ReminderCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
     ) : card.kind === 'PRICE_CHANGE' || card.kind === 'MISSED_CHARGE' ? (
       <AlertCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
     ) : (
@@ -269,6 +271,39 @@ function AlertCard({ card, answer, skip }: { card: ReviewCard; answer: Answer; s
         </button>
         <button type="button" className={secondary} onClick={() => act(reject[0], reject[1].toLowerCase())}>
           {reject[1]}
+        </button>
+        <button type="button" className={quiet} onClick={skip}>
+          Skip
+        </button>
+      </div>
+    </Swipeable>
+  )
+}
+
+/** "Netflix charges 49.99 RON on Aug 15 (in 2 days)": the reminder the user asked for on the Recurring screen. */
+function ReminderCard({ card, answer, skip }: { card: ReviewCard; answer: Answer; skip: () => void }) {
+  const id = card.subscriptionId!
+  const due = card.dueDate!
+  const today = new Date()
+  const days = Math.round(
+    (Date.UTC(Number(due.slice(0, 4)), Number(due.slice(5, 7)) - 1, Number(due.slice(8, 10))) -
+      Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) /
+      86_400_000,
+  )
+  const when = days <= 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`
+  const gotIt = () =>
+    void answer(`${card.name}: reminder answered`, () => api.POST('/api/review/reminders/{subscriptionId}', { params: { path: { subscriptionId: id } } }))
+  return (
+    <Swipeable onRight={gotIt} onLeft={skip}>
+      <p className="text-xs font-medium tracking-wide text-muted uppercase">Upcoming charge</p>
+      <p className="mt-1 text-ink">
+        <span className="font-medium">{card.name}</span> charges {card.amountKind === 'VARIABLE' ? 'about ' : ''}
+        {formatMoney(card.expectedAmountMinor!, card.currency)} on {formatDay(due)} ({when}).
+      </p>
+      <p className="mt-1 text-xs text-muted">The reminder you set on the Recurring screen. Got it hides it until the next charge.</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button type="button" className={primary} onClick={gotIt}>
+          Got it
         </button>
         <button type="button" className={quiet} onClick={skip}>
           Skip

@@ -4,6 +4,7 @@ import dev.costinfl.outflow.category.CategoryRule.Direction;
 import dev.costinfl.outflow.recurring.Cadence;
 import dev.costinfl.outflow.recurring.Candidate.AmountKind;
 import dev.costinfl.outflow.recurring.RecurrenceDetector;
+import dev.costinfl.outflow.recurring.ReminderService;
 import dev.costinfl.outflow.review.ReviewCard.Inbox;
 import dev.costinfl.outflow.review.ReviewCard.Kind;
 import java.math.BigDecimal;
@@ -17,8 +18,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Builds the review inbox (DESIGN: Review inbox): every decision the system needs, one card per merchant, largest money
- * impact first: subscription suggestions, uncategorized merchants, possible pending/posted duplicates, price changes
- * and missed charges.
+ * impact first: subscription suggestions, uncategorized merchants, possible pending/posted duplicates, price changes,
+ * missed charges and the reminders the user asked for.
  */
 @Service
 public class ReviewService {
@@ -26,9 +27,11 @@ public class ReviewService {
     private static final BigDecimal PROPOSE = BigDecimal.valueOf(RecurrenceDetector.PROPOSE);
 
     private final JdbcTemplate jdbc;
+    private final ReminderService reminders;
 
-    public ReviewService(JdbcTemplate jdbc) {
+    public ReviewService(JdbcTemplate jdbc, ReminderService reminders) {
         this.jdbc = jdbc;
+        this.reminders = reminders;
     }
 
     public Inbox inbox() {
@@ -108,6 +111,16 @@ public class ReviewService {
                 cards.add(card);
             }
         });
+        // Reminders the user asked for ("remind me before next charge"): money affected is the charge itself.
+        for (ReminderService.Due d : reminders.due()) {
+            var card = new ReviewCard("reminder:" + d.subscriptionId() + ":" + d.dueDate(), Kind.UPCOMING_CHARGE,
+                    d.expectedAmountMinor(), d.currency(), d.merchantId(), d.name(), d.subscriptionId(), d.cadence(),
+                    d.expectedAmountMinor(), AmountKind.valueOf(d.amountKind()), null, null, null, null, null, null,
+                    null, null, null, null, null, null, null, d.dueDate(), null, null, null, null, null, Direction.OUT);
+            if (!skipped.contains(card.key())) {
+                cards.add(card);
+            }
+        }
         Comparator<ReviewCard> byImpact = Comparator.comparingLong(ReviewCard::affectedMinor).reversed()
                 .thenComparing(ReviewCard::key);
         cards.sort(byImpact);

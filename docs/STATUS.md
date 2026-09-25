@@ -5,9 +5,40 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.8** — recurring income on the home screen |
+| Last completed | **CP6.9** — "remind me before next charge" |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.9 — done
+
+407 backend tests green (5 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API with the real export, light and dark.
+
+- **What:** DESIGN's row action "remind me before next charge". Nothing leaves the machine, and the app is opened only
+  now and then, so a reminder lives in two places:
+  - **In the app:** from N days before a confirmed payment's next expected charge until its day, the review inbox shows
+    an "Upcoming charge" card ("Vodafone charges about RON 95.36 on Sep 30 (in 5 days)"). "Got it" answers it for that
+    charge only; the next charge asks again. Skip works like any card.
+  - **In the phone's calendar:** `GET /api/subscriptions/reminders.ics` (RFC 5545, generated locally) has one repeating
+    all-day event per reminder, with an alarm N days before. Monthly days after the 28th use "the last of 28th…30th
+    that exists", so short months keep their reminder, as the app's own due dates do.
+- **V15:** `subscription.remind_days_before` (1–14, NULL = off) and `reminded_through` (the charge already answered).
+- **API:**
+  - `PUT /api/subscriptions/{id}/reminder {daysBefore}`: confirmed payments only (409 otherwise, including income),
+    400 outside 1–14, absent or null turns it off.
+  - `POST /api/review/reminders/{subscriptionId}` = "Got it".
+  - `Subscription` and the Recurring items carry `remindDaysBefore`. Review cards of kind `UPCOMING_CHARGE`.
+- **Web:**
+  - Recurring rows: a "Remind me before the next charge" choice (no reminder, 1, 3 or 7 days); the row says "reminder
+    7 days before".
+  - The Recurring screen offers the .ics download once any reminder is set (not in the demo, which has no server).
+  - Review: the Upcoming charge card ("today", "tomorrow", "in N days").
+- **Tests:** `ChargeRemindersTest` (5), with a clock the test moves:
+  - the reminder window, including the day itself;
+  - "Got it" and the next charge asking again;
+  - validation;
+  - the calendar file: CRLF, lines of 75 octets at most, the repeat rules;
+  - the repeat rules per cadence.
 
 ## CP6.8 — done
 
@@ -188,7 +219,7 @@ light and dark, on the demo.
 
 From DESIGN, not built yet:
 1. ~~**Home:** insight line and "last 3 months" toggle~~ — done in CP6.3.
-2. **Recurring:** ~~the "Standing transfers" group~~ (CP6.6); "remind me before next charge".
+2. **Recurring:** ~~the "Standing transfers" group~~ (CP6.6); ~~"remind me before next charge"~~ (CP6.9).
 3. **Subscriptions:** merge / split candidates and "mark this one transaction as a subscription" (manual add, useful
    for yearly items).
 4. **Cadences:** bi-weekly and quarterly (spec question 26).

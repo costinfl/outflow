@@ -561,6 +561,11 @@
             "format" : "date",
             "type" : "string"
           },
+          "remindDaysBefore" : {
+            "description" : "Remind this many days before the next charge; absent = no reminder",
+            "format" : "int32",
+            "type" : "integer"
+          },
           "status" : {
             "enum" : [ "ACTIVE", "PRICE_CHANGED", "MISSED", "ENDED" ],
             "type" : "string"
@@ -886,6 +891,16 @@
         "required" : [ "countedCount", "coverage", "currency", "groups", "incomeMonthlyMinor", "monthlyMinor", "standingMonthlyMinor", "standingTransfers", "suggestionCount", "yearlyMinor" ],
         "type" : "object"
       },
+      "Reminder" : {
+        "description" : "Days before the next charge, 1–14; absent or null turns the reminder off",
+        "properties" : {
+          "daysBefore" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "Rename" : {
         "properties" : {
           "name" : {
@@ -946,7 +961,7 @@
             "type" : "string"
           },
           "dueDate" : {
-            "description" : "Missed charge: when it was due",
+            "description" : "Missed charge: when it was due; upcoming charge: when it is expected",
             "format" : "date",
             "type" : "string"
           },
@@ -970,7 +985,7 @@
             "type" : "string"
           },
           "kind" : {
-            "enum" : [ "SUBSCRIPTION", "UNCATEGORIZED_MERCHANT", "POSSIBLE_DUPLICATE", "PRICE_CHANGE", "MISSED_CHARGE" ],
+            "enum" : [ "SUBSCRIPTION", "UNCATEGORIZED_MERCHANT", "POSSIBLE_DUPLICATE", "PRICE_CHANGE", "MISSED_CHARGE", "UPCOMING_CHARGE" ],
             "type" : "string"
           },
           "merchantId" : {
@@ -1217,6 +1232,11 @@
           "nextExpectedDate" : {
             "format" : "date",
             "type" : "string"
+          },
+          "remindDaysBefore" : {
+            "description" : "Remind this many days before the next charge; absent = no reminder",
+            "format" : "int32",
+            "type" : "integer"
           },
           "state" : {
             "enum" : [ "PROPOSED", "CONFIRMED", "REJECTED", "ENDED" ],
@@ -1823,6 +1843,26 @@
         "tags" : [ "review" ]
       }
     },
+    "/api/review/reminders/{subscriptionId}" : {
+      "post" : {
+        "operationId" : "acknowledgeReminder",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "subscriptionId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "tags" : [ "review" ]
+      }
+    },
     "/api/review/skip" : {
       "post" : {
         "operationId" : "skip",
@@ -1882,6 +1922,24 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/RecurringOverview"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "subscriptions" ]
+      }
+    },
+    "/api/subscriptions/reminders.ics" : {
+      "get" : {
+        "operationId" : "calendar",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "text/calendar" : {
+                "schema" : {
+                  "type" : "string"
                 }
               }
             },
@@ -2003,6 +2061,43 @@
             "type" : "integer"
           }
         } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Subscription"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "subscriptions" ]
+      }
+    },
+    "/api/subscriptions/{id}/reminder" : {
+      "put" : {
+        "operationId" : "reminder",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Reminder"
+              }
+            }
+          },
+          "required" : true
+        },
         "responses" : {
           "200" : {
             "content" : {

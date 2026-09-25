@@ -87,6 +87,11 @@ export function RecurringPage() {
         {o.incomeMonthlyMinor > 0 &&
           ` Recurring income (${formatMoney(o.incomeMonthlyMinor, o.currency)} a month) is listed on its own, not in these totals.`}
       </p>
+      {!isDemo && o.groups.some((g) => g.items.some((i) => i.remindDaysBefore)) && (
+        <a href="/api/subscriptions/reminders.ics" download className="inline-block text-sm text-bar underline">
+          Add your reminders to your phone&apos;s calendar (.ics)
+        </a>
+      )}
 
       {o.suggestionCount > 0 && (
         <Link to="/review" className="flex items-center justify-between rounded-lg bg-bar-track px-3 py-2 text-sm font-medium text-ink hover:underline">
@@ -120,6 +125,7 @@ export function RecurringPage() {
                   currency={o.currency}
                   categories={categories.kind === 'ok' ? categories.data : []}
                   onChanged={() => setVersion((v) => v + 1)}
+                  payment={g.kind !== 'INCOME'}
                 />
               ))}
             </ul>
@@ -179,11 +185,14 @@ function Row({
   currency,
   categories,
   onChanged,
+  payment,
 }: {
   item: Item
   currency: string
   categories: Category[]
   onChanged: () => void
+  /** A recurring payment (not income): it can have a reminder before its next charge. */
+  payment: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(item.name)
@@ -216,6 +225,7 @@ function Row({
           <span className="block text-xs text-muted">
             {amount}
             {item.nextExpectedDate ? ` · next ~ ${formatDay(item.nextExpectedDate)}` : ''}
+            {item.remindDaysBefore ? ` · reminder ${dayWord(item.remindDaysBefore)} before` : ''}
           </span>
         </span>
         <span className="shrink-0 text-right">
@@ -274,6 +284,31 @@ function Row({
               Apply
             </button>
           </div>
+          {payment && item.status !== 'ENDED' && (
+            <label className="block text-xs text-ink-2">
+              Remind me before the next charge
+              <select
+                value={item.remindDaysBefore ?? ''}
+                onChange={(e) => {
+                  const daysBefore = e.target.value === '' ? null : Number(e.target.value)
+                  void run('Reminder', () =>
+                    api.PUT('/api/subscriptions/{id}/reminder', {
+                      params: { path: { id: item.id } },
+                      body: daysBefore === null ? {} : { daysBefore }, // absent = no reminder
+                    }),
+                  )
+                }}
+                className={field}
+              >
+                <option value="">No reminder</option>
+                {[1, 3, 7].map((d) => (
+                  <option key={d} value={d}>
+                    {dayWord(d)} before
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {item.status === 'ACTIVE' && (
             <button
               type="button"
@@ -346,3 +381,5 @@ function StandingTransfers({
     </section>
   )
 }
+
+const dayWord = (days: number) => `${days} ${days === 1 ? 'day' : 'days'}`
