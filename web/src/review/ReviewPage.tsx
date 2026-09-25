@@ -42,6 +42,8 @@ export function ReviewPage() {
   const render = (card: ReviewCard) =>
     card.kind === 'SUBSCRIPTION' ? (
       <SubscriptionCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
+    ) : card.kind === 'POSSIBLE_DUPLICATE' ? (
+      <DuplicateCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
     ) : (
       <MerchantCard key={card.key} card={card} categories={categoryList} answer={answer} skip={() => void skip(card)} />
     )
@@ -209,6 +211,38 @@ function EditForm({
         </button>
       </div>
     </form>
+  )
+}
+
+/** "Same 120 RON at Emag, pending and posted": the pending one is replaced, or both stay. */
+function DuplicateCard({ card, answer, skip }: { card: ReviewCard; answer: Answer; skip: () => void }) {
+  const id = card.duplicateId!
+  const decide = (same: boolean) =>
+    void answer(same ? `${card.name}: same payment` : `${card.name}: different payments`, () =>
+      api.POST('/api/review/duplicates/{id}', { params: { path: { id } }, body: { same } }),
+    )
+  const pending = formatMoney(Math.abs(card.pendingAmountMinor!), card.currency)
+  const posted = formatMoney(Math.abs(card.postedAmountMinor!), card.currency)
+  return (
+    <Swipeable onRight={() => decide(true)} onLeft={() => decide(false)}>
+      <p className="text-xs font-medium tracking-wide text-muted uppercase">Possible duplicate</p>
+      <p className="mt-1 text-ink">
+        {pending === posted ? `Same ${pending}` : `${pending} then ${posted}`} at <span className="font-medium">{card.name}</span>,
+        pending on {formatDay(card.pendingDate!)} and posted on {formatDay(card.postedDate!)}. Is it one payment?
+      </p>
+      <p className="mt-1 text-xs text-muted">If it is, only the posted one counts.</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button type="button" className={primary} onClick={() => decide(true)}>
+          Same
+        </button>
+        <button type="button" className={secondary} onClick={() => decide(false)}>
+          Different
+        </button>
+        <button type="button" className={quiet} onClick={skip}>
+          Skip
+        </button>
+      </div>
+    </Swipeable>
   )
 }
 

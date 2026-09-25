@@ -22,4 +22,6 @@ public record TransactionView(
         BigDecimal categoryConfidence,
         @Schema(description = "PAIRED: a transfer between own accounts, both sides seen; PROVISIONAL: only this side, "
                 + "recognised by the other account's IBAN; absent: not an own-account transfer") String transferState,
-        @Schema(description = "The other own account of a transfer") String transferAccountName) {}
+        @Schema(description = "The other own account of a transfer") String transferAccountName,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "PENDING: not posted yet (e.g. a card reservation); may still change") String status) {}

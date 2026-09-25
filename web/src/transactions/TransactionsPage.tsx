@@ -189,7 +189,12 @@ function Row({ t, categories, onChanged }: { t: TransactionView; categories: Cat
     <li>
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left">
         <span className="min-w-0">
-          <span className="block truncate text-sm font-medium text-ink">{t.merchantName}</span>
+          <span className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-medium text-ink">{t.merchantName}</span>
+            {t.status === 'PENDING' && (
+              <span className="shrink-0 rounded-full px-1.5 text-[11px] text-muted ring-1 ring-hairline">Pending</span>
+            )}
+          </span>
           <span className={`block truncate text-xs ${category ? 'text-muted' : 'text-bad'}`}>{category?.name ?? 'Uncategorized'}</span>
         </span>
         <span className="shrink-0 text-sm text-ink tabular-nums">

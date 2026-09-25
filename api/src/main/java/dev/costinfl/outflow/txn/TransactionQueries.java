@@ -15,7 +15,7 @@ public class TransactionQueries {
     static final String SELECT = """
             SELECT t.id, t.account_id, t.booking_date, t.amount_minor, t.currency, t.description_raw,
                    m.key AS merchant_key, m.display_name, t.category_id, c.code AS category_code,
-                   t.category_source, t.category_confidence, t.transfer_state, ta.name AS transfer_account_name
+                   t.category_source, t.category_confidence, t.transfer_state, ta.name AS transfer_account_name, t.status
             FROM transaction t
             JOIN merchant m ON m.id = t.merchant_id
             LEFT JOIN category c ON c.id = t.category_id
@@ -28,7 +28,7 @@ public class TransactionQueries {
             rs.getString("merchant_key"), Iban.maskAll(rs.getString("description_raw")),
             (Long) rs.getObject("category_id"), rs.getString("category_code"), rs.getString("category_source"),
             rs.getBigDecimal("category_confidence"), rs.getString("transfer_state"),
-            rs.getString("transfer_account_name"));
+            rs.getString("transfer_account_name"), rs.getString("status"));
 
     private final JdbcTemplate jdbc;
 

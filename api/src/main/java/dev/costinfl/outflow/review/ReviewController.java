@@ -1,6 +1,10 @@
 package dev.costinfl.outflow.review;
 
 import dev.costinfl.outflow.category.CategoryService;
+import dev.costinfl.outflow.ingest.UploadService;
+import dev.costinfl.outflow.txn.SoftMatchService;
+import java.util.NoSuchElementException;
+import org.springframework.transaction.annotation.Transactional;
 import dev.costinfl.outflow.recurring.SubscriptionService;
 import dev.costinfl.outflow.review.ReviewCard.Inbox;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -27,18 +31,26 @@ public class ReviewController {
 
     public record MerchantCategory(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Long categoryId) {}
 
+    public record Duplicate(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "true: the same payment, pending then posted")
+            Boolean same) {}
+
     public record MerchantCategoryResult(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Transactions whose category changed")
             int changedTransactions) {}
 
     private final ReviewService review;
+    private final SoftMatchService softMatches;
+    private final UploadService pipeline;
     private final CategoryService categories;
     private final SubscriptionService subscriptions;
     private final JdbcTemplate jdbc;
 
     public ReviewController(ReviewService review, CategoryService categories, SubscriptionService subscriptions,
-            JdbcTemplate jdbc) {
+            JdbcTemplate jdbc, SoftMatchService softMatches, UploadService pipeline) {
         this.review = review;
+        this.softMatches = softMatches;
+        this.pipeline = pipeline;
         this.categories = categories;
         this.subscriptions = subscriptions;
         this.jdbc = jdbc;
@@ -57,6 +69,27 @@ public class ReviewController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "key is required");
         }
         review.skip(body.key());
+    }
+
+    /**
+     * "Same · Different" on a possible duplicate. Same: the pending row is replaced by the posted one for good.
+     * Different: these two are never matched again. Transfers and subscriptions follow.
+     */
+    @PostMapping(path = "/duplicates/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void answerDuplicate(@PathVariable long id, @RequestBody Duplicate body) {
+        if (body.same() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "same is required");
+        }
+        try {
+            softMatches.answer(id, body.same());
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No question " + id);
+        } catch (SoftMatchService.AnsweredException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+        }
+        pipeline.derive();
     }
 
     /** "Pick category (applies to all)": a rule for the merchant; every automatic transaction of it follows. */

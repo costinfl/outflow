@@ -41,16 +41,24 @@ public record CsvProfile(
             String currency,
             List<String> description,
             String reference,
-            String accountIban) {
+            String accountIban,
+            String status,
+            List<String> pendingValues) {
 
         public Columns {
             description = description == null ? List.of() : List.copyOf(description);
+            pendingValues = pendingValues == null ? List.of() : List.copyOf(pendingValues);
+        }
+
+        public Columns(String bookingDate, String valueDate, String amount, String debit, String credit, String currency,
+                List<String> description, String reference, String accountIban) {
+            this(bookingDate, valueDate, amount, debit, credit, currency, description, reference, accountIban, null, null);
         }
 
         /** Every mapped header name; all must be present in the file for it to match this profile. */
         public List<String> required() {
             var all = new ArrayList<String>();
-            Stream.of(bookingDate, valueDate, amount, debit, credit, currency, reference, accountIban)
+            Stream.of(bookingDate, valueDate, amount, debit, credit, currency, reference, accountIban, status)
                     .filter(Objects::nonNull)
                     .forEach(all::add);
             all.addAll(description);
@@ -85,6 +93,8 @@ public record CsvProfile(
         require(signed != split, where + "map either columns.amount or columns.debit + columns.credit");
         require(!split || (c.debit() != null && c.credit() != null), where + "columns.debit and columns.credit go together");
         require((currency == null) != (c.currency() == null), where + "set exactly one of currency or columns.currency");
+        require((c.status() == null) == c.pendingValues().isEmpty(),
+                where + "columns.status and columns.pendingValues go together");
         if (currency != null) {
             Currency.getInstance(currency);
         }
@@ -106,7 +116,8 @@ public record CsvProfile(
         var c = columns;
         return new CsvProfile(id, name, encoding, delimiter, dateFormat, valueDateFormat, decimalSeparator,
                 groupingSeparator, currency, ibanInPreamble, new Columns(c.bookingDate(), c.valueDate(), c.amount(),
-                        c.debit(), c.credit(), c.currency(), c.description(), referenceColumn, c.accountIban()));
+                        c.debit(), c.credit(), c.currency(), c.description(), referenceColumn, c.accountIban(),
+                        c.status(), c.pendingValues()));
     }
 
     public Charset charset() {

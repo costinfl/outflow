@@ -47,6 +47,7 @@ const LEDGER: TransactionView[] = ROWS.map(([date, merchantId, key, name, amount
   merchantName: name,
   merchantKey: key,
   description,
+  status: 'POSTED',
   ...(categoryId != null
     ? { categoryId, categoryCode: CATEGORIES[categoryId]!.code, categorySource: 'KEYWORD', categoryConfidence: 0.7 }
     : {}),

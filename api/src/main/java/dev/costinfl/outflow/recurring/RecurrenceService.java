@@ -30,6 +30,7 @@ public class RecurrenceService {
                 SELECT t.account_id, t.merchant_id, t.currency, t.id, t.booking_date, -t.amount_minor
                 FROM transaction t LEFT JOIN category c ON c.id = t.category_id
                 WHERE t.amount_minor < 0 AND t.merchant_id IS NOT NULL AND t.transfer_state IS NULL
+                  AND t.superseded_by IS NULL
                   AND (c.id IS NULL OR (c.kind <> 'TRANSFER' AND c.code <> 'CASH'))
                 ORDER BY t.account_id, t.merchant_id, t.currency, t.booking_date, t.id""", rs -> {
             groups.computeIfAbsent(new Key(rs.getLong(1), rs.getLong(2), rs.getString(3)), k -> new ArrayList<>())

@@ -59,6 +59,8 @@ public class SubscriptionService {
      */
     @Transactional
     public RefreshResult refresh(LocalDate today) {
+        // A pending charge replaced by its posted version is no longer one of a subscription's charges.
+        jdbc.update("UPDATE transaction SET subscription_id = NULL WHERE superseded_by IS NOT NULL AND subscription_id IS NOT NULL");
         List<Subscription> live = new ArrayList<>(jdbc.query(
                 SELECT + " WHERE state <> 'REJECTED' ORDER BY id", this::row));
         var seen = new HashSet<Long>();

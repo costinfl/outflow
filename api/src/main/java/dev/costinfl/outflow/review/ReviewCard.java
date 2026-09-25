@@ -8,8 +8,9 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * One question for the user (DESIGN: Review inbox). One card = one merchant, never one transaction. Subscription fields
- * are set on SUBSCRIPTION cards, {@code transactionCount} on UNCATEGORIZED_MERCHANT cards.
+ * One question for the user (DESIGN: Review inbox). One card = one merchant, never one transaction (a possible duplicate
+ * is about two). Subscription fields are set on SUBSCRIPTION cards, {@code transactionCount} on UNCATEGORIZED_MERCHANT
+ * cards, the pending/posted fields on POSSIBLE_DUPLICATE cards.
  */
 public record ReviewCard(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Stable id, used to skip the card",
@@ -30,9 +31,14 @@ public record ReviewCard(
         @Schema(description = "Charges linked to the subscription") Integer occurrences,
         @Schema(description = "Detector confidence, 0–1") BigDecimal confidence,
         LocalDate nextExpectedDate,
-        @Schema(description = "Uncategorized transactions of the merchant") Integer transactionCount) {
+        @Schema(description = "Uncategorized transactions of the merchant") Integer transactionCount,
+        @Schema(description = "Possible duplicate: the question to answer") Long duplicateId,
+        LocalDate pendingDate,
+        @Schema(description = "Signed minor units") Long pendingAmountMinor,
+        LocalDate postedDate,
+        @Schema(description = "Signed minor units") Long postedAmountMinor) {
 
-    public enum Kind { SUBSCRIPTION, UNCATEGORIZED_MERCHANT }
+    public enum Kind { SUBSCRIPTION, UNCATEGORIZED_MERCHANT, POSSIBLE_DUPLICATE }
 
     /** The inbox: cards to answer, and weaker subscription guesses shown collapsed ("possible"). */
     public record Inbox(

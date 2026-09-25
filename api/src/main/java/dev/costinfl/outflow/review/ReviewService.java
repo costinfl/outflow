@@ -16,7 +16,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Builds the review inbox (DESIGN: Review inbox): every decision the system needs, one card per merchant, largest money
- * impact first. Price-change, missed-charge and duplicate cards come with M5.
+ * impact first: subscription suggestions, uncategorized merchants, possible pending/posted duplicates. Price-change and
+ * missed-charge cards come with CP5.3.
  */
 @Service
 public class ReviewService {
@@ -46,7 +47,7 @@ public class ReviewService {
             var card = new ReviewCard("subscription:" + rs.getLong(1), Kind.SUBSCRIPTION, rs.getLong(12),
                     rs.getString(4), rs.getLong(2), rs.getString(3), rs.getLong(1), Cadence.valueOf(rs.getString(5)),
                     rs.getLong(6), AmountKind.valueOf(rs.getString(7)), rs.getObject(8, LocalDate.class),
-                    rs.getInt(11), confidence, rs.getObject(10, LocalDate.class), null);
+                    rs.getInt(11), confidence, rs.getObject(10, LocalDate.class), null, null, null, null, null, null);
             if (!skipped.contains(card.key())) {
                 (confidence.compareTo(PROPOSE) >= 0 ? cards : possible).add(card);
             }
@@ -54,11 +55,29 @@ public class ReviewService {
         jdbc.query("""
                 SELECT t.merchant_id, m.display_name, t.currency, count(*), sum(abs(t.amount_minor))
                 FROM transaction t JOIN merchant m ON m.id = t.merchant_id
-                WHERE t.category_id IS NULL
+                WHERE t.category_id IS NULL AND t.superseded_by IS NULL
                 GROUP BY t.merchant_id, m.display_name, t.currency""", rs -> {
             var card = new ReviewCard("merchant:" + rs.getLong(1) + ":" + rs.getString(3), Kind.UNCATEGORIZED_MERCHANT,
                     rs.getLong(5), rs.getString(3), rs.getLong(1), rs.getString(2),
-                    null, null, null, null, null, null, null, null, rs.getInt(4));
+                    null, null, null, null, null, null, null, null, rs.getInt(4), null, null, null, null, null);
+            if (!skipped.contains(card.key())) {
+                cards.add(card);
+            }
+        });
+        // Possible duplicates: open soft-match questions (DESIGN: "Same 120 RON at Emag, pending and posted").
+        jdbc.query("""
+                SELECT r.id, p.merchant_id, m.display_name, p.currency, p.booking_date, p.amount_minor,
+                       q.booking_date, q.amount_minor
+                FROM soft_match_review r
+                JOIN transaction p ON p.id = r.pending_transaction_id
+                JOIN transaction q ON q.id = r.posted_transaction_id
+                JOIN merchant m ON m.id = p.merchant_id
+                WHERE r.resolution IS NULL AND p.superseded_by IS NULL AND p.status = 'PENDING'
+                  AND NOT EXISTS (SELECT 1 FROM transaction x WHERE x.superseded_by = q.id)""", rs -> {
+            var card = new ReviewCard("duplicate:" + rs.getLong(1), Kind.POSSIBLE_DUPLICATE, Math.abs(rs.getLong(6)),
+                    rs.getString(4), rs.getLong(2), rs.getString(3), null, null, null, null, null, null, null, null, null,
+                    rs.getLong(1), rs.getObject(5, LocalDate.class), rs.getLong(6), rs.getObject(7, LocalDate.class),
+                    rs.getLong(8));
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }

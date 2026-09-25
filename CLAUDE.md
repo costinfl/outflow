@@ -38,6 +38,7 @@ API endpoints: `/api/health`, `POST /api/imports` (multipart `files`), `GET/POST
 `GET /api/categories`, `PUT/DELETE /api/transactions/{id}/category`, `GET /api/merchants`, `GET /api/merchants/explain`,
 `POST /api/merchants/aliases`, `GET /api/insights/month`, `GET /api/insights/categories/{id}`,
 `GET /api/transactions`, `GET /api/review`, `POST /api/review/skip`, `POST /api/review/merchants/{id}/category`,
+`POST /api/review/duplicates/{id}`,
 `GET /api/subscriptions`, `PATCH /api/subscriptions/{id}`,
 `POST /api/subscriptions/{id}/confirm|reject|end`; OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
 Parsers: one YAML profile per CSV format in `api/src/main/resources/parsers/` (keys: `docs/parsers.md`).
@@ -58,9 +59,10 @@ Pages (`.github/workflows/pages.yml`): demo build deployed on push to `main` and
 DB connection: env `OUTFLOW_DB_URL`, `OUTFLOW_DB_USER`, `OUTFLOW_DB_PASSWORD` (defaults: local `outflow`/`outflow`).
 IBAN HMAC key: `OUTFLOW_IBAN_HMAC_KEY` (base64, ≥ 32 bytes) or generated once into `$OUTFLOW_DATA_DIR/iban-hmac.key`
 (default `./data`, gitignored). Tests use a fixed key from `api/src/test/resources/config/application.yml`.
-Pipeline per upload (one DB transaction): parse → import → `MerchantService.assignMissing` →
-`CategoryService.categorizeAll` → `TransferService.pairAll` (recomputes own-account transfer pairs) →
-`SubscriptionService.refreshNow` (also after category or alias changes). Transactions with `category_source = 'USER'` are never recomputed.
+Pipeline per upload (one DB transaction): parse → import → `UploadService.derive()`: `MerchantService.assignMissing` →
+`SoftMatchService.matchAll` (pending rows superseded by their posted version) → `CategoryService.categorizeAll` →
+`TransferService.pairAll` (recomputes own-account transfer pairs) → `SubscriptionService.refreshNow` (also after
+category or alias changes). Superseded pending rows count nowhere (`Scope.MONTH` excludes them). Transactions with `category_source = 'USER'` are never recomputed.
 Home-screen numbers: every figure is a sum over a `txn.Scope` predicate; the transaction list uses the same
 predicates, so figures always equal their drill-through. Never compute a figure outside `Scope`.
 Count tests from `api/target/surefire-reports/TEST-*.xml`: `@Nested` classes are missing from the text summary.

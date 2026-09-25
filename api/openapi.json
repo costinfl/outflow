@@ -271,6 +271,16 @@
         "required" : [ "accountId", "accountName", "monthly", "months", "yearly" ],
         "type" : "object"
       },
+      "Duplicate" : {
+        "properties" : {
+          "same" : {
+            "description" : "true: the same payment, pending then posted",
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "same" ],
+        "type" : "object"
+      },
       "Explanation" : {
         "properties" : {
           "categoryCode" : {
@@ -824,6 +834,11 @@
           "currency" : {
             "type" : "string"
           },
+          "duplicateId" : {
+            "description" : "Possible duplicate: the question to answer",
+            "format" : "int64",
+            "type" : "integer"
+          },
           "expectedAmountMinor" : {
             "format" : "int64",
             "type" : "integer"
@@ -834,7 +849,7 @@
             "type" : "string"
           },
           "kind" : {
-            "enum" : [ "SUBSCRIPTION", "UNCATEGORIZED_MERCHANT" ],
+            "enum" : [ "SUBSCRIPTION", "UNCATEGORIZED_MERCHANT", "POSSIBLE_DUPLICATE" ],
             "type" : "string"
           },
           "merchantId" : {
@@ -853,6 +868,24 @@
             "description" : "Charges linked to the subscription",
             "format" : "int32",
             "type" : "integer"
+          },
+          "pendingAmountMinor" : {
+            "description" : "Signed minor units",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "pendingDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "postedAmountMinor" : {
+            "description" : "Signed minor units",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "postedDate" : {
+            "format" : "date",
+            "type" : "string"
           },
           "since" : {
             "description" : "First charge of the subscription",
@@ -1070,6 +1103,10 @@
           "merchantName" : {
             "type" : "string"
           },
+          "status" : {
+            "description" : "PENDING: not posted yet (e.g. a card reservation); may still change",
+            "type" : "string"
+          },
           "transferAccountName" : {
             "description" : "The other own account of a transfer",
             "type" : "string"
@@ -1079,7 +1116,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "accountId", "amountMinor", "bookingDate", "currency", "description", "id", "merchantKey", "merchantName" ],
+        "required" : [ "accountId", "amountMinor", "bookingDate", "currency", "description", "id", "merchantKey", "merchantName", "status" ],
         "type" : "object"
       }
     }
@@ -1435,6 +1472,36 @@
               }
             },
             "description" : "OK"
+          }
+        },
+        "tags" : [ "review" ]
+      }
+    },
+    "/api/review/duplicates/{id}" : {
+      "post" : {
+        "operationId" : "answerDuplicate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Duplicate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
           }
         },
         "tags" : [ "review" ]

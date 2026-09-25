@@ -71,7 +71,7 @@ public class InsightService {
 
     public List<YearMonth> availableMonths(String currency) {
         return jdbc.queryForList("""
-                SELECT DISTINCT to_char(booking_date, 'YYYY-MM') FROM transaction WHERE currency = ? ORDER BY 1""",
+                SELECT DISTINCT to_char(booking_date, 'YYYY-MM') FROM transaction WHERE currency = ? AND superseded_by IS NULL ORDER BY 1""",
                 String.class, currency).stream().map(YearMonth::parse).toList();
     }
 

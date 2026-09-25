@@ -72,7 +72,7 @@ public class TransferService {
                        concat_ws(' ', t.counterparty_raw, t.description_raw) AS text, t.transfer_state,
                        t.category_source = 'USER' AS user_categorized
                 FROM transaction t LEFT JOIN category c ON c.id = t.category_id
-                WHERE t.household_id = ? AND t.amount_minor <> 0
+                WHERE t.household_id = ? AND t.amount_minor <> 0 AND t.superseded_by IS NULL
                   AND (t.category_source IS DISTINCT FROM 'USER' OR c.kind = 'TRANSFER')""", (rs, i) -> {
             long account = rs.getLong(2);
             Long named = null;

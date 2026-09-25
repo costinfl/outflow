@@ -5,9 +5,59 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | **M5 — Multi-account and tracking** (M4 merged to `main` in PR #5) |
-| Last completed | **CP5.1** — own-account transfer pairing, one-sided provisional marking, excluded from spending |
-| Next | **CP5.2** — pending/posted soft match + review card |
+| Last completed | **CP5.2** — pending/posted soft match + "Possible duplicate" review card |
+| Next | **CP5.3** — weekly and daily cadences; price-change and missed-charge cards |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M5 work) |
+
+## CP5.2 — done
+
+327 backend tests (12 new) and 10 web tests green; typecheck, the build and the demo build green; the spec is refreshed
+and `gen:api` is current.
+
+- **Pending rows:** CSV profiles can map `status` + `pendingValues` (`docs/parsers.md`), which gives
+  `ParsedRow.pending` and `transaction.status = PENDING`. No bundled format has a status column yet, so this is
+  dormant until a bank export has one.
+- **An identical posted row** (same identity key) turns the pending one POSTED, the same transaction. An AUTO link on
+  it gives way; a USER link does not.
+- **V9:**
+  - on `transaction`: `superseded_by` and `superseded_source` (AUTO / USER), with a check that only PENDING rows are
+    superseded
+  - `soft_match_review` (pending, posted, reason, resolution SAME / DIFFERENT)
+- **`txn.SoftMatchService.matchAll()`:**
+  - Runs in the pipeline after merchants, before categories. The pipeline is now `UploadService.derive()`: merchants →
+    soft match → categories → transfers → subscriptions.
+  - DESIGN's rule: same account, merchant and currency, same sign, |Δamount| ≤ 5% of the pending amount or ≤ 2
+    currency units, dates within 5 days.
+  - One candidate on each side links automatically. Several candidates become questions.
+  - AUTO links are recomputed every run: a later candidate turns a link into questions. USER links and DIFFERENT
+    answers are kept for good.
+- **Superseded rows count nowhere:**
+  - `Scope.MONTH` excludes them, so every figure and every list drops them
+  - also excluded from available months, recurrence (and unlinked from subscriptions), transfer pairing and
+    uncategorized cards
+  - a pending row counts as spending until it is replaced
+- **Review:**
+  - `POSSIBLE_DUPLICATE` cards: "Same RON 250.00 at Omv, pending on Mar 29 and posted on Mar 30. Is it one payment?",
+    with Same · Different · Skip; swipe right = Same, left = Different
+  - `POST /api/review/duplicates/{id} {same}`: 204; 404 unknown, 409 already answered, 400 without `same`
+  - Answering re-runs the derived stages.
+- **Transactions list:** a "Pending" label; `TransactionView.status`.
+- **Tests:**
+  - `ConfigurableCsvParserTest` (+2): status parsing, and status without `pendingValues` rejected.
+  - `SoftMatchServiceTest` (10):
+    - an identical posted row upgrades the pending one; a single match supersedes it
+    - amount, date and sign bounds (unit)
+    - other merchants and accounts never match
+    - a later candidate dissolves an AUTO link into questions
+    - review cards; Same links for good and survives later uploads; Different is remembered and the remaining match
+      links; bad answers
+    - a superseded pending row's transfer pair moves to the posted row
+- **Verified in Chromium against the real API**, with a temporary status profile from a scratch folder (nothing
+  committed):
+  - EMAG pending 120.00 was linked to posted 123.50 automatically.
+  - OMV pending 250 against posted 250 / 251 gave two cards; March showed RON 954.50 with the pending row labelled.
+  - "Same" on the second card → "Nothing needs your attention", March RON 704.50.
+  - Light and dark, no overflow, no console errors.
 
 ## CP5.1 — done
 
@@ -554,3 +604,7 @@ Health tests now derive the expected schema version from the migrations instead 
     appears.
 22. **Transfers without an IBAN on one side only** (the other account not uploaded, no IBAN in the text) are still
     caught by the TRANSFER keyword seeds (ECONOMII, CONT PROPRIU, …), as before.
+23. **Pending rows need a bank format that marks them.** None of the current formats does (ING Home'Bank exports only
+    booked rows, as far as the purged sample showed). The mechanism is in place for when one does.
+24. **A duplicate card is about two transactions,** not one merchant (DESIGN: "one card = one merchant"). A pending row
+    with two posted candidates gets two cards, one per pair; answering one settles the other.

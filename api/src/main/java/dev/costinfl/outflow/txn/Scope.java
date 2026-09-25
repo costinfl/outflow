@@ -16,8 +16,12 @@ public final class Scope {
     /** Income: transactions in INCOME categories. Uncategorized money in is not income until identified. */
     public static final String INCOME = "(c.kind = 'INCOME')";
 
-    /** Calendar month by booking date: {@code ?} = first day of the month. */
-    public static final String MONTH = "(t.booking_date >= ?::date AND t.booking_date < ?::date + interval '1 month')";
+    /**
+     * Calendar month by booking date: {@code ?} = first day of the month. Superseded pending rows (their posted
+     * version is in the ledger) are never part of any month, so nothing counts twice.
+     */
+    public static final String MONTH = "(t.booking_date >= ?::date AND t.booking_date < ?::date + interval '1 month'"
+            + " AND " + "t.superseded_by IS NULL)";
 
     private Scope() {}
 }

@@ -180,6 +180,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/review/duplicates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["answerDuplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/review/merchants/{merchantId}/category": {
         parameters: {
             query?: never;
@@ -466,6 +482,10 @@ export interface components {
             /** @description 13+ months: yearly payments detectable */
             yearly: boolean;
         };
+        Duplicate: {
+            /** @description true: the same payment, pending then posted */
+            same: boolean;
+        };
         Explanation: {
             categoryCode?: string;
             /** @description Which tier would categorize it: RULE, LEARNED or KEYWORD; absent when none */
@@ -742,6 +762,11 @@ export interface components {
             /** @description Detector confidence, 0–1 */
             confidence?: number;
             currency: string;
+            /**
+             * Format: int64
+             * @description Possible duplicate: the question to answer
+             */
+            duplicateId?: number;
             /** Format: int64 */
             expectedAmountMinor?: number;
             /**
@@ -750,7 +775,7 @@ export interface components {
              */
             key: string;
             /** @enum {string} */
-            kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT";
+            kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT" | "POSSIBLE_DUPLICATE";
             /** Format: int64 */
             merchantId: number;
             /** @description Subscription name or merchant display name */
@@ -762,6 +787,20 @@ export interface components {
              * @description Charges linked to the subscription
              */
             occurrences?: number;
+            /**
+             * Format: int64
+             * @description Signed minor units
+             */
+            pendingAmountMinor?: number;
+            /** Format: date */
+            pendingDate?: string;
+            /**
+             * Format: int64
+             * @description Signed minor units
+             */
+            postedAmountMinor?: number;
+            /** Format: date */
+            postedDate?: string;
             /**
              * Format: date
              * @description First charge of the subscription
@@ -876,6 +915,8 @@ export interface components {
             id: number;
             merchantKey: string;
             merchantName: string;
+            /** @description PENDING: not posted yet (e.g. a card reservation); may still change */
+            status: string;
             /** @description The other own account of a transfer */
             transferAccountName?: string;
             /** @description PAIRED: a transfer between own accounts, both sides seen; PROVISIONAL: only this side, recognised by the other account's IBAN; absent: not an own-account transfer */
@@ -1165,6 +1206,30 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Inbox"];
                 };
+            };
+        };
+    };
+    answerDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Duplicate"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
