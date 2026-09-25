@@ -5,9 +5,41 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.3** — home insight line and "last 3 months" toggle |
+| Last completed | **CP6.4** — people in the review inbox: money sent and received answered separately |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.4 — done
+
+386 backend tests green (13 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px
+against the API loaded with the real export (light), and on the demo (dark).
+
+- **Why:** on the real export, 40 of the 229 inbox cards are people, and they hold about 1.0M of the inbox's 1.46M RON.
+  The biggest person moves money both ways (sent 349,321 RON, received 372,201 RON).
+  - Before, an answer applied to both directions. Giving that person a spending category would have turned the money
+    received into refunds, so spending would have dropped by 372k.
+- **V13:** `category_rule.direction` (`IN` / `OUT`, NULL = both). Seed rules and "apply to this merchant" stay NULL.
+  - A rule for one direction splits an earlier rule for both: the other direction keeps its category.
+  - `categorizeAll` resolves money sent and money received separately. Manual (`USER`) categories are still never
+    touched.
+- **API:**
+  - `POST /api/review/merchants/{id}/category` takes an optional `direction`.
+  - Uncategorized cards carry `sentCount` / `sentMinor` / `receivedCount` / `receivedMinor` and `firstDate`.
+- **Web (review card):**
+  - Sent and received are shown on separate lines ("Money both ways" when there are both), with one picker per
+    direction.
+  - The received picker offers "Paying me back: less <sent category>", which nets that category's spending.
+  - Two-way cards have a one-tap "Both ways are a transfer".
+  - A card with money in one direction only answers that direction; money later in the other direction asks again
+    (spec question 29).
+- **Real data** (`RealDataPeopleTest`): answering the top 3 people takes spending categorized from **22.6% to 78.8%**:
+  Person_7 transfer both ways, Person_4 sent → Housing, Person_3 sent → Other.
+- **Tests:**
+  - `PeopleInReviewTest`: the split card; each direction answered alone; paid back nets the category; received as
+    income; a rule for one direction splits a rule for both; a manual category survives; re-import is a no-op;
+    400 on an unknown direction.
+  - `CategoryResolverTest`: 2 direction cases.
+- **Demo:** an illustrative two-way card ("Person A"), like the illustrative subscription cards.
 
 ## CP6.3 — done
 
@@ -58,7 +90,7 @@ From DESIGN, not built yet:
    for yearly items).
 4. **Cadences:** bi-weekly and quarterly (spec question 26).
 5. **Category detail:** recurring payments listed first, separately from variable spending.
-6. **Review:** a card for transfer ties (spec question 20); accuracy as "categorized and reviewed" (spec question 12).
+6. **Review:** ~~people and money both ways~~ (CP6.4); a card for transfer ties (spec question 20); accuracy as "categorized and reviewed" (spec question 12).
 7. **Money:** more than one currency at a time, and cross-currency transfers (spec questions 14, 21).
 8. **Banks:** a second bank or CAMT.053 (DESIGN roadmap step 2); pending rows need a format with a status column
    (spec question 23).
@@ -66,8 +98,9 @@ From DESIGN, not built yet:
    personal scale.
 10. **Later (outside the plan):** household sharing, LLM classification, PDF statements.
 
-From the real data: the biggest uncategorized amount is transfers to people (`PERSON_n`, about two thirds of spending). The
-review inbox asks about these, merchant by merchant. Categorizing the top 3 people would cover most of it.
+From the real data: the biggest uncategorized amount was transfers to people (`PERSON_n`, about two thirds of spending).
+CP6.4 lets the inbox answer them by direction; answering the top 3 takes spending categorized from 22.6% to 78.8%.
+The largest card left is income from an employer: Luxoft, 366,924 RON received and uncategorized.
 
 ## CP6.1 — done
 
@@ -725,6 +758,8 @@ Health tests now derive the expected schema version from the migrations instead 
   re-anonymizes the export and a real golden test is added. GitHub may keep unreferenced old commits cached: ask GitHub
   Support to purge them (the repository is public again since 2026-09-24).
 
+- Merchant key `Person_6/7082938682055` on the real export: a reference number glued to a name with `/` survives
+  normalization, so that person gets a second merchant. One transaction; not fixed yet.
 - Dev-container only: Docker Hub rate-limits image pulls here (429); images were pulled via `mirror.gcr.io`.
   Not a project issue; CI and local machines pull normally.
 - Dev-container only: `docker build` needs the sandbox proxy + CA injected, so compose images were verified with
@@ -810,3 +845,9 @@ Health tests now derive the expected schema version from the migrations instead 
       (only those with data).
     - The insight line uses the same per-month figures and thresholds (> 25% and > 100 units a month).
     - "Committed every month" is still as of the selected month; its share is of the per-month spending.
+29. **Answers by direction** (DESIGN: "one card = one merchant"; the card stays one per merchant, answered per
+    direction; my reading, open to change):
+    - An inbox answer covers only the directions the card shows. For a merchant only ever paid, a later refund from
+      it comes back as a question instead of being guessed.
+    - "Apply to this merchant" from the transaction list still covers both directions (refunds net the category).
+    - Money received in a SPEND category is a refund: it reduces that category's spending, as before.

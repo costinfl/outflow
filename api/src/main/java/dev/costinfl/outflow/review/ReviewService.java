@@ -48,20 +48,24 @@ public class ReviewService {
                     rs.getString(4), rs.getLong(2), rs.getString(3), rs.getLong(1), Cadence.valueOf(rs.getString(5)),
                     rs.getLong(6), AmountKind.valueOf(rs.getString(7)), rs.getObject(8, LocalDate.class),
                     rs.getInt(11), confidence, rs.getObject(10, LocalDate.class), null, null, null, null, null, null,
-                    null, null, null, null);
+                    null, null, null, null, null, null, null, null, null);
             if (!skipped.contains(card.key())) {
                 (confidence.compareTo(PROPOSE) >= 0 ? cards : possible).add(card);
             }
         });
         jdbc.query("""
-                SELECT t.merchant_id, m.display_name, t.currency, count(*), sum(abs(t.amount_minor))
+                SELECT t.merchant_id, m.display_name, t.currency, count(*), sum(abs(t.amount_minor)),
+                       count(*) FILTER (WHERE t.amount_minor < 0), coalesce(sum(-t.amount_minor) FILTER (WHERE t.amount_minor < 0), 0),
+                       count(*) FILTER (WHERE t.amount_minor >= 0), coalesce(sum(t.amount_minor) FILTER (WHERE t.amount_minor >= 0), 0),
+                       min(t.booking_date)
                 FROM transaction t JOIN merchant m ON m.id = t.merchant_id
                 WHERE t.category_id IS NULL AND t.superseded_by IS NULL
                 GROUP BY t.merchant_id, m.display_name, t.currency""", rs -> {
             var card = new ReviewCard("merchant:" + rs.getLong(1) + ":" + rs.getString(3), Kind.UNCATEGORIZED_MERCHANT,
                     rs.getLong(5), rs.getString(3), rs.getLong(1), rs.getString(2),
                     null, null, null, null, null, null, null, null, rs.getInt(4), null, null, null, null, null,
-                    null, null, null, null);
+                    null, null, null, null, rs.getInt(6), rs.getLong(7), rs.getInt(8), rs.getLong(9),
+                    rs.getObject(10, LocalDate.class));
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }
@@ -79,7 +83,7 @@ public class ReviewService {
             var card = new ReviewCard("duplicate:" + rs.getLong(1), Kind.POSSIBLE_DUPLICATE, Math.abs(rs.getLong(6)),
                     rs.getString(4), rs.getLong(2), rs.getString(3), null, null, null, null, null, null, null, null, null,
                     rs.getLong(1), rs.getObject(5, LocalDate.class), rs.getLong(6), rs.getObject(7, LocalDate.class),
-                    rs.getLong(8), null, null, null, null);
+                    rs.getLong(8), null, null, null, null, null, null, null, null, null);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }
@@ -97,7 +101,7 @@ public class ReviewService {
                     cadence.monthlyMinor(rs.getLong(price ? 4 : 11)), rs.getString(9), rs.getLong(7), rs.getString(8),
                     rs.getLong(6), cadence, rs.getLong(11), AmountKind.valueOf(rs.getString(12)), null, null, null, null,
                     null, null, null, null, null, null, rs.getLong(1), (Long) rs.getObject(3), rs.getLong(4),
-                    rs.getObject(5, LocalDate.class));
+                    rs.getObject(5, LocalDate.class), null, null, null, null, null);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }

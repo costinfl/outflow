@@ -589,6 +589,11 @@
           "categoryId" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "direction" : {
+            "description" : "Only money sent (OUT) or only money received (IN); absent for both",
+            "enum" : [ "IN", "OUT" ],
+            "type" : "string"
           }
         },
         "required" : [ "categoryId" ],
@@ -922,6 +927,11 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "firstDate" : {
+            "description" : "Uncategorized merchant: its oldest uncategorized transaction",
+            "format" : "date",
+            "type" : "string"
+          },
           "key" : {
             "description" : "Stable id, used to skip the card",
             "example" : "subscription:12",
@@ -973,6 +983,26 @@
           },
           "previousAmountMinor" : {
             "description" : "Price change: the amount before",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "receivedCount" : {
+            "description" : "Uncategorized merchant: money received from it",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "receivedMinor" : {
+            "description" : "Uncategorized merchant: positive minor units received",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "sentCount" : {
+            "description" : "Uncategorized merchant: money sent to it",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "sentMinor" : {
+            "description" : "Uncategorized merchant: positive minor units sent",
             "format" : "int64",
             "type" : "integer"
           },

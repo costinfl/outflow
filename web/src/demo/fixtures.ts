@@ -85,8 +85,14 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
     demoRecurring(url.searchParams.get('month') ?? undefined, demoAccountsInclude(url, 1), demoAccountsInclude(url, 2)),
   // Uncategorized cards are the demo ledger's two uncategorized merchants. The subscription cards are illustrative:
   // the ledger holds one March charge per merchant, the cards describe what four months of them would look like.
+  // So is the person (rent sent, money paid back): the demo ledger's months are pinned to InsightServiceTest's numbers.
   '/api/review': {
     cards: [
+      {
+        key: 'merchant:12:RON', kind: 'UNCATEGORIZED_MERCHANT', affectedMinor: 335000, currency: 'RON', merchantId: 12,
+        name: 'Person A', transactionCount: 5, sentCount: 2, sentMinor: 300000, receivedCount: 3, receivedMinor: 35000,
+        firstDate: '2026-01-02',
+      },
       {
         key: 'subscription:2', kind: 'SUBSCRIPTION', affectedMinor: 84004, currency: 'RON', merchantId: 7, name: 'Enel',
         subscriptionId: 2, cadence: 'MONTHLY', expectedAmountMinor: 21001, amountKind: 'VARIABLE', since: '2025-12-08',
@@ -99,11 +105,13 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
       },
       {
         key: 'merchant:8:RON', kind: 'UNCATEGORIZED_MERCHANT', affectedMinor: 4000, currency: 'RON', merchantId: 8,
-        name: 'Zz Widgets', transactionCount: 1,
+        name: 'Zz Widgets', transactionCount: 1, sentCount: 1, sentMinor: 4000, receivedCount: 0, receivedMinor: 0,
+        firstDate: '2026-03-11',
       },
       {
         key: 'merchant:11:RON', kind: 'UNCATEGORIZED_MERCHANT', affectedMinor: 3000, currency: 'RON', merchantId: 11,
-        name: 'Zz Inflow', transactionCount: 1,
+        name: 'Zz Inflow', transactionCount: 1, sentCount: 0, sentMinor: 0, receivedCount: 1, receivedMinor: 3000,
+        firstDate: '2026-03-13',
       },
     ],
     possible: [
@@ -113,7 +121,7 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
         occurrences: 3, confidence: 0.55, nextExpectedDate: '2026-04-04',
       },
     ],
-    count: 4,
+    count: 5,
   },
   '/api/insights/categories/{id}': demoCategory,
   // All demo transactions are the Main account's: a filter without it has no data, as the real API would answer.

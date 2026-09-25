@@ -1,5 +1,6 @@
 package dev.costinfl.outflow.review;
 
+import dev.costinfl.outflow.category.CategoryRule;
 import dev.costinfl.outflow.category.CategoryService;
 import dev.costinfl.outflow.ingest.UploadService;
 import dev.costinfl.outflow.recurring.AlertService;
@@ -30,7 +31,10 @@ public class ReviewController {
 
     public record Skip(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String key) {}
 
-    public record MerchantCategory(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Long categoryId) {}
+    public record MerchantCategory(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Long categoryId,
+            @Schema(description = "Only money sent (OUT) or only money received (IN); absent for both")
+            CategoryRule.Direction direction) {}
 
     public record Duplicate(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "true: the same payment, pending then posted")
@@ -116,7 +120,10 @@ public class ReviewController {
         }
     }
 
-    /** "Pick category (applies to all)": a rule for the merchant; every automatic transaction of it follows. */
+    /**
+     * "Pick category (applies to all)": a rule for the merchant, for money sent, money received or both; every automatic
+     * transaction of it in that direction follows.
+     */
     @PostMapping(path = "/merchants/{merchantId}/category", consumes = MediaType.APPLICATION_JSON_VALUE)
     public MerchantCategoryResult categorizeMerchant(@PathVariable long merchantId, @RequestBody MerchantCategory body) {
         if (jdbc.queryForObject("SELECT count(*) FROM merchant WHERE id = ?", Long.class, merchantId) == 0) {
@@ -125,7 +132,7 @@ public class ReviewController {
         if (body.categoryId() == null || !categories.exists(body.categoryId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown category");
         }
-        int changed = categories.setMerchantCategory(merchantId, body.categoryId());
+        int changed = categories.setMerchantCategory(merchantId, body.categoryId(), body.direction());
         subscriptions.refreshNow(); // a merchant marked as transfer or cash is no longer a subscription candidate
         return new MerchantCategoryResult(changed);
     }

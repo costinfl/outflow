@@ -37,7 +37,7 @@ docker compose up --build          # full stack: SPA http://localhost:3000 (prox
 API endpoints: `/api/health`, `POST /api/imports` (multipart `files`), `GET/POST /api/accounts`, `PATCH /api/accounts/{id}`,
 `GET /api/categories`, `PUT/DELETE /api/transactions/{id}/category`, `GET /api/merchants`, `GET /api/merchants/explain`,
 `POST /api/merchants/aliases`, `GET /api/insights/month`, `GET /api/insights/categories/{id}`,
-`GET /api/transactions`, `GET /api/review`, `POST /api/review/skip`, `POST /api/review/merchants/{id}/category`,
+`GET /api/transactions`, `GET /api/review`, `POST /api/review/skip`, `POST /api/review/merchants/{id}/category` (optional `direction` IN/OUT),
 `POST /api/review/duplicates/{id}`, `POST /api/review/alerts/{id}`,
 `GET /api/subscriptions`, `PATCH /api/subscriptions/{id}`,
 `POST /api/subscriptions/{id}/confirm|reject|end`; OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
