@@ -48,6 +48,16 @@ class MerchantNormalizerTest {
         "PAYPAL *STEAM GAMES 4029357733 LU                                    | STEAM GAMES",
         "AMZN MKTP DE*2B4XY7Z                                                 | AMAZON",
         "AMAZON.DE                                                            | AMAZON",
+        // payment processors in front of the merchant, and brands with a digit (real ING exports)
+        "PayU*eMAG.ro                                                         | EMAG",
+        "PAYU*TAZZ.RO                                                         | TAZZ",
+        "MOBILPAY*AMPARCAT                                                    | AMPARCAT",
+        "NYX*CUMPANASRL                                                       | CUMPANASRL",
+        "mpy*lifeiscool                                                       | LIFEISCOOL",
+        "EP*lege5.ro                                                          | LEGE5",
+        "PADDLE.NET* TOPDEVELOP                                               | TOPDEVELOP",
+        "1MINUTE HERMES (B) C3                                                | 1MINUTE HERMES (B)",
+        "MCD 5 DRISTOR DT - 1                                                 | MCD DRISTOR DT",
         "OMV PETROM 7123 CLUJ-NAPOCA RO                                       | OMV PETROM",
         "GLOVO*BUCURESTI                                                      | GLOVO",
     })

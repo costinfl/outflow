@@ -22,3 +22,13 @@ The counts and sums above were computed by the generator script, independently o
 `ing-ro-2026-q1.csv` is fabricated data in the exact layout of an ING Bank Romania Home'Bank export: multi-line
 records, page chrome (also inside a record), a wrapped detail line, a monthly standing order that reuses one reference,
 Round Ups to a savings account, a refund and a cash withdrawal. Balances are consistent on every line.
+
+## Real ING export
+
+`samples/ING Bank Romania/Tranzactii_24-09-2026_11-36-40-anonymized.csv` is the user's real ING Home'Bank export,
+anonymized with `tools/Anonymize.java` (people → `PERSON_n`, free-text notes → `NOTE_n`, IBANs, cards, phones and
+references replaced; amounts and dates kept). Values computed with a separate Python script from the CSV itself:
+
+| Records | Debit | Credit | Period | Running balance |
+| --- | --- | --- | --- | --- |
+| 4026 (335 in "August", capitalised in the export) | 101837589 | 102480553 | 2025-01-01 – 2026-09-24 | first 674527; every record follows from the next except one pair in July 2025 (+900 / −900, cancelling) |

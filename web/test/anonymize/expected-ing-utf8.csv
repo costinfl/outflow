@@ -6,7 +6,7 @@ Data,,,Detalii tranzactie,Debit,,Credit,Balanta
 ,,,Din contul:RO83ANON6128313121077655,,,,
 19 septembrie 2026,,,Transfer Home'Bank,"500,00",,,"6.621,29"
 ,,,Beneficiar:PERSON_4,,,,
-,,,Detalii:pentru PERSON_4,,,,
+,,,Detalii:NOTE_1,,,,
 18 septembrie 2026,,,Plata debit direct,"136,44",,,"7.121,29"
 ,,,Beneficiar:DIGI ROMANIA SA,,,,
 17 septembrie 2026,,,Transfer Home'Bank,"20,00",,,"7.257,73"
@@ -16,7 +16,23 @@ Data,,,Detalii tranzactie,Debit,,Credit,Balanta
 15 septembrie 2026,,,Transfer Home'Bank,"300,00",,,"-1.722,27"
 ,,,Beneficiar:Revolut,,,,
 14 septembrie 2026,,,Taxe si comisioane,"18,00",,,"-1.422,27"
-,,,Detalii:Card VISA xxxx7006,,,,
+,,,Detalii:NOTE_2,,,,
 13 septembrie 2026,,,Plati cu cardul de tip transfer fonduri,"300,00",,,"-1.404,27"
 ,,,Tranzactie la:Revolut**6266*  IE  Dublin,,,,
 ,,,Tranzactie la:PERSON_6/8859400178519,,,,
+12 septembrie 2026,,,Transfer Home'Bank,"45,00",,,"-1.104,27"
+,,,Beneficiar:PERSON_6,,,,
+,,,"Detalii:NOTE_3",,,,
+11 septembrie 2026,,,Cumparare POS,"5,95",,,"-1.059,27"
+,,,Detalii:Suma tranzactiei: 5.95 RON,,,,
+,,,Tranzactie la:METROREX VALIDATOARE,,,,
+10 septembrie 2026,,,Transfer Home'Bank,"45,00",,,"-1.053,32"
+,,,Beneficiar:PERSON_6,,,,
+,,,Mesaj:NOTE_4,,,,
+,,,Referinta:9122163840,,,,
+9 septembrie 2026,,,Transfer Home'Bank,"80,00",,,"-973,32"
+,,,Beneficiar:PERSON_6,,,,
+,,,Detalii:NOTE_5,,,,
+,,,,,,,
+,,,,,,,
+,,,Referinta:1080404255,,,,

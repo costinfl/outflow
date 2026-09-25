@@ -123,6 +123,22 @@ public class Anonymize {
                 + "|SCOALA|LICEUL|GRADINITA|SPITALUL|CLINICA|CENTRUL|MEDICAL|HOSPITAL|ASIGURARI|INSURANCE|TRADING|SYSTEMS"
                 + "|SERVICES|SERV|GROUP|HOLDING|COMPANY|INTERNATIONAL|TREZORERIA|ADMINISTRATIA|ANAF|CNAS)\\b");
         private static final Pattern PERSON_LIKE = Pattern.compile("[\\p{L}'-]+(?:[ .][\\p{L}'-]+){1,4}");
+        /**
+         * Free-text memos typed by people (transfer details, messages): anything can be in them, first names included.
+         * A quoted cell is taken up to its closing quote, so a comma inside a memo cannot leak the rest of it.
+         */
+        private static final Pattern MEMO = Pattern.compile(
+                "(?i)(\"(?:detalii|details|mesaj|message|explicatii)[ \\t]*:[ \\t]*)([^\"\\r\\n]*)(?=\")"
+                        + "|(\\b(?:detalii|details|mesaj|message|explicatii)[ \\t]*:[ \\t]*)([^,;\"\\t\\r\\n]*)");
+        /**
+         * A long memo wraps onto following lines without a "Key:" label (ING). Each such line after a scrubbed memo is
+         * blanked; the ING parser skips detail lines with an empty text cell.
+         */
+        private static final Pattern MEMO_WRAP = Pattern.compile(
+                "(?i)((?:detalii|details|mesaj|message|explicatii)[ \\t]*:[ \\t]*NOTE_\\d+[^\\r\\n]*\\r?\\n"
+                        + "(?:,{3,}\\r?\\n)*,,,)(?:\"[^\"\\r\\n]*\"|[^,;:\"\\r\\n]+(?=[,;\\r\\n]|$))");
+        /** Memos the bank writes itself, kept: ING's "Suma tranzactiei: 5.95 RON"; and an earlier run's NOTE_n. */
+        private static final Pattern SYSTEM_MEMO = Pattern.compile("(?i)suma tranzactiei: [0-9.,]+ [A-Z]{3}|NOTE_\\d+");
         private static final Pattern TRANSFERISH = Pattern.compile(
                 "(?i)transfer|catre|către|de la|beneficiar|ordonator|platitor|plătitor|p2p|revolut|incasare|încasare");
 
@@ -132,6 +148,7 @@ public class Anonymize {
         private final Map<String, Integer> counts = new TreeMap<>();
         private final Map<String, List<String>> examples = new TreeMap<>();
         private final Map<String, String> emailOf = new HashMap<>();
+        private final Map<String, String> noteOf = new LinkedHashMap<>();
         private final List<String> keptCounterparties = new ArrayList<>();
         private int detectedNames;
         private String output = "";
@@ -168,6 +185,18 @@ public class Anonymize {
                 } else if (!keptCounterparties.contains(value)) {
                     keptCounterparties.add(value);
                 }
+            }
+            s = replace(s, MEMO, "memo", m -> {
+                String prefix = m.group(1) != null ? m.group(1) : m.group(3);
+                String value = (m.group(1) != null ? m.group(2) : m.group(4)).strip();
+                if (value.isEmpty() || SYSTEM_MEMO.matcher(value).matches()) {
+                    return null;
+                }
+                return prefix + noteOf.computeIfAbsent(fold(value), k -> "NOTE_" + (noteOf.size() + 1));
+            });
+            for (String before = null; !s.equals(before); ) {
+                before = s;
+                s = replace(s, MEMO_WRAP, "memo", m -> m.group(1));
             }
             s = replace(s, IBAN, "IBAN", m -> {
                 String original = m.group(1);
@@ -341,6 +370,9 @@ public class Anonymize {
         }
 
         static boolean cnpValid(String cnp) {
+            if (cnp.length() != 13) {
+                return false; // a CNP has exactly 13 digits (long references of 10+ digits are checked too)
+            }
             String weights = "279146358279";
             int sum = 0;
             for (int i = 0; i < 12; i++) {

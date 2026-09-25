@@ -2,6 +2,21 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — real data (2026-09-25)
+
+- **Anonymizer:**
+  - free-text transfer notes (and their wrapped lines) become `NOTE_n` in both implementations
+  - a crash on 10-digit references fixed
+  - the real ING sample re-anonymized; the leaky upload was removed from the dev branch history
+- **ING parser:** accepts the capitalised "August" of real exports. A golden test runs on the real 21-month export
+  (4,026 records, balances checked).
+- **Merchant keys:** payment-processor prefixes (PayU*, MobilPay*, NYX*, …) are stripped, and brands with a digit
+  are kept.
+- **Seeds:** Romanian keywords (V11) and a new Insurance category (V12).
+- **Categorization on real data:** merchant spending 40.8% → 72.8%, all spending 13.3% → 22.6%. The rest is
+  transfers to people, for the review inbox.
+- **Tests:** 364 backend, 10 web.
+
 ## M5 — Multi-account and tracking (2026-09-25)
 
 - **Own-account transfers (V8):**

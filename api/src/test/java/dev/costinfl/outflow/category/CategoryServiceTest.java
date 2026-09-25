@@ -50,7 +50,9 @@ class CategoryServiceTest {
 
     @Test
     void seededTreeHasTheDesignCategoriesWithKinds() {
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM category", Long.class)).isEqualTo(18);
+        // DESIGN's 18 seeds plus Insurance (V12, decided in spec question 27)
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM category", Long.class)).isEqualTo(19);
+        assertThat(jdbc.queryForObject("SELECT kind FROM category WHERE code = 'INSURANCE'", String.class)).isEqualTo("SPEND");
         assertThat(jdbc.queryForList("SELECT code FROM category WHERE kind <> 'SPEND' ORDER BY code", String.class))
                 .containsExactly("INCOME", "TRANSFER");
     }
