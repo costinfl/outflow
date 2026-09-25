@@ -8,7 +8,7 @@ import { useApi } from '../lib/useApi'
 
 type Item = RecurringOverview['groups'][number]['items'][number]
 
-const GROUP_TITLES: Record<string, string> = { SUBSCRIPTIONS: 'Subscriptions', BILLS: 'Bills' }
+const GROUP_TITLES: Record<string, string> = { SUBSCRIPTIONS: 'Subscriptions', BILLS: 'Bills', INCOME: 'Recurring income' }
 
 /**
  * "What am I committed to?" (DESIGN: Detail screens, Recurring payments): highest monthly cost first, grouped, with
@@ -83,6 +83,8 @@ export function RecurringPage() {
       </section>
       <p className="text-xs text-muted">
         {o.countedCount} active {o.countedCount === 1 ? 'payment' : 'payments'}; yearly ones count as a twelfth per month.
+        {o.incomeMonthlyMinor > 0 &&
+          ` Recurring income (${formatMoney(o.incomeMonthlyMinor, o.currency)} a month) is listed on its own, not in these totals.`}
       </p>
 
       {o.suggestionCount > 0 && (

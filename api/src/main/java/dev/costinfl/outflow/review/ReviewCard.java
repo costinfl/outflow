@@ -1,5 +1,6 @@
 package dev.costinfl.outflow.review;
 
+import dev.costinfl.outflow.category.CategoryRule.Direction;
 import dev.costinfl.outflow.recurring.Cadence;
 import dev.costinfl.outflow.recurring.Candidate.AmountKind;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -46,7 +47,9 @@ public record ReviewCard(
         @Schema(description = "Uncategorized merchant: positive minor units sent") Long sentMinor,
         @Schema(description = "Uncategorized merchant: money received from it") Integer receivedCount,
         @Schema(description = "Uncategorized merchant: positive minor units received") Long receivedMinor,
-        @Schema(description = "Uncategorized merchant: its oldest uncategorized transaction") LocalDate firstDate) {
+        @Schema(description = "Uncategorized merchant: its oldest uncategorized transaction") LocalDate firstDate,
+        @Schema(description = "Subscription and alert cards: OUT for a recurring payment, IN for recurring income")
+        Direction direction) {
 
     public enum Kind { SUBSCRIPTION, UNCATEGORIZED_MERCHANT, POSSIBLE_DUPLICATE, PRICE_CHANGE, MISSED_CHARGE }
 

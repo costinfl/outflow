@@ -1,5 +1,6 @@
 package dev.costinfl.outflow.recurring;
 
+import dev.costinfl.outflow.category.CategoryRule.Direction;
 import dev.costinfl.outflow.recurring.Candidate.AmountKind;
 import dev.costinfl.outflow.recurring.Subscription.Edits;
 import dev.costinfl.outflow.recurring.Subscription.EndedBy;
@@ -70,8 +71,10 @@ public class SubscriptionService {
         var seen = new HashSet<Long>();
         int proposed = 0, updated = 0, linked = 0;
         for (Candidate c : recurrence.detect(today)) {
+            // A salary paid in two parts is two streams of one merchant: each goes to the row due nearest its day.
             Optional<Subscription> match = live.stream()
-                    .filter(s -> !seen.contains(s.id()) && sameStream(s, c)).findFirst();
+                    .filter(s -> !seen.contains(s.id()) && sameStream(s, c))
+                    .min(java.util.Comparator.comparingInt(s -> anchorDistance(s, c)));
             if (match.isEmpty()) {
                 if (rejected(c) || allLinkedElsewhere(c)) {
                     continue;
@@ -161,9 +164,11 @@ public class SubscriptionService {
     public Subscription reject(long id) {
         Subscription s = require(id, State.PROPOSED);
         jdbc.update("""
-                INSERT INTO subscription_rejection (household_id, merchant_id, currency, cadence, amount_minor, subscription_id)
-                VALUES (?, ?, ?, ?, ?, ?)""",
-                HOUSEHOLD, s.merchantId(), s.currency(), s.cadence().name(), s.expectedAmountMinor(), id);
+                INSERT INTO subscription_rejection (household_id, merchant_id, currency, cadence, amount_minor, subscription_id,
+                    direction)
+                VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                HOUSEHOLD, s.merchantId(), s.currency(), s.cadence().name(), s.expectedAmountMinor(), id,
+                s.direction().name());
         jdbc.update("UPDATE transaction SET subscription_id = NULL WHERE subscription_id = ?", id);
         jdbc.update("UPDATE subscription SET state = 'REJECTED', decided_at = now(), updated_at = now() WHERE id = ?", id);
         return find(id).orElseThrow();
@@ -217,12 +222,22 @@ public class SubscriptionService {
     }
 
     /**
-     * Same account, merchant and currency, and amount bands that overlap once each is allowed 25% upwards (the band
-     * split threshold). Cadence is not compared: the user may have corrected it when confirming.
+     * Same account, merchant, currency and direction, and amount bands that overlap once each is allowed 25% upwards
+     * (the band split threshold). Cadence is not compared: the user may have corrected it when confirming.
      */
     static boolean sameStream(Subscription s, Candidate c) {
         return s.accountId() == c.accountId() && s.merchantId() == c.merchantId() && s.currency().equals(c.currency())
+                && s.direction() == c.direction()
                 && c.bandMinMinor() * 4 <= s.bandMaxMinor() * 5 && s.bandMinMinor() * 4 <= c.bandMaxMinor() * 5;
+    }
+
+    /** Days between the stored and the detected due day of month, around the month; 0 when either has none. */
+    static int anchorDistance(Subscription s, Candidate c) {
+        if (s.anchorDay() == null || c.anchorDay() == null || s.cadence() != c.cadence()) {
+            return 0;
+        }
+        int d = Math.abs(s.anchorDay() - c.anchorDay());
+        return Math.min(d, 31 - d);
     }
 
     /** Every charge of the candidate already belongs to a subscription (e.g. a confirmed one after a price change). */
@@ -235,8 +250,8 @@ public class SubscriptionService {
     private boolean rejected(Candidate c) {
         List<Long> amounts = jdbc.queryForList("""
                 SELECT amount_minor FROM subscription_rejection
-                WHERE household_id = ? AND merchant_id = ? AND currency = ? AND cadence = ?""",
-                Long.class, HOUSEHOLD, c.merchantId(), c.currency(), c.cadence().name());
+                WHERE household_id = ? AND merchant_id = ? AND currency = ? AND cadence = ? AND direction = ?""",
+                Long.class, HOUSEHOLD, c.merchantId(), c.currency(), c.cadence().name(), c.direction().name());
         return amounts.stream().anyMatch(a -> 2 * Math.abs(c.expectedAmountMinor() - a) <= a);
     }
 
@@ -244,13 +259,13 @@ public class SubscriptionService {
         return jdbc.queryForObject("""
                 INSERT INTO subscription (household_id, account_id, merchant_id, name, currency, cadence, anchor_day,
                     anchor_month, amount_kind, expected_amount_minor, tolerance_minor, band_min_minor, band_max_minor,
-                    confidence, first_seen, last_seen, next_expected_date, state)
-                SELECT ?, ?, m.id, m.display_name, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PROPOSED'
+                    confidence, first_seen, last_seen, next_expected_date, state, direction)
+                SELECT ?, ?, m.id, m.display_name, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PROPOSED', ?
                 FROM merchant m WHERE m.id = ?
                 RETURNING id""", Long.class,
                 HOUSEHOLD, c.accountId(), c.currency(), c.cadence().name(), c.anchorDay(), c.anchorMonth(),
                 c.amountKind().name(), c.expectedAmountMinor(), c.toleranceMinor(), c.bandMinMinor(), c.bandMaxMinor(),
-                confidence(c), c.firstDate(), c.lastDate(), c.nextExpectedDate(), c.merchantId());
+                confidence(c), c.firstDate(), c.lastDate(), c.nextExpectedDate(), c.direction().name(), c.merchantId());
     }
 
     private void updateDetected(long id, Candidate c) {
@@ -289,7 +304,7 @@ public class SubscriptionService {
     private static final String SELECT = """
             SELECT id, account_id, merchant_id, name, currency, cadence, anchor_day, anchor_month, amount_kind,
                    expected_amount_minor, tolerance_minor, band_min_minor, band_max_minor, confidence, first_seen,
-                   last_seen, next_expected_date, state, ended_by
+                   last_seen, next_expected_date, state, ended_by, direction
             FROM subscription""";
 
     private Subscription row(ResultSet rs, int i) throws SQLException {
@@ -301,6 +316,7 @@ public class SubscriptionService {
                 rs.getLong("tolerance_minor"), rs.getLong("band_min_minor"), rs.getLong("band_max_minor"),
                 rs.getBigDecimal("confidence"), rs.getObject("first_seen", LocalDate.class),
                 rs.getObject("last_seen", LocalDate.class), rs.getObject("next_expected_date", LocalDate.class),
-                State.valueOf(rs.getString("state")), endedBy == null ? null : EndedBy.valueOf(endedBy));
+                State.valueOf(rs.getString("state")), endedBy == null ? null : EndedBy.valueOf(endedBy),
+                Direction.valueOf(rs.getString("direction")));
     }
 }

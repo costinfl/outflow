@@ -55,10 +55,18 @@ class RecurrenceServiceTest {
     void findsTheSeededSubscriptionsAndNothingElse() throws Exception {
         load(account, RecurringFixtures.LEDGER);
 
-        var found = byMerchant(recurrence.detect(TODAY));
+        var found = new java.util.HashMap<>(byMerchant(recurrence.detect(TODAY)));
 
-        assertThat(found).containsOnlyKeys("NETFLIX", "ENEL", "ORANGE", "WORLD CLASS", "EMAG");
+        assertThat(found).containsOnlyKeys("NETFLIX", "ENEL", "ORANGE", "WORLD CLASS", "EMAG", "SALARIU ACME SRL");
+        // CP6.5: the salary (money in, category Income) is recurring income, not a subscription.
+        var salary = found.remove("SALARIU ACME SRL");
+        assertThat(salary.direction()).isEqualTo(dev.costinfl.outflow.category.CategoryRule.Direction.IN);
+        assertThat(salary.cadence()).isEqualTo(Cadence.MONTHLY);
+        assertThat(salary.anchorDay()).isEqualTo(25);
+        assertThat(salary.expectedAmountMinor()).isEqualTo(500_000);
+        assertThat(salary.occurrences()).isEqualTo(4);
         assertThat(found.values()).allSatisfy(c -> {
+            assertThat(c.direction()).isEqualTo(dev.costinfl.outflow.category.CategoryRule.Direction.OUT);
             assertThat(c.cadence()).isEqualTo(Cadence.MONTHLY);
             assertThat(c.strength()).isEqualTo(Strength.PROPOSED);
             assertThat(c.accountId()).isEqualTo(account);

@@ -3,6 +3,7 @@ package dev.costinfl.outflow.review;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.costinfl.outflow.TestcontainersConfiguration;
+import dev.costinfl.outflow.category.CategoryRule.Direction;
 import dev.costinfl.outflow.ingest.ImportFixtures;
 import dev.costinfl.outflow.ingest.UploadService;
 import dev.costinfl.outflow.recurring.RecurringFixtures;
@@ -90,7 +91,12 @@ class ReviewControllerTest {
 
         var subscriptions = inbox.cards().stream().filter(c -> c.kind() == Kind.SUBSCRIPTION).toList();
         assertThat(subscriptions).extracting(ReviewCard::merchantId).containsExactlyInAnyOrder(merchantId("NETFLIX"),
-                merchantId("ENEL"), merchantId("ORANGE"), merchantId("WORLD CLASS"), merchantId("EMAG"));
+                merchantId("ENEL"), merchantId("ORANGE"), merchantId("WORLD CLASS"), merchantId("EMAG"),
+                merchantId("SALARIU ACME SRL"));
+        // CP6.5: the salary is asked about as recurring income; the rest are payments.
+        assertThat(subscriptions).allSatisfy(c -> assertThat(c.direction()).isEqualTo(
+                c.merchantId() == merchantId("SALARIU ACME SRL") ? Direction.IN : Direction.OUT));
+        assertThat(card(inbox, Kind.SUBSCRIPTION, displayName("SALARIU ACME SRL")).affectedMinor()).isEqualTo(4 * 500_000);
         var netflix = card(inbox, Kind.SUBSCRIPTION, displayName("NETFLIX"));
         assertThat(netflix.affectedMinor()).isEqualTo(7 * 4999);
         assertThat(netflix.occurrences()).isEqualTo(7);

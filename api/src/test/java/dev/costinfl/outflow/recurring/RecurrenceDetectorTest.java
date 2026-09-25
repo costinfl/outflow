@@ -34,6 +34,35 @@ class RecurrenceDetectorTest {
         return found.getFirst();
     }
 
+    /** CP6.5: a salary in two parts, around the 25th (advance) and the 10th, is two monthly streams. */
+    @Test
+    void twoPaymentsAMonthOnTwoDaysAreTwoMonthlyStreams() {
+        var found = detect(TODAY,
+                "2026-01-09:849000", "2026-01-26:872100", "2026-02-10:872100", "2026-02-25:872100",
+                "2026-03-10:872100", "2026-03-25:872100", "2026-04-09:872100", "2026-04-24:872100",
+                "2026-05-11:960300", "2026-05-25:950000", "2026-06-10:928700", "2026-06-25:950000",
+                "2026-07-10:928500");
+
+        assertThat(found).hasSize(2);
+        assertThat(found).extracting(Candidate::cadence).containsOnly(Cadence.MONTHLY);
+        assertThat(found).extracting(Candidate::anchorDay).containsExactlyInAnyOrder(10, 25);
+        var tenth = found.stream().filter(c -> c.anchorDay() == 10).findFirst().orElseThrow();
+        var advance = found.stream().filter(c -> c.anchorDay() == 25).findFirst().orElseThrow();
+        assertThat(tenth.transactionIds()).containsExactly(1L, 3L, 5L, 7L, 9L, 11L, 13L);
+        assertThat(advance.transactionIds()).containsExactly(2L, 4L, 6L, 8L, 10L, 12L);
+        assertThat(tenth.nextExpectedDate()).isEqualTo(LocalDate.of(2026, 8, 10));
+        assertThat(advance.nextExpectedDate()).isEqualTo(LocalDate.of(2026, 7, 25));
+        assertThat(found).allSatisfy(c -> assertThat(c.strength()).isEqualTo(Strength.PROPOSED));
+    }
+
+    @Test
+    void twoPaymentsAMonthOnScatteredDaysAreNoStream() {
+        assertThat(detect(TODAY,
+                "2026-01-03:10000", "2026-01-17:10000", "2026-02-08:10000", "2026-02-21:10000",
+                "2026-03-01:10000", "2026-03-14:10000", "2026-04-11:10000", "2026-04-28:10000",
+                "2026-05-05:10000", "2026-05-19:10000", "2026-06-02:10000", "2026-06-23:10000")).isEmpty();
+    }
+
     @Test
     void fixedMonthlyWithWeekendShifts() {
         // 15 Feb and 15 Mar 2026 are Sundays: charged the Monday after.

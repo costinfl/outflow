@@ -7,7 +7,8 @@ import java.util.List;
 
 /**
  * "What am I committed to?" (DESIGN: Detail screens, Recurring payments). Totals are sums of the {@code counted}
- * items' own monthly and yearly equivalents, so the header always equals its rows.
+ * items' own monthly and yearly equivalents, so the header always equals its rows. Recurring income is its own group
+ * and never part of the committed totals.
  */
 public record RecurringOverview(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String currency,
@@ -22,9 +23,13 @@ public record RecurringOverview(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Per account: how much history detection has")
         List<Coverage> coverage,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Suggestions waiting in the review inbox")
-        int suggestionCount) {
+        int suggestionCount,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Recurring income per month: the INCOME group's counted items (a salary in two parts is two)")
+        long incomeMonthlyMinor) {
 
-    public enum GroupKind { SUBSCRIPTIONS, BILLS }
+    /** Payments (subscriptions, bills) are commitments; INCOME is money expected in. */
+    public enum GroupKind { SUBSCRIPTIONS, BILLS, INCOME }
 
     /** DESIGN's status chip: Active, Price changed, Missed, Ended (an open alert decides the middle two). */
     public enum Status { ACTIVE, PRICE_CHANGED, MISSED, ENDED }

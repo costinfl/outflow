@@ -381,7 +381,7 @@
             "type" : "array"
           },
           "kind" : {
-            "enum" : [ "SUBSCRIPTIONS", "BILLS" ],
+            "enum" : [ "SUBSCRIPTIONS", "BILLS", "INCOME" ],
             "type" : "string"
           },
           "monthlyMinor" : {
@@ -836,6 +836,11 @@
             },
             "type" : "array"
           },
+          "incomeMonthlyMinor" : {
+            "description" : "Recurring income per month: the INCOME group's counted items (a salary in two parts is two)",
+            "format" : "int64",
+            "type" : "integer"
+          },
           "month" : {
             "description" : "The month viewed (YYYY-MM); absent = as of today",
             "type" : "string"
@@ -856,7 +861,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "countedCount", "coverage", "currency", "groups", "monthlyMinor", "suggestionCount", "yearlyMinor" ],
+        "required" : [ "countedCount", "coverage", "currency", "groups", "incomeMonthlyMinor", "monthlyMinor", "suggestionCount", "yearlyMinor" ],
         "type" : "object"
       },
       "Rename" : {
@@ -911,6 +916,11 @@
             "type" : "number"
           },
           "currency" : {
+            "type" : "string"
+          },
+          "direction" : {
+            "description" : "Subscription and alert cards: OUT for a recurring payment, IN for recurring income",
+            "enum" : [ "IN", "OUT" ],
             "type" : "string"
           },
           "dueDate" : {
@@ -1097,6 +1107,11 @@
           "currency" : {
             "type" : "string"
           },
+          "direction" : {
+            "description" : "OUT: a recurring payment; IN: recurring income",
+            "enum" : [ "IN", "OUT" ],
+            "type" : "string"
+          },
           "endedBy" : {
             "enum" : [ "USER", "SYSTEM" ],
             "type" : "string"
@@ -1138,7 +1153,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "accountId", "amountKind", "bandMaxMinor", "bandMinMinor", "cadence", "confidence", "currency", "expectedAmountMinor", "firstSeen", "id", "lastSeen", "merchantId", "name", "state", "toleranceMinor" ],
+        "required" : [ "accountId", "amountKind", "bandMaxMinor", "bandMinMinor", "cadence", "confidence", "currency", "direction", "expectedAmountMinor", "firstSeen", "id", "lastSeen", "merchantId", "name", "state", "toleranceMinor" ],
         "type" : "object"
       },
       "TransactionList" : {

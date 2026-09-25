@@ -5,9 +5,44 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.4** — people in the review inbox: money sent and received answered separately |
+| Last completed | **CP6.5** — recurring income, including a salary paid in two parts |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.5 — done
+
+397 backend tests green (11 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px
+against the API loaded with the real export, in light and dark.
+
+- **Why:** the user's salary (Luxoft) comes in two parts, an advance around the 25th of the month before and the rest
+  around the 10th. Only spending could be a recurring payment, and two payments a month fit no cadence.
+- **Detector:**
+  - An amount band that fits no cadence and whose days of month form two clusters at least 5 days apart (around the
+    month) is split into two monthly streams, one per cluster.
+  - Both halves must fit monthly on their own, or nothing is proposed. Payments on scattered days stay unmatched.
+  - The split applies to spending too.
+- **Income (V14):** `subscription.direction` and `subscription_rejection.direction` (`OUT` default, `IN`).
+  - Money received in an **Income** category is detected like payments. Uncategorized money in is not income until
+    the user says so, so people paying back are not proposed.
+  - A payment stream and an income stream of the same merchant never match or reject each other.
+  - The two parts of a salary each keep their own row: a detected stream goes to the stored row due nearest its day.
+  - Alerts work for income: a missed part ("Missed income … Has it stopped?") and a raise ("Income changed"), with
+    positive amounts.
+- **Recurring screen:** a "Recurring income" group with its own per-month total (`incomeMonthlyMinor`). It is never in
+  "Committed every month", the per-month / per-year totals or the active count.
+- **Review:** subscription and alert cards carry `direction`. Income cards ask "Recurring income? … Is this regular
+  income, like a salary?", naming the day of month so the two parts can be told apart.
+- **Real export** (`RealDataPeopleTest`): once Luxoft's money received is Income, it is two monthly income streams
+  (the 10th and the 25th), holding 41 of its 42 payments; the 42nd is a one-off 560. In the app: about 9,285 around
+  the 10th and 9,500 around the 25th, 18,785 RON a month confirmed. Deposit interest (an Income keyword) is proposed as
+  yearly income.
+- **Tests:**
+  - `RecurringIncomeTest` (8): two parts; income cards; income group never counted as committed; new payments join
+    the right part; missed part; raise; a rejected part stays rejected; refresh is idempotent.
+  - `RecurrenceDetectorTest`: two days a month → two streams; scattered days → none.
+  - The ACME salary in the shared recurring ledger is now expected as income in 4 existing tests.
+- **Demo:** the Recurring screen shows an illustrative confirmed salary in "Recurring income".
+- **Left:** both parts are named after the merchant; the user can rename them ("Salary advance").
 
 ## CP6.4 — done
 
@@ -851,3 +886,6 @@ Health tests now derive the expected schema version from the migrations instead 
       it comes back as a question instead of being guessed.
     - "Apply to this merchant" from the transaction list still covers both directions (refunds net the category).
     - Money received in a SPEND category is a refund: it reduces that category's spending, as before.
+30. **Recurring income** (my reading, open to change): only money received in an INCOME category is checked, so an
+    answer in the review inbox comes first. Its per-month total is listed on its own and is not part of the home
+    screen yet; a salary in two parts is two streams, not one.

@@ -9,7 +9,7 @@ type Item = Overview['groups'][number]['items'][number]
 
 interface DemoSubscription {
   item: Omit<Item, 'counted' | 'monthlyMinor' | 'yearlyMinor'>
-  group: 'SUBSCRIPTIONS' | 'BILLS'
+  group: 'SUBSCRIPTIONS' | 'BILLS' | 'INCOME'
   firstSeen: string
   lastSeen: string
 }
@@ -47,15 +47,28 @@ const SUBSCRIPTIONS: DemoSubscription[] = [
       nextExpectedDate: '2027-02-14', status: 'ACTIVE', categoryId: 10, categoryName: 'Subscriptions & software',
     },
   },
+  {
+    group: 'INCOME',
+    firstSeen: '2025-12-10',
+    lastSeen: '2026-03-10',
+    item: {
+      id: 5, name: 'Salariu Acme Srl', merchantId: 9, cadence: 'MONTHLY', amountKind: 'FIXED', expectedAmountMinor: 500000,
+      nextExpectedDate: '2026-04-10', status: 'ACTIVE', categoryId: 15, categoryName: 'Income',
+    },
+  },
 ]
 
-/** Every demo subscription and all demo history belong to the Main account (id 1). */
+/**
+ * Every demo subscription and all demo history belong to the Main account (id 1). Recurring income is its own group
+ * and never part of the committed totals, as in RecurringService.
+ */
 export function demoRecurring(month?: string, includesMain = true, includesSavings = true): Overview {
   const groups: Overview['groups'] = []
   let monthlyMinor = 0
   let yearlyMinor = 0
   let countedCount = 0
-  for (const kind of ['SUBSCRIPTIONS', 'BILLS'] as const) {
+  let incomeMonthlyMinor = 0
+  for (const kind of ['SUBSCRIPTIONS', 'BILLS', 'INCOME'] as const) {
     const items: Item[] = []
     for (const s of SUBSCRIPTIONS.filter((x) => x.group === kind && includesMain)) {
       if (month && s.firstSeen.slice(0, 7) > month) continue
@@ -66,10 +79,14 @@ export function demoRecurring(month?: string, includesMain = true, includesSavin
     items.sort((a, b) => Number(b.counted) - Number(a.counted) || b.monthlyMinor - a.monthlyMinor)
     const counted = items.filter((i) => i.counted)
     const groupMonthly = counted.reduce((sum, i) => sum + i.monthlyMinor, 0)
-    monthlyMinor += groupMonthly
-    yearlyMinor += counted.reduce((sum, i) => sum + i.yearlyMinor, 0)
-    countedCount += counted.length
     groups.push({ kind, monthlyMinor: groupMonthly, items })
+    if (kind === 'INCOME') {
+      incomeMonthlyMinor = groupMonthly
+    } else {
+      monthlyMinor += groupMonthly
+      yearlyMinor += counted.reduce((sum, i) => sum + i.yearlyMinor, 0)
+      countedCount += counted.length
+    }
   }
   return {
     currency: 'RON',
@@ -85,6 +102,7 @@ export function demoRecurring(month?: string, includesMain = true, includesSavin
       ...(includesSavings ? [{ accountId: 2, accountName: 'Savings', months: 0, monthly: false, yearly: false }] : []),
     ],
     suggestionCount: includesMain ? 2 : 0,
+    incomeMonthlyMinor,
   }
 }
 

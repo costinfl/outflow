@@ -1,5 +1,6 @@
 package dev.costinfl.outflow.recurring;
 
+import dev.costinfl.outflow.category.CategoryRule.Direction;
 import dev.costinfl.outflow.recurring.Candidate.AmountKind;
 import dev.costinfl.outflow.recurring.Candidate.Score;
 import java.time.LocalDate;
@@ -26,16 +27,87 @@ public final class RecurrenceDetector {
     /** Coefficient of variation up to which an amount counts as fixed. */
     static final double FIXED_MAX_CV = 0.02;
 
-    /** One merchant's outgoing charges on one account in one currency, before banding. */
-    public record Group(long accountId, long merchantId, String currency, List<Occurrence> occurrences) {}
+    /** One merchant's charges (or payments received) on one account in one currency, before banding. */
+    public record Group(long accountId, long merchantId, String currency, List<Occurrence> occurrences,
+            Direction direction) {
 
-    /** At most one candidate per amount band: the best-fitting cadence, if it scores at least {@link #POSSIBLE}. */
+        /** Outgoing charges. */
+        public Group(long accountId, long merchantId, String currency, List<Occurrence> occurrences) {
+            this(accountId, merchantId, currency, occurrences, Direction.OUT);
+        }
+    }
+
+    /**
+     * At most one candidate per amount band: the best-fitting cadence, if it scores at least {@link #POSSIBLE}. A band
+     * paid twice a month on two days of its own (a salary in two parts, on the 10th and the 25th) fits no cadence as
+     * a whole; it is split by day of month into two monthly streams.
+     */
     public List<Candidate> detect(Group group, LocalDate today) {
         var found = new ArrayList<Candidate>();
         for (List<Occurrence> band : AmountBands.split(group.occurrences())) {
-            best(group, band, today).ifPresent(found::add);
+            var best = best(group, band, today);
+            if (best.isPresent()) {
+                found.add(best.get());
+            } else {
+                found.addAll(twiceMonthly(group, band, today));
+            }
         }
         return found;
+    }
+
+    /** Days between the two parts of a twice-monthly band, at least, on the circle of a month's days. */
+    static final int PARTS_APART_DAYS = 5;
+
+    /**
+     * Two monthly streams from one band, when its days of month form two clusters at least {@value #PARTS_APART_DAYS}
+     * days apart on both sides and each cluster fits monthly on its own. Otherwise none.
+     */
+    List<Candidate> twiceMonthly(Group group, List<Occurrence> band, LocalDate today) {
+        if (band.size() < 2 * Cadence.MONTHLY.minCount) {
+            return List.of();
+        }
+        int[] days = band.stream().mapToInt(o -> o.date().getDayOfMonth()).distinct().sorted().toArray();
+        if (days.length < 2) {
+            return List.of();
+        }
+        // The two widest gaps between neighbouring days (around the month, 31 → 1) cut the days into two arcs.
+        int first = -1, second = -1;
+        for (int i = 0; i < days.length; i++) {
+            if (first < 0 || gapAfter(days, i) > gapAfter(days, first)) {
+                second = first;
+                first = i;
+            } else if (second < 0 || gapAfter(days, i) > gapAfter(days, second)) {
+                second = i;
+            }
+        }
+        if (second < 0 || gapAfter(days, second) < PARTS_APART_DAYS) {
+            return List.of();
+        }
+        int lo = Math.min(first, second), hi = Math.max(first, second);
+        // Arc A: the days after position lo up to position hi; arc B: the rest.
+        var arcA = new java.util.HashSet<Integer>();
+        for (int i = lo + 1; i <= hi; i++) {
+            arcA.add(days[i]);
+        }
+        List<Occurrence> a = band.stream().filter(o -> arcA.contains(o.date().getDayOfMonth())).toList();
+        List<Occurrence> b = band.stream().filter(o -> !arcA.contains(o.date().getDayOfMonth())).toList();
+        var fits = new ArrayList<Candidate>();
+        for (List<Occurrence> part : List.of(a, b)) {
+            if (part.size() < Cadence.MONTHLY.minCount) {
+                return List.of();
+            }
+            Candidate fit = fit(group, part, Cadence.MONTHLY, today);
+            if (fit == null || fit.confidence() < POSSIBLE) {
+                return List.of();
+            }
+            fits.add(fit);
+        }
+        return fits;
+    }
+
+    /** Days from {@code days[i]} to the next day in the list, wrapping from the last day of a month to the first. */
+    private static int gapAfter(int[] days, int i) {
+        return i + 1 < days.length ? days[i + 1] - days[i] : days[0] + 31 - days[i];
     }
 
     Optional<Candidate> best(Group group, List<Occurrence> band, LocalDate today) {
@@ -90,7 +162,7 @@ public final class RecurrenceDetector {
                 median(lastThree), 2 * medianAbsoluteDeviation(amounts),
                 Arrays.stream(amounts).min().orElseThrow(), Arrays.stream(amounts).max().orElseThrow(),
                 band.getFirst().date(), last, anchor.dateIn(period[n - 1] + 1),
-                score, band.stream().map(Occurrence::transactionId).toList());
+                score, band.stream().map(Occurrence::transactionId).toList(), group.direction());
     }
 
     /** 1 within 1.5 expected steps of today, falling linearly to 0 at 3 steps. */
