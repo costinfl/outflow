@@ -2,6 +2,17 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — recurring income (2026-09-25)
+
+- **Two payments a month:** a band paid on two stable days of the month (a salary's advance around the 25th and the
+  rest around the 10th) is two monthly streams; scattered days stay unmatched.
+- **Recurring income (V14):** money received in an Income category is detected like payments (`direction` IN).
+  Payment and income streams never mix. Missed and changed income raise alerts.
+- **Recurring screen:** a "Recurring income" group with its own per-month total, never part of the committed totals.
+  The review inbox asks "is this regular income, like a salary?".
+- **Real export:** the salary becomes two monthly income streams holding 41 of its 42 payments.
+- **Tests:** 397 backend (11 new), 10 web.
+
 ## After the plan — people in the review inbox (2026-09-25)
 
 - **Answers by direction (V13):** a category rule can apply to money sent or money received only. A person paid for
