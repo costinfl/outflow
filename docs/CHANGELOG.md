@@ -2,6 +2,15 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — standing transfers (2026-09-25)
+
+- **Recurring screen:** DESIGN's "Standing transfers" group. Recurring transfers out (own-account pairs and the
+  Transfer category) are detected as of today or a past month, with the own account they go to.
+- Recomputed on each read: nothing stored, never a review question, never in the committed totals. Overdue ones show
+  as Stopped.
+- **Real export:** the scheduled 1,500 a month to savings and about 500 a month to Revolut.
+- **Tests:** 401 backend (4 new), 10 web.
+
 ## After the plan — recurring income (2026-09-25)
 
 - **Two payments a month:** a band paid on two stable days of the month (a salary's advance around the 25th and the
