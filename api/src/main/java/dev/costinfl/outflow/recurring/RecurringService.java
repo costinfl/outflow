@@ -6,6 +6,7 @@ import dev.costinfl.outflow.recurring.RecurringOverview.GroupKind;
 import dev.costinfl.outflow.recurring.RecurringOverview.Item;
 import dev.costinfl.outflow.recurring.RecurringOverview.Status;
 import dev.costinfl.outflow.recurring.Subscription.State;
+import dev.costinfl.outflow.txn.Slice;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -46,6 +47,12 @@ public class RecurringService {
      * that had started by its end are listed, and they count when confirmed or ended no earlier than its first day.
      */
     public RecurringOverview overview(Optional<YearMonth> month, String currency) {
+        return overview(month, Slice.all(currency));
+    }
+
+    /** {@link #overview(Optional, String)} for the selected accounts only (the home accounts filter). */
+    public RecurringOverview overview(Optional<YearMonth> month, Slice slice) {
+        String currency = slice.currency();
         record Cat(Long id, String code, String name) {}
         var categories = new HashMap<Long, Cat>();
         jdbc.query("""
@@ -59,7 +66,8 @@ public class RecurringService {
         var open = alerts.openBySubscription();
         var byGroup = new HashMap<GroupKind, List<Item>>();
         for (Subscription s : subscriptions.list()) {
-            if (!s.currency().equals(currency) || (s.state() != State.CONFIRMED && s.state() != State.ENDED)) {
+            if (!s.currency().equals(currency) || !slice.includes(s.accountId())
+                    || (s.state() != State.CONFIRMED && s.state() != State.ENDED)) {
                 continue;
             }
             if (month.isPresent() && s.firstSeen().isAfter(month.get().atEndOfMonth())) {
@@ -98,10 +106,13 @@ public class RecurringService {
             monthly += groupMonthly;
             groups.add(new Group(kind, groupMonthly, items));
         }
-        int suggestions = jdbc.queryForObject("SELECT count(*) FROM subscription WHERE state = 'PROPOSED' AND confidence >= ?",
-                Integer.class, BigDecimal.valueOf(RecurrenceDetector.PROPOSE));
+        var propose = BigDecimal.valueOf(RecurrenceDetector.PROPOSE);
+        int suggestions = (int) subscriptions.list().stream()
+                .filter(s -> s.state() == State.PROPOSED && s.confidence().compareTo(propose) >= 0
+                        && s.currency().equals(currency) && slice.includes(s.accountId()))
+                .count();
         return new RecurringOverview(currency, month.map(YearMonth::toString).orElse(null), monthly, yearly, counted,
-                groups, coverage(), suggestions);
+                groups, coverage().stream().filter(c -> slice.includes(c.accountId())).toList(), suggestions);
     }
 
     private static Status status(Subscription s, AlertService.Kind openAlert) {

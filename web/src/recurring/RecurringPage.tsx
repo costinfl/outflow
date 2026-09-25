@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { api, isDemo } from '../api/client'
-import type { Category, RecurringOverview } from '../api/types'
+import type { Account, Category, RecurringOverview } from '../api/types'
 import { cadenceWord, formatDay, formatMoney, formatMonth } from '../lib/format'
+import { useAccountsFilter } from '../lib/accounts'
 import { useApi } from '../lib/useApi'
 
 type Item = RecurringOverview['groups'][number]['items'][number]
@@ -17,10 +18,12 @@ export function RecurringPage() {
   const [params, setParams] = useSearchParams()
   const month = params.get('month') ?? undefined
   const [version, setVersion] = useState(0)
-  const state = useApi<RecurringOverview>(`recurring:${month ?? ''}:${version}`, () =>
-    api.GET('/api/subscriptions', { params: { query: month ? { month } : {} } }),
+  const accounts = useAccountsFilter()
+  const state = useApi<RecurringOverview>(`recurring:${month ?? ''}:${accounts.key}:${version}`, () =>
+    api.GET('/api/subscriptions', { params: { query: { ...(month ? { month } : {}), ...accounts.query } } }),
   )
   const categories = useApi<Category[]>('categories', () => api.GET('/api/categories'))
+  const accountList = useApi<Account[]>('accounts', () => api.GET('/api/accounts'))
 
   if (state.kind === 'loading') return <p className="py-12 text-center text-muted">Loading…</p>
   if (state.kind === 'error')
@@ -37,16 +40,39 @@ export function RecurringPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold text-ink">Recurring payments</h1>
-        {month && (
+        {(month || accounts.ids.length > 0) && (
           <p className="mt-2 flex flex-wrap gap-2">
+            {accounts.ids.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const next = new URLSearchParams(params)
+                  next.delete('accounts')
+                  setParams(next)
+                }}
+                className="rounded-full bg-bar-track px-3 py-1 text-xs text-ink"
+                aria-label="Show all accounts"
+              >
+                {(accountList.kind === 'ok'
+                  ? accountList.data.filter((a) => accounts.ids.includes(a.id)).map((a) => a.name).join(' + ')
+                  : `${accounts.ids.length} accounts`) || `${accounts.ids.length} accounts`}{' '}
+                ✕
+              </button>
+            )}
+            {month && (
             <button
               type="button"
-              onClick={() => setParams({})}
+              onClick={() => {
+                const next = new URLSearchParams(params)
+                next.delete('month')
+                setParams(next)
+              }}
               className="rounded-full bg-bar-track px-3 py-1 text-xs text-ink"
               aria-label={`Showing ${formatMonth(month)}; show today instead`}
             >
               As in {formatMonth(month)} ✕
             </button>
+            )}
           </p>
         )}
       </div>

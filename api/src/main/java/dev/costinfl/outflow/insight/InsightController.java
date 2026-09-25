@@ -1,9 +1,11 @@
 package dev.costinfl.outflow.insight;
 
+import dev.costinfl.outflow.txn.Slice;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,7 +30,9 @@ public class InsightController {
     public CategoryDetail category(
             @org.springframework.web.bind.annotation.PathVariable long id,
             @Parameter(description = "YYYY-MM") @RequestParam String month,
-            @RequestParam(defaultValue = "RON") String currency) {
+            @RequestParam(defaultValue = "RON") String currency,
+            @Parameter(description = "Account ids to include (accounts filter); absent = all accounts")
+            @RequestParam(required = false) List<Long> accounts) {
         if (!currency.matches("[A-Z]{3}")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "currency must be an ISO code like RON");
         }
@@ -38,7 +42,7 @@ public class InsightController {
         } catch (DateTimeParseException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "month must be YYYY-MM");
         }
-        return insights.category(id, ym, currency)
+        return insights.category(id, ym, new Slice(currency, accounts))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No category " + id));
     }
 
@@ -46,13 +50,15 @@ public class InsightController {
     @GetMapping("/month")
     public MonthSummary month(
             @Parameter(description = "YYYY-MM; defaults to the latest month with data") @RequestParam(required = false) String month,
-            @Parameter(description = "ISO currency; v1 reports one currency at a time") @RequestParam(defaultValue = "RON") String currency) {
+            @Parameter(description = "ISO currency; v1 reports one currency at a time") @RequestParam(defaultValue = "RON") String currency,
+            @Parameter(description = "Account ids to include (accounts filter); absent = all accounts")
+            @RequestParam(required = false) List<Long> accounts) {
         if (!currency.matches("[A-Z]{3}")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "currency must be an ISO code like RON");
         }
         YearMonth ym;
         if (month == null) {
-            var available = insights.availableMonths(currency);
+            var available = insights.availableMonths(new Slice(currency, accounts));
             ym = available.isEmpty() ? YearMonth.now() : available.getLast();
         } else {
             try {
@@ -61,6 +67,6 @@ public class InsightController {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "month must be YYYY-MM");
             }
         }
-        return insights.month(ym, currency);
+        return insights.month(ym, new Slice(currency, accounts));
     }
 }

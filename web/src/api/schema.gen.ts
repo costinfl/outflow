@@ -1121,6 +1121,8 @@ export interface operations {
                 /** @description YYYY-MM */
                 month: string;
                 currency?: string;
+                /** @description Account ids to include (accounts filter); absent = all accounts */
+                accounts?: number[];
             };
             header?: never;
             path: {
@@ -1148,6 +1150,8 @@ export interface operations {
                 month?: string;
                 /** @description ISO currency; v1 reports one currency at a time */
                 currency?: string;
+                /** @description Account ids to include (accounts filter); absent = all accounts */
+                accounts?: number[];
             };
             header?: never;
             path?: never;
@@ -1354,6 +1358,8 @@ export interface operations {
                 /** @description YYYY-MM; absent = as of today */
                 month?: string;
                 currency?: string;
+                /** @description Account ids to include (accounts filter); absent = all accounts */
+                accounts?: number[];
             };
             header?: never;
             path?: never;
@@ -1480,6 +1486,8 @@ export interface operations {
                 merchant?: number;
                 /** @description Merchant or bank text contains it, or the amount equals it */
                 q?: string;
+                /** @description Account ids to include (accounts filter); absent = all accounts */
+                accounts?: number[];
             };
             header?: never;
             path?: never;

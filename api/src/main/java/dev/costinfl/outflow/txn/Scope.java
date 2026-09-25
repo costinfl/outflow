@@ -23,5 +23,9 @@ public final class Scope {
     public static final String MONTH = "(t.booking_date >= ?::date AND t.booking_date < ?::date + interval '1 month'"
             + " AND " + "t.superseded_by IS NULL)";
 
+    /** One currency, and the selected accounts or all of them: {@code ?} = currency, then the account ids twice. */
+    public static final String SLICE =
+            "(t.currency = ? AND (?::bigint[] IS NULL OR t.account_id = ANY (?::bigint[])))";
+
     private Scope() {}
 }

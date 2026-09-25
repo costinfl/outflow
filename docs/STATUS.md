@@ -4,10 +4,48 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M5 — Multi-account and tracking** (M4 merged to `main` in PR #5) |
-| Last completed | **CP5.3** — weekly and daily cadences; price-change and missed-charge cards |
-| Next | **CP5.4** — accounts filter on home (then M5 CHANGELOG + PR) |
+| Milestone | **M5 — Multi-account and tracking: complete** (PR to `main` open) |
+| Last completed | **CP5.4** — accounts filter on home |
+| Next | The plan's milestones are done (M0–M5). Candidates: re-anonymized ING sample + real golden test and M2 coverage; bi-weekly/quarterly; CSV/CAMT parsers for a second bank; "Standing transfers" group |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M5 work) |
+
+## CP5.4 — done
+
+348 backend tests (6 new) and 10 web tests green; typecheck, the build and the demo build green; the spec is refreshed
+and `gen:api` is current.
+
+- **`txn.Slice`** (currency + accounts, empty = all) with the SQL `Scope.SLICE`. It replaces `t.currency = ?` in every
+  figure and list query:
+  - month summary (spent, income, categories, baseline, accuracy, available months)
+  - category detail (month, trend, merchants)
+  - `TransactionQueries.list`
+  - Recurring overview (subscriptions, coverage, suggestion count) and so the home "committed" figure
+- **`accounts`** (repeated or comma-separated ids) on `GET /api/insights/month`, `/api/insights/categories/{id}`,
+  `/api/transactions` and `/api/subscriptions`. A bad value returns 400; unknown ids simply give no data.
+- **Web:**
+  - Home has chips (All accounts + one per account, shown with 2+ accounts). The filter lives in the URL
+    (`?accounts=1,2`, `lib/accounts.ts`), and every drill-through link carries it: blocks, category page (including
+    trend columns), transactions and recurring.
+  - The transactions list shows it as a removable chip, and so does the Recurring screen.
+  - A filter with no data keeps the chips and says so.
+  - The review inbox stays global (every account needs answers).
+  - Demo: all demo data is Main's; filtering to Savings shows no data, as the real API would.
+- **`AccountsFilterTest` (6):**
+  - hand-computed Card-only month (spent, baseline from February only, −35%, categories)
+  - every figure equals its filtered drill-through, for all / Main / Card / both
+  - accounts add up to all, and both equals all
+  - category detail follows the filter
+  - committed follows the filter and equals the Recurring screen
+  - a bad id returns 400
+- **Verified in Chromium against the real API:**
+  - Card → March RON 130.00; its spending list totals RON 130.00; the category page keeps `accounts=2`.
+  - Removing the chip goes back to all accounts (RON 1,857.88).
+  - Main's committed RON 49.99 equals its Recurring screen.
+  - No overflow, no console errors.
+
+**M5 acceptance** (plan): a monthly savings transfer is never counted as spending nor proposed as a subscription.
+`TransferServiceTest.aMonthlySavingsTransferIsNeitherSpendingNorASubscription` checks this: 6 months paired, spending
+0 in every month, nothing detected, no subscription.
 
 ## CP5.3 — done
 

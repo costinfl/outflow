@@ -1363,6 +1363,18 @@
             "default" : "RON",
             "type" : "string"
           }
+        }, {
+          "description" : "Account ids to include (accounts filter); absent = all accounts",
+          "in" : "query",
+          "name" : "accounts",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -1398,6 +1410,18 @@
           "schema" : {
             "default" : "RON",
             "type" : "string"
+          }
+        }, {
+          "description" : "Account ids to include (accounts filter); absent = all accounts",
+          "in" : "query",
+          "name" : "accounts",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
           }
         } ],
         "responses" : {
@@ -1645,6 +1669,18 @@
             "default" : "RON",
             "type" : "string"
           }
+        }, {
+          "description" : "Account ids to include (accounts filter); absent = all accounts",
+          "in" : "query",
+          "name" : "accounts",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -1847,6 +1883,18 @@
           "required" : false,
           "schema" : {
             "type" : "string"
+          }
+        }, {
+          "description" : "Account ids to include (accounts filter); absent = all accounts",
+          "in" : "query",
+          "name" : "accounts",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
           }
         } ],
         "responses" : {

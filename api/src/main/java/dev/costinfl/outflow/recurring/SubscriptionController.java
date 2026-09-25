@@ -2,11 +2,13 @@ package dev.costinfl.outflow.recurring;
 
 import dev.costinfl.outflow.recurring.Subscription.Edits;
 import dev.costinfl.outflow.recurring.SubscriptionService.TransitionException;
+import dev.costinfl.outflow.txn.Slice;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.LongFunction;
@@ -45,7 +47,9 @@ public class SubscriptionController {
     @GetMapping
     public RecurringOverview overview(
             @Parameter(description = "YYYY-MM; absent = as of today") @RequestParam(required = false) String month,
-            @RequestParam(defaultValue = "RON") String currency) {
+            @RequestParam(defaultValue = "RON") String currency,
+            @Parameter(description = "Account ids to include (accounts filter); absent = all accounts")
+            @RequestParam(required = false) List<Long> accounts) {
         Optional<YearMonth> ym;
         try {
             ym = Optional.ofNullable(month).map(YearMonth::parse);
@@ -55,7 +59,7 @@ public class SubscriptionController {
         if (!currency.matches("[A-Z]{3}")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "currency must be an ISO code like RON");
         }
-        return recurring.overview(ym, currency);
+        return recurring.overview(ym, new Slice(currency, accounts));
     }
 
     /** Rename a confirmed or ended subscription. */

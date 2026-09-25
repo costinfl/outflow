@@ -49,14 +49,15 @@ const SUBSCRIPTIONS: DemoSubscription[] = [
   },
 ]
 
-export function demoRecurring(month?: string): Overview {
+/** Every demo subscription and all demo history belong to the Main account (id 1). */
+export function demoRecurring(month?: string, includesMain = true, includesSavings = true): Overview {
   const groups: Overview['groups'] = []
   let monthlyMinor = 0
   let yearlyMinor = 0
   let countedCount = 0
   for (const kind of ['SUBSCRIPTIONS', 'BILLS'] as const) {
     const items: Item[] = []
-    for (const s of SUBSCRIPTIONS.filter((x) => x.group === kind)) {
+    for (const s of SUBSCRIPTIONS.filter((x) => x.group === kind && includesMain)) {
       if (month && s.firstSeen.slice(0, 7) > month) continue
       const counted = !month || s.item.status === 'ACTIVE' || s.lastSeen.slice(0, 7) >= month
       items.push({ ...s.item, counted, monthlyMinor: monthlyOf(s.item), yearlyMinor: yearlyOf(s.item) })
@@ -78,10 +79,12 @@ export function demoRecurring(month?: string): Overview {
     countedCount,
     groups,
     coverage: [
-      { accountId: 1, accountName: 'Main', from: '2025-12-05', to: '2026-03-13', months: 4, monthly: true, yearly: false },
-      { accountId: 2, accountName: 'Savings', months: 0, monthly: false, yearly: false },
+      ...(includesMain
+        ? [{ accountId: 1, accountName: 'Main', from: '2025-12-05', to: '2026-03-13', months: 4, monthly: true, yearly: false }]
+        : []),
+      ...(includesSavings ? [{ accountId: 2, accountName: 'Savings', months: 0, monthly: false, yearly: false }] : []),
     ],
-    suggestionCount: 2,
+    suggestionCount: includesMain ? 2 : 0,
   }
 }
 
