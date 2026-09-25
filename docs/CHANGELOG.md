@@ -2,6 +2,17 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — home insight line and 3-month view (2026-09-25)
+
+- **Insight line:** at most one plain-language line under "Where it went". It names the category whose per-month
+  spending moved furthest from its usual, only when the move is more than 25% and more than 100 currency units.
+- **"Last 3 months" toggle** (`?months=3`):
+  - `months` = 1 or 3 on `/api/insights/month` and `/api/transactions` (`txn.Period`, `Scope.PERIOD`).
+  - Figures are totals over the window, shown per month, and compared with the 3 months before it (spec question 28).
+  - Drill-throughs carry the window, so figures still equal their lists.
+- **Demo:** March shows the insight line; the 3-month view is merged from the demo months.
+- **Tests:** 373 backend (9 new), 10 web.
+
 ## After the plan — real data (2026-09-25)
 
 - **Anonymizer:**
