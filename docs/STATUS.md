@@ -41,7 +41,7 @@ From DESIGN, not built yet:
    personal scale.
 10. **Later (outside the plan):** household sharing, LLM classification, PDF statements.
 
-From the real data: the biggest uncategorized amount is transfers to people (`PERSON_n`, ~77% of spending). The
+From the real data: the biggest uncategorized amount is transfers to people (`PERSON_n`, about two thirds of spending). The
 review inbox asks about these, merchant by merchant. Categorizing the top 3 people would cover most of it.
 
 ## CP6.1 — done
