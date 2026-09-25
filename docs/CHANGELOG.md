@@ -2,6 +2,14 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — account picker (2026-09-25)
+
+- **Accounts filter:** up to 4 accounts stay chips. With more, one summary button ("All accounts", "Main + Visa",
+  "3 accounts") opens a bottom sheet. It has a checkbox per account grouped Current / Cards / Savings, group
+  checkboxes, "Only" per account, and reset. It is still a multi-select kept in `?accounts=`.
+- **Fix:** the home screen keeps the filter mounted while its numbers reload.
+- **Tests:** 401 backend (unchanged), 17 web (7 new).
+
 ## After the plan — standing transfers (2026-09-25)
 
 - **Recurring screen:** DESIGN's "Standing transfers" group. Recurring transfers out (own-account pairs and the
