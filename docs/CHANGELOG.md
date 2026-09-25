@@ -2,6 +2,14 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — charge reminders (2026-09-25)
+
+- **"Remind me before next charge" (V15):** 1, 3 or 7 days before a confirmed payment's next charge. The review inbox
+  shows an "Upcoming charge" card; "Got it" answers it for that charge only.
+- **Calendar file:** `GET /api/subscriptions/reminders.ics`, generated locally. It has one repeating event per reminder
+  with an alarm, so the phone's calendar reminds even when Outflow is closed.
+- **Tests:** 407 backend (5 new), 17 web.
+
 ## After the plan — recurring income on the home screen (2026-09-25)
 
 - **Home:** with confirmed recurring income, the Committed block adds "Recurring income X a month" and "Leaves Y a
