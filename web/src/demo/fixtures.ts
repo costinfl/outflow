@@ -139,7 +139,7 @@ function noData(month: string): MonthSummary {
   return {
     month, currency: 'RON', spentMinor: 0, baselineMonths: 0, incomeMinor: 0, netMinor: 0, accuracyPct: 0,
     categorizedPct: 0, uncategorizedMinor: 0, uncategorizedCount: 0, categories: [],
-    rest: { spentMinor: 0, sharePct: 0, categoryCount: 0 }, committed: { monthlyMinor: 0, count: 0 }, availableMonths: [],
+    rest: { spentMinor: 0, sharePct: 0, categoryCount: 0 }, committed: { monthlyMinor: 0, count: 0, incomeMonthlyMinor: 0, incomeCount: 0 }, availableMonths: [],
     months: 1, periodFrom: month, monthsWithData: 0,
   }
 }

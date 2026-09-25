@@ -471,6 +471,16 @@ export interface components {
         Committed: {
             /** Format: int32 */
             count: number;
+            /**
+             * Format: int32
+             * @description Recurring income streams counted (a salary in two parts is two)
+             */
+            incomeCount: number;
+            /**
+             * Format: int64
+             * @description Confirmed recurring income per month, as on the Recurring screen for this month
+             */
+            incomeMonthlyMinor: number;
             /** Format: int64 */
             monthlyMinor: number;
             /**

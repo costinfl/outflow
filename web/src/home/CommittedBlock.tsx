@@ -7,12 +7,15 @@ import { Card } from './Card'
 
 /**
  * Block 3: committed every month: the monthly equivalents of the confirmed recurring payments active in this month.
- * Opens the Recurring screen for the same month, whose total is the same number.
+ * Opens the Recurring screen for the same month, whose total is the same number. With confirmed recurring income, it
+ * also says what comes in every month and what that leaves after the commitments.
  */
 export function CommittedBlock({ s }: { s: MonthSummary }) {
   const { withFilters } = useAccountsFilter()
   const months = s.availableMonths.length
-  const { monthlyMinor, count, sharePct } = s.committed
+  const { monthlyMinor, count, sharePct, incomeMonthlyMinor, incomeCount } = s.committed
+  const money = (minor: number) => formatMoney(minor, s.currency)
+  const left = incomeMonthlyMinor - monthlyMinor
   return (
     <Card title="Committed every month" id="committed">
       {count > 0 ? (
@@ -31,6 +34,19 @@ export function CommittedBlock({ s }: { s: MonthSummary }) {
           </Link>{' '}
           or see <Link to={withFilters(recurringLink())} className="text-bar underline">recurring payments</Link>.
         </p>
+      )}
+      {incomeCount > 0 && (
+        <Link
+          to={withFilters(recurringLink(s.month))}
+          className="mt-3 block border-t border-hairline pt-3 text-sm text-ink-2 hover:underline"
+        >
+          Recurring income <span className="font-medium text-ink tabular-nums">{money(incomeMonthlyMinor)}</span> a month
+          {incomeCount > 1 ? ` (${incomeCount} payments)` : ''}
+          <span className="block">
+            {left >= 0 ? 'Leaves' : 'Short by'}{' '}
+            <span className="font-medium text-ink tabular-nums">{money(Math.abs(left))}</span> a month after commitments ›
+          </span>
+        </Link>
       )}
       {months < 3 && (
         <p className="mt-2 text-sm text-muted">

@@ -218,6 +218,16 @@
             "format" : "int32",
             "type" : "integer"
           },
+          "incomeCount" : {
+            "description" : "Recurring income streams counted (a salary in two parts is two)",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "incomeMonthlyMinor" : {
+            "description" : "Confirmed recurring income per month, as on the Recurring screen for this month",
+            "format" : "int64",
+            "type" : "integer"
+          },
           "monthlyMinor" : {
             "format" : "int64",
             "type" : "integer"
@@ -228,7 +238,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "count", "monthlyMinor" ],
+        "required" : [ "count", "incomeCount", "incomeMonthlyMinor", "monthlyMinor" ],
         "type" : "object"
       },
       "Confirm" : {

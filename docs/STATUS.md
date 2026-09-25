@@ -5,9 +5,25 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.7** — account picker that scales past 4 accounts |
+| Last completed | **CP6.8** — recurring income on the home screen |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.8 — done
+
+402 backend tests green (1 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API with the real export and on the demo, in light and dark.
+
+- **API:** `MonthSummary.committed` gains `incomeMonthlyMinor` and `incomeCount`. They come from the Recurring screen's
+  overview for the same month and accounts, so the home figure always equals its drill-through.
+- **Home:** with confirmed recurring income, the "Committed every month" block adds "Recurring income X a month
+  (2 payments)" and "Leaves Y a month after commitments" ("Short by" when commitments exceed income). It links to the
+  Recurring screen for that month. Without confirmed income, nothing changes.
+- **Real export** (Luxoft's two parts and 5 subscriptions confirmed), August 2026: committed 582.60, recurring income
+  18,785.00 (2 payments), leaves 18,202.40.
+- **Test:** `RecurringIncomeTest.theHomeScreenShowsConfirmedRecurringIncome`: zero before confirming; equal to the
+  Recurring screen's figure for June; zero for a month before the salary started.
+- Spec question 30 updated: recurring income is on the home screen now.
 
 ## CP6.7 — done
 
@@ -939,5 +955,5 @@ Health tests now derive the expected schema version from the migrations instead 
     - "Apply to this merchant" from the transaction list still covers both directions (refunds net the category).
     - Money received in a SPEND category is a refund: it reduces that category's spending, as before.
 30. **Recurring income** (my reading, open to change): only money received in an INCOME category is checked, so an
-    answer in the review inbox comes first. Its per-month total is listed on its own and is not part of the home
-    screen yet; a salary in two parts is two streams, not one.
+    answer in the review inbox comes first. Its per-month total is listed on its own; the home screen shows it in the
+    Committed block with what it leaves after commitments (CP6.8). A salary in two parts is two streams, not one.

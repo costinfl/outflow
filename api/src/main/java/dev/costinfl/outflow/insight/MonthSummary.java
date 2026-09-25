@@ -70,7 +70,13 @@ public record MonthSummary(
     public record Committed(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long monthlyMinor,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int count,
-            @Schema(description = "Of the month's spent; absent when nothing was spent") Integer sharePct) {}
+            @Schema(description = "Of the month's spent; absent when nothing was spent") Integer sharePct,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "Confirmed recurring income per month, as on the Recurring screen for this month")
+            long incomeMonthlyMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "Recurring income streams counted (a salary in two parts is two)")
+            int incomeCount) {}
 
     /**
      * One category's spending. {@code categoryId} absent = uncategorized spending, which is ranked like a category so

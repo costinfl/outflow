@@ -4,6 +4,7 @@ import dev.costinfl.outflow.insight.MonthSummary.CategorySpend;
 import dev.costinfl.outflow.insight.MonthSummary.Committed;
 import dev.costinfl.outflow.insight.MonthSummary.Insight;
 import dev.costinfl.outflow.insight.MonthSummary.Rest;
+import dev.costinfl.outflow.recurring.RecurringOverview;
 import dev.costinfl.outflow.recurring.RecurringService;
 import dev.costinfl.outflow.txn.Period;
 import dev.costinfl.outflow.txn.Scope;
@@ -159,7 +160,10 @@ public class InsightService {
                 uncategorized.map(CategorySpend::transactionCount).orElse(0),
                 top, new Rest(restSpent, pct(restSpent, spent), restRows.size()),
                 new Committed(committed.monthlyMinor(), committed.countedCount(),
-                        spentPerMonth == 0 ? null : pct(committed.monthlyMinor(), spentPerMonth)),
+                        spentPerMonth == 0 ? null : pct(committed.monthlyMinor(), spentPerMonth),
+                        committed.incomeMonthlyMinor(), (int) committed.groups().stream()
+                                .filter(g -> g.kind() == RecurringOverview.GroupKind.INCOME)
+                                .flatMap(g -> g.items().stream()).filter(RecurringOverview.Item::counted).count()),
                 available.stream().map(YearMonth::toString).toList(),
                 months, period.first().toString(), withData,
                 insight(ranked, perMonthDivisor, currency).orElse(null));
