@@ -15,10 +15,11 @@ public class TransactionQueries {
     static final String SELECT = """
             SELECT t.id, t.account_id, t.booking_date, t.amount_minor, t.currency, t.description_raw,
                    m.key AS merchant_key, m.display_name, t.category_id, c.code AS category_code,
-                   t.category_source, t.category_confidence
+                   t.category_source, t.category_confidence, t.transfer_state, ta.name AS transfer_account_name, t.status
             FROM transaction t
             JOIN merchant m ON m.id = t.merchant_id
             LEFT JOIN category c ON c.id = t.category_id
+            LEFT JOIN account ta ON ta.id = t.transfer_account_id
             """;
 
     static final RowMapper<TransactionView> ROW = (rs, i) -> new TransactionView(
@@ -26,7 +27,8 @@ public class TransactionQueries {
             rs.getLong("amount_minor"), rs.getString("currency"), rs.getString("display_name"),
             rs.getString("merchant_key"), Iban.maskAll(rs.getString("description_raw")),
             (Long) rs.getObject("category_id"), rs.getString("category_code"), rs.getString("category_source"),
-            rs.getBigDecimal("category_confidence"));
+            rs.getBigDecimal("category_confidence"), rs.getString("transfer_state"),
+            rs.getString("transfer_account_name"), rs.getString("status"));
 
     private final JdbcTemplate jdbc;
 
@@ -36,8 +38,8 @@ public class TransactionQueries {
 
     /** The transactions behind a home-screen number, newest first. */
     public List<TransactionView> list(TransactionFilter f) {
-        var where = new StringBuilder(" WHERE " + Scope.MONTH + " AND t.currency = ?");
-        var args = new ArrayList<Object>(List.of(f.month().atDay(1), f.month().atDay(1), f.currency()));
+        var where = new StringBuilder(" WHERE " + Scope.MONTH + " AND " + Scope.SLICE);
+        var args = new ArrayList<Object>(java.util.Arrays.asList(f.slice().args(f.month().atDay(1), f.month().atDay(1))));
         f.kind().ifPresent(k -> where.append(" AND ").append(k == TransactionFilter.Kind.SPEND ? Scope.SPEND : Scope.INCOME));
         f.category().ifPresent(id -> {
             where.append(" AND t.category_id = ?");

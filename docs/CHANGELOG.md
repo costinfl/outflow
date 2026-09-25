@@ -2,6 +2,28 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## M5 — Multi-account and tracking (2026-09-25)
+
+- **Own-account transfers (V8):**
+  - Pairs of opposite, equal amounts in two own accounts within 3 business days, greedy by smallest gap.
+  - Counterparty IBANs (HMAC-matched to own accounts) confirm a pair or mark a one-sided transfer as provisional.
+  - Ties stay unpaired. Pairs are recomputed on every upload, so upload order does not matter.
+  - Transfers are never spending or subscriptions; the import summary counts them.
+- **Pending vs posted (V9):**
+  - Profiles can map a status column.
+  - An identical posted row turns a pending one posted.
+  - Otherwise a soft match (same merchant, ±5% or 2 units, ≤ 5 days) supersedes the pending row, which is never
+    deleted and counts nowhere.
+  - Ambiguous matches become "Possible duplicate" review cards.
+- **Tracking (V10):**
+  - Weekly and daily cadences.
+  - Confirmed subscriptions pick up their new charges.
+  - Price-change and missed-charge review cards; two missed charges end a subscription until charges return.
+  - Status chips on the Recurring screen.
+- **Accounts filter on home:** every figure, drill-through, category page and the Recurring screen follow it, and
+  figures still equal their lists.
+- **Tests:** 348 backend, 10 web.
+
 ## M4 — Recurring payments and review inbox (2026-09-24)
 
 - **Detection:** charges grouped per account, merchant and currency into 25% amount bands. Monthly payments are

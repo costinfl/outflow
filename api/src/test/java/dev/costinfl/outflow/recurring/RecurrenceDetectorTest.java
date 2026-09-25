@@ -183,4 +183,50 @@ class RecurrenceDetectorTest {
         // Anchor 5; the 12th is off anchor twice, so no gap is regular: 0 + 0.2 + 0.2 × 4/6 + 0 = 0.333.
         assertThat(detect(TODAY, "2026-01-05:1500", "2026-02-12:1500", "2026-03-05:1500", "2026-04-12:1500")).isEmpty();
     }
+
+    @Test
+    void weeklyAnchoredToAWeekday() {
+        // Mondays from 5 January 2026; one charge a day late (Tuesday 20 January).
+        var c = only(detect(LocalDate.of(2026, 2, 16), "2026-01-05:1500", "2026-01-12:1500", "2026-01-20:1500",
+                "2026-01-26:1500", "2026-02-02:1500", "2026-02-09:1500"));
+
+        assertThat(c.cadence()).isEqualTo(Cadence.WEEKLY);
+        assertThat(c.anchorDay()).isEqualTo(1); // Monday
+        assertThat(c.anchorMonth()).isNull();
+        assertThat(c.score().interval()).isEqualTo(1);
+        assertThat(c.nextExpectedDate()).isEqualTo(LocalDate.of(2026, 2, 16));
+        assertThat(c.strength()).isEqualTo(Strength.PROPOSED);
+    }
+
+    @Test
+    void weeklyNeedsFourCharges() {
+        assertThat(detect(LocalDate.of(2026, 1, 27), "2026-01-05:1500", "2026-01-12:1500", "2026-01-19:1500")).isEmpty();
+    }
+
+    @Test
+    void dailyOnWeekdaysTreatsWeekendsAsNoGap() {
+        var dates = new java.util.ArrayList<String>();
+        for (LocalDate d = LocalDate.of(2026, 3, 2); d.isBefore(LocalDate.of(2026, 3, 21)); d = d.plusDays(1)) {
+            if (d.getDayOfWeek().getValue() <= 5) {
+                dates.add(d + ":800");
+            }
+        }
+        var c = only(detect(LocalDate.of(2026, 3, 21), dates.toArray(String[]::new)));
+
+        assertThat(c.cadence()).isEqualTo(Cadence.DAILY);
+        assertThat(c.anchorDay()).isNull();
+        assertThat(c.occurrences()).isEqualTo(15);
+        assertThat(c.score().interval()).isEqualTo(1);
+        assertThat(c.nextExpectedDate()).isEqualTo(LocalDate.of(2026, 3, 21));
+    }
+
+    @Test
+    void aMissedWeekdayIsAnIrregularDailyGap() {
+        var c = only(detect(LocalDate.of(2026, 3, 17), "2026-03-02:800", "2026-03-03:800", "2026-03-04:800",
+                "2026-03-05:800", "2026-03-06:800", "2026-03-09:800", "2026-03-10:800", "2026-03-12:800",
+                "2026-03-13:800", "2026-03-16:800"));
+
+        assertThat(c.cadence()).isEqualTo(Cadence.DAILY);
+        assertThat(c.score().interval()).isCloseTo(8 / 9.0, within(1e-9)); // Tue 10 → Thu 12 skips a weekday
+    }
 }

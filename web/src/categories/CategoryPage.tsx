@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { api } from '../api/client'
 import type { CategoryDetail } from '../api/types'
 import { formatMoney, formatMonth, formatMonthShort } from '../lib/format'
+import { useAccountsFilter } from '../lib/accounts'
 import { useApi } from '../lib/useApi'
 
 /** "What exactly is in this category?" (DESIGN: Detail screens): 12-month trend with its average, then merchants. */
@@ -9,8 +10,9 @@ export function CategoryPage() {
   const { id } = useParams()
   const [params] = useSearchParams()
   const month = params.get('month') ?? ''
-  const state = useApi<CategoryDetail>(`cat:${id}:${month}`, () =>
-    api.GET('/api/insights/categories/{id}', { params: { path: { id: Number(id) }, query: { month } } }),
+  const accounts = useAccountsFilter()
+  const state = useApi<CategoryDetail>(`cat:${id}:${month}:${accounts.key}`, () =>
+    api.GET('/api/insights/categories/{id}', { params: { path: { id: Number(id) }, query: { month, ...accounts.query } } }),
   )
   if (state.kind === 'loading') return <p className="py-12 text-center text-muted">Loading…</p>
   if (state.kind === 'error')
@@ -23,12 +25,14 @@ export function CategoryPage() {
   const money = (m: number) => formatMoney(m, d.currency)
   const scope = d.category.kind === 'INCOME' ? 'income' : d.category.kind === 'SPEND' ? 'spend' : ''
   const txLink = (extra: Record<string, string> = {}) =>
-    `/transactions?${new URLSearchParams({ month: d.month, ...(scope ? { scope } : {}), category: String(d.category.id), ...extra })}`
+    accounts.withAccounts(
+      `/transactions?${new URLSearchParams({ month: d.month, ...(scope ? { scope } : {}), category: String(d.category.id), ...extra })}`,
+    )
   return (
     <div className="space-y-4">
       <header>
         <p className="text-sm text-ink-2">
-          <Link to={`/?month=${d.month}`} className="underline">
+          <Link to={accounts.withAccounts(`/?month=${d.month}`)} className="underline">
             {formatMonth(d.month)}
           </Link>
         </p>
@@ -79,6 +83,7 @@ export function CategoryPage() {
  */
 function Trend({ d }: { d: CategoryDetail }) {
   const navigate = useNavigate()
+  const { withAccounts } = useAccountsFilter()
   const max = Math.max(...d.trend.map((t) => t.amountMinor), d.averageMinor ?? 0, 1)
   const height = 120
   const avgY = d.averageMinor != null ? (d.averageMinor / max) * height : null
@@ -104,7 +109,7 @@ function Trend({ d }: { d: CategoryDetail }) {
                 )}
                 <button
                   type="button"
-                  onClick={() => navigate(`/categories/${d.category.id}?month=${t.month}`)}
+                  onClick={() => navigate(withAccounts(`/categories/${d.category.id}?month=${t.month}`))}
                   title={`${formatMonth(t.month)}: ${t.hasData ? formatMoney(t.amountMinor, d.currency) : 'no data'}`}
                   aria-label={`${formatMonth(t.month)}: ${t.hasData ? formatMoney(t.amountMinor, d.currency) : 'no data'}`}
                   className="flex h-full w-full max-w-6 items-end"

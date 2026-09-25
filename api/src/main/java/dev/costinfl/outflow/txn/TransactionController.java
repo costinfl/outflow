@@ -46,7 +46,9 @@ public class TransactionController {
             @RequestParam(required = false) Long category,
             @RequestParam(defaultValue = "false") boolean uncategorized,
             @RequestParam(required = false) Long merchant,
-            @Parameter(description = "Merchant or bank text contains it, or the amount equals it") @RequestParam(required = false) String q) {
+            @Parameter(description = "Merchant or bank text contains it, or the amount equals it") @RequestParam(required = false) String q,
+            @Parameter(description = "Account ids to include (accounts filter); absent = all accounts")
+            @RequestParam(required = false) List<Long> accounts) {
         YearMonth ym;
         try {
             ym = YearMonth.parse(month);
@@ -56,7 +58,7 @@ public class TransactionController {
         if (!currency.matches("[A-Z]{3}")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "currency must be an ISO code like RON");
         }
-        var f = TransactionFilter.month(ym, currency).matching(q);
+        var f = TransactionFilter.month(ym, new Slice(currency, accounts)).matching(q);
         f = switch (scope) {
             case SPEND -> f.spend();
             case INCOME -> f.income();

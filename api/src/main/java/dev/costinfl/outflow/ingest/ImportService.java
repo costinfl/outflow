@@ -80,17 +80,26 @@ public class ImportService {
                             INSERT INTO transaction (household_id, account_id, identity_key, booking_date, value_date,
                                                      amount_minor, currency, description_raw, description_norm,
                                                      counterparty_raw, status)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'POSTED')
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             ON CONFLICT ON CONSTRAINT transaction_account_identity_uq DO NOTHING
                             RETURNING id""",
                     (rs, i) -> rs.getLong(1),
                     householdId, accountId, r.identityKey(), Date.valueOf(r.row().bookingDate()),
                     r.row().valueDate().map(Date::valueOf).orElse(null), r.row().amountMinor(), r.row().currency(),
-                    r.row().description(), r.descriptionNorm(), r.row().counterparty().orElse(null))
+                    r.row().description(), r.descriptionNorm(), r.row().counterparty().orElse(null),
+                    r.row().pending() ? "PENDING" : "POSTED")
                     .stream().findFirst();
             long transactionId = newId.orElseGet(() -> jdbc.queryForObject(
                     "SELECT id FROM transaction WHERE account_id = ? AND identity_key = ?",
                     Long.class, accountId, r.identityKey()));
+            if (newId.isEmpty() && !r.row().pending()) {
+                // The same row, now posted unchanged: it is the same transaction, no longer pending. (A posted row
+                // never goes back to pending.)
+                // An exact posted copy beats a soft match, unless the user linked the pending row themselves.
+                jdbc.update("""
+                        UPDATE transaction SET status = 'POSTED', superseded_by = NULL, superseded_source = NULL
+                        WHERE id = ? AND status = 'PENDING' AND superseded_source IS DISTINCT FROM 'USER'""", transactionId);
+            }
             if (newId.isPresent()) {
                 created++;
             }

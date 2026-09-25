@@ -47,8 +47,13 @@ const LEDGER: TransactionView[] = ROWS.map(([date, merchantId, key, name, amount
   merchantName: name,
   merchantKey: key,
   description,
+  status: 'POSTED',
   ...(categoryId != null
     ? { categoryId, categoryCode: CATEGORIES[categoryId]!.code, categorySource: 'KEYWORD', categoryConfidence: 0.7 }
+    : {}),
+  // The savings transfer: the demo has only Main's statement, so it is one-sided, recognised by the Savings IBAN.
+  ...(key === 'CONT ECONOMII'
+    ? { categorySource: 'SYSTEM', categoryConfidence: 1, transferState: 'PROVISIONAL', transferAccountName: 'Savings' }
     : {}),
   // merchant id is not part of TransactionView; kept for the merchant filter below
   ...({ merchantId } as object),
@@ -67,13 +72,23 @@ function amountQuery(q: string): number | undefined {
   return Number(units + (decimals ? (s.slice(sep + 1) + '00').slice(0, 2) : '00'))
 }
 
+/** The demo ledger rows in the accounts filter (?accounts=…, repeated); all rows are the Main account's. */
+export function demoAccountsInclude(url: URL, accountId: number): boolean {
+  const selected = url.searchParams.getAll('accounts').flatMap((v) => v.split(',')).map(Number)
+  return selected.length === 0 || selected.includes(accountId)
+}
+
+function rowsFor(url: URL): TransactionView[] {
+  return LEDGER.filter((t) => demoAccountsInclude(url, t.accountId))
+}
+
 export function demoTransactions(url: URL): GetResponse<'/api/transactions'> {
   const p = url.searchParams
   const month = p.get('month') ?? '2026-03'
   const scope = (p.get('scope') ?? 'ALL') as 'SPEND' | 'INCOME' | 'ALL'
   const q = p.get('q')?.trim()
   const amount = q ? amountQuery(q) : undefined
-  const items = LEDGER.filter((t) => t.bookingDate.startsWith(month))
+  const items = rowsFor(url).filter((t) => t.bookingDate.startsWith(month))
     .filter((t) => (scope === 'SPEND' ? inSpend(t) : scope === 'INCOME' ? kindOf(t) === 'INCOME' : true))
     .filter((t) => !p.get('category') || t.categoryId === Number(p.get('category')))
     .filter((t) => p.get('uncategorized') !== 'true' || t.categoryId == null)
@@ -93,16 +108,17 @@ export function demoCategory(url: URL): GetResponse<'/api/insights/categories/{i
   const month = url.searchParams.get('month') ?? '2026-03'
   const c = CATEGORIES[id] ?? { code: 'OTHER', name: 'Other', kind: 'SPEND' as const }
   const sign = c.kind === 'INCOME' ? 1 : -1
+  const rows = rowsFor(url)
   const [y, m] = month.split('-').map(Number)
   const trend = Array.from({ length: 12 }, (_, i) => {
     const d = new Date(y!, m! - 1 - (11 - i), 1)
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    const amountMinor = LEDGER.filter((t) => t.categoryId === id && t.bookingDate.startsWith(ym)).reduce((s, t) => s + sign * t.amountMinor, 0)
-    return { month: ym, amountMinor, hasData: MONTHS_WITH_DATA.includes(ym) }
+    const amountMinor = rows.filter((t) => t.categoryId === id && t.bookingDate.startsWith(ym)).reduce((s, t) => s + sign * t.amountMinor, 0)
+    return { month: ym, amountMinor, hasData: rows.length > 0 && MONTHS_WITH_DATA.includes(ym) }
   })
   const withData = trend.filter((t) => t.hasData)
   const byMerchant = new Map<string, { merchantId: number; name: string; amountMinor: number; transactionCount: number }>()
-  for (const t of LEDGER.filter((t) => t.categoryId === id && t.bookingDate.startsWith(month))) {
+  for (const t of rows.filter((t) => t.categoryId === id && t.bookingDate.startsWith(month))) {
     const e = byMerchant.get(t.merchantKey) ?? {
       merchantId: (t as unknown as { merchantId: number }).merchantId,
       name: t.merchantName,

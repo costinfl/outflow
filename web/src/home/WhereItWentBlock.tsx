@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import type { CategorySpend, MonthSummary } from '../api/types'
 import { formatMoney } from '../lib/format'
 import { categoryLink, transactionsLink } from '../lib/links'
+import { useAccountsFilter } from '../lib/accounts'
 import { Card } from './Card'
 import { Delta } from './Delta'
 
@@ -11,6 +12,7 @@ import { Delta } from './Delta'
  * every row labelled in text and linking to what makes it up. Uncategorized and the folded rest are neutral gray.
  */
 export function WhereItWentBlock({ s }: { s: MonthSummary }) {
+  const { withAccounts } = useAccountsFilter()
   if (s.categories.length === 0) {
     return (
       <Card title="Where it went" id="where">
@@ -25,7 +27,7 @@ export function WhereItWentBlock({ s }: { s: MonthSummary }) {
         {s.categories.map((c) => (
           <Row
             key={c.categoryId ?? 'uncategorized'}
-            to={c.categoryId != null ? categoryLink(c.categoryId, s.month) : transactionsLink(s.month, 'spend', { uncategorized: true })}
+            to={withAccounts(c.categoryId != null ? categoryLink(c.categoryId, s.month) : transactionsLink(s.month, 'spend', { uncategorized: true }))}
             name={c.name}
             amount={formatMoney(c.spentMinor, s.currency)}
             share={c.sharePct}
@@ -36,7 +38,7 @@ export function WhereItWentBlock({ s }: { s: MonthSummary }) {
         ))}
         {s.rest.categoryCount > 0 && (
           <Row
-            to={transactionsLink(s.month, 'spend')}
+            to={withAccounts(transactionsLink(s.month, 'spend'))}
             name={`Other (${s.rest.categoryCount} ${s.rest.categoryCount === 1 ? 'category' : 'categories'})`}
             amount={formatMoney(s.rest.spentMinor, s.currency)}
             share={s.rest.sharePct}

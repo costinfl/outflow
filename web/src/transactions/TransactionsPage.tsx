@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { api, isDemo } from '../api/client'
-import type { Category, TransactionList, TransactionView } from '../api/types'
+import type { Account, Category, TransactionList, TransactionView } from '../api/types'
+import { parseAccounts } from '../lib/accounts'
 import { formatMoney, formatMonth } from '../lib/format'
 import { useApi } from '../lib/useApi'
 
@@ -19,10 +20,13 @@ export function TransactionsPage() {
   const uncategorized = params.get('uncategorized') === '1'
   const merchant = params.get('merchant')
   const q = params.get('q') ?? ''
+  const accountIds = parseAccounts(params.get('accounts'))
   const [search, setSearch] = useState(q)
   const [version, setVersion] = useState(0)
 
   const categories = useApi<Category[]>('categories', () => api.GET('/api/categories'))
+  const accountsState = useApi<Account[]>('accounts', () => api.GET('/api/accounts'))
+  const accountList = accountsState.kind === 'ok' ? accountsState.data : []
   const state = useApi<TransactionList>(`tx:${params.toString()}:${version}`, () =>
     api.GET('/api/transactions', {
       params: {
@@ -33,6 +37,7 @@ export function TransactionsPage() {
           ...(uncategorized ? { uncategorized: true } : {}),
           ...(merchant ? { merchant: Number(merchant) } : {}),
           ...(q ? { q } : {}),
+          ...(accountIds.length > 0 ? { accounts: accountIds } : {}),
         },
       },
     }),
@@ -63,12 +68,16 @@ export function TransactionsPage() {
     chips.push({ label: name ?? 'One merchant', keys: ['merchant'] })
   }
   if (q) chips.push({ label: `“${q}”`, keys: ['q'] })
+  if (accountIds.length > 0) {
+    const names = accountList.filter((a) => accountIds.includes(a.id)).map((a) => a.name)
+    chips.push({ label: names.length > 0 ? names.join(' + ') : `${accountIds.length} accounts`, keys: ['accounts'] })
+  }
 
   return (
     <div className="space-y-4">
       <header className="flex items-baseline justify-between gap-3">
         <h1 className="text-2xl font-semibold text-ink">{formatMonth(month)}</h1>
-        <Link to={`/?month=${month}`} className="text-sm text-bar underline">
+        <Link to={`/?month=${month}${accountIds.length > 0 ? `&accounts=${accountIds.join(',')}` : ''}`} className="text-sm text-bar underline">
           Overview
         </Link>
       </header>
@@ -189,7 +198,12 @@ function Row({ t, categories, onChanged }: { t: TransactionView; categories: Cat
     <li>
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left">
         <span className="min-w-0">
-          <span className="block truncate text-sm font-medium text-ink">{t.merchantName}</span>
+          <span className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-medium text-ink">{t.merchantName}</span>
+            {t.status === 'PENDING' && (
+              <span className="shrink-0 rounded-full px-1.5 text-[11px] text-muted ring-1 ring-hairline">Pending</span>
+            )}
+          </span>
           <span className={`block truncate text-xs ${category ? 'text-muted' : 'text-bad'}`}>{category?.name ?? 'Uncategorized'}</span>
         </span>
         <span className="shrink-0 text-sm text-ink tabular-nums">
@@ -200,6 +214,14 @@ function Row({ t, categories, onChanged }: { t: TransactionView; categories: Cat
       {open && (
         <div className="space-y-2 px-3 pb-3 text-sm">
           <p className="rounded-lg bg-page px-2 py-1.5 font-mono text-xs break-words text-ink-2">{t.description}</p>
+          {t.transferState && (
+            <p className="text-xs text-ink-2">
+              {t.amountMinor < 0 ? 'Transfer to' : 'Transfer from'} your {t.transferAccountName ?? 'other'} account
+              {t.transferState === 'PAIRED'
+                ? ': both sides found, not counted as spending.'
+                : ` (recognised by its IBAN; upload the ${t.transferAccountName ?? 'other'} statement to confirm). Not counted as spending.`}
+            </p>
+          )}
           {t.categorySource && <p className="text-xs text-muted">Category {SOURCE[t.categorySource] ?? t.categorySource}.</p>}
           <label className="block text-xs text-ink-2">
             Category

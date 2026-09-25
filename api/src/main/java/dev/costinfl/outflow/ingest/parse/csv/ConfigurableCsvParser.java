@@ -215,7 +215,10 @@ public final class ConfigurableCsvParser implements StatementParser {
                             .map(col -> cell(layout, record, col).strip())
                             .filter(s -> !s.isEmpty())
                             .collect(Collectors.joining(" ")),
-                    optional(layout, record, c.reference()));
+                    optional(layout, record, c.reference()),
+                    Optional.empty(),
+                    optional(layout, record, c.status()).map(v -> c.pendingValues().stream()
+                            .anyMatch(p -> p.equalsIgnoreCase(v.strip()))).orElse(false));
         } catch (IllegalArgumentException e) {
             throw StatementParseException.atRow(rowNo, e.getMessage());
         }

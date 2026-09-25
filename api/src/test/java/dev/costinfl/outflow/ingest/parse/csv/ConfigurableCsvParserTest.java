@@ -173,4 +173,36 @@ class ConfigurableCsvParserTest {
         assertThat(s.rows()).extracting(r -> r.valueDate().orElse(null))
                 .containsExactly(LocalDate.of(2026, 2, 3), null);
     }
+
+    @Test
+    void aStatusColumnMarksPendingRows() throws IOException {
+        var p = parser("""
+                id: t
+                dateFormat: yyyy-MM-dd
+                columns:
+                  bookingDate: Date
+                  amount: Amount
+                  currency: Currency
+                  description: [Description]
+                  status: Status
+                  pendingValues: [Pending, In asteptare]
+                """);
+
+        var s = parse(p, """
+                Date,Description,Amount,Currency,Status
+                2026-03-03,EMAG,-120.00,RON,pending
+                2026-03-04,LIDL,-10.00,RON,Booked
+                2026-03-05,OMV,-50.00,RON, In asteptare
+                """);
+
+        assertThat(s.rows()).extracting(ParsedRow::pending).containsExactly(true, false, true);
+        assertThat(parse(parser(GENERIC), "Date,Description,Amount,Currency\n2026-03-04,LIDL,-10.00,RON\n").rows())
+                .extracting(ParsedRow::pending).containsExactly(false);
+    }
+
+    @Test
+    void statusAndPendingValuesGoTogether() {
+        assertThatThrownBy(() -> parser(GENERIC.replace("description: [Description]", "description: [Description]\n  status: Status")))
+                .hasMessageContaining("columns.status and columns.pendingValues go together");
+    }
 }

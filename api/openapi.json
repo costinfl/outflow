@@ -67,6 +67,17 @@
         "required" : [ "account", "alreadyImported", "created", "newTransactions" ],
         "type" : "object"
       },
+      "AlertAnswer" : {
+        "properties" : {
+          "action" : {
+            "description" : "Price change: GOT_IT or END. Missed charge: STILL_ACTIVE or CANCELLED",
+            "enum" : [ "GOT_IT", "END", "STILL_ACTIVE", "CANCELLED" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "action" ],
+        "type" : "object"
+      },
       "AliasResult" : {
         "properties" : {
           "movedTransactions" : {
@@ -224,7 +235,7 @@
         "description" : "Corrections made while confirming; omitted fields keep the detected value",
         "properties" : {
           "cadence" : {
-            "enum" : [ "MONTHLY", "YEARLY" ],
+            "enum" : [ "DAILY", "WEEKLY", "MONTHLY", "YEARLY" ],
             "type" : "string"
           },
           "expectedAmountMinor" : {
@@ -269,6 +280,16 @@
           }
         },
         "required" : [ "accountId", "accountName", "monthly", "months", "yearly" ],
+        "type" : "object"
+      },
+      "Duplicate" : {
+        "properties" : {
+          "same" : {
+            "description" : "true: the same payment, pending then posted",
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "same" ],
         "type" : "object"
       },
       "Explanation" : {
@@ -340,9 +361,14 @@
           "status" : {
             "enum" : [ "IMPORTED", "DUPLICATE_FILE", "NEEDS_PARSER", "NEEDS_ACCOUNT", "FAILED" ],
             "type" : "string"
+          },
+          "transfers" : {
+            "description" : "Transactions this upload recognised as transfers between own accounts (excluded from spending)",
+            "format" : "int32",
+            "type" : "integer"
           }
         },
-        "required" : [ "alreadyImported", "candidates", "fileName", "newTransactions", "rows", "status" ],
+        "required" : [ "alreadyImported", "candidates", "fileName", "newTransactions", "rows", "status", "transfers" ],
         "type" : "object"
       },
       "Group" : {
@@ -406,9 +432,14 @@
           "newTransactions" : {
             "format" : "int32",
             "type" : "integer"
+          },
+          "transfers" : {
+            "description" : "Transactions recognised as transfers between own accounts, excluded from spending",
+            "format" : "int32",
+            "type" : "integer"
           }
         },
-        "required" : [ "accounts", "alreadyImported", "files", "newTransactions" ],
+        "required" : [ "accounts", "alreadyImported", "files", "newTransactions", "transfers" ],
         "type" : "object"
       },
       "Inbox" : {
@@ -442,7 +473,7 @@
             "type" : "string"
           },
           "cadence" : {
-            "enum" : [ "MONTHLY", "YEARLY" ],
+            "enum" : [ "DAILY", "WEEKLY", "MONTHLY", "YEARLY" ],
             "type" : "string"
           },
           "categoryId" : {
@@ -481,7 +512,7 @@
             "type" : "string"
           },
           "status" : {
-            "enum" : [ "ACTIVE", "ENDED" ],
+            "enum" : [ "ACTIVE", "PRICE_CHANGED", "MISSED", "ENDED" ],
             "type" : "string"
           },
           "yearlyMinor" : {
@@ -799,12 +830,17 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "alertId" : {
+            "description" : "Price change / missed charge: the alert to answer",
+            "format" : "int64",
+            "type" : "integer"
+          },
           "amountKind" : {
             "enum" : [ "FIXED", "VARIABLE" ],
             "type" : "string"
           },
           "cadence" : {
-            "enum" : [ "MONTHLY", "YEARLY" ],
+            "enum" : [ "DAILY", "WEEKLY", "MONTHLY", "YEARLY" ],
             "type" : "string"
           },
           "confidence" : {
@@ -813,6 +849,16 @@
           },
           "currency" : {
             "type" : "string"
+          },
+          "dueDate" : {
+            "description" : "Missed charge: when it was due",
+            "format" : "date",
+            "type" : "string"
+          },
+          "duplicateId" : {
+            "description" : "Possible duplicate: the question to answer",
+            "format" : "int64",
+            "type" : "integer"
           },
           "expectedAmountMinor" : {
             "format" : "int64",
@@ -824,7 +870,7 @@
             "type" : "string"
           },
           "kind" : {
-            "enum" : [ "SUBSCRIPTION", "UNCATEGORIZED_MERCHANT" ],
+            "enum" : [ "SUBSCRIPTION", "UNCATEGORIZED_MERCHANT", "POSSIBLE_DUPLICATE", "PRICE_CHANGE", "MISSED_CHARGE" ],
             "type" : "string"
           },
           "merchantId" : {
@@ -835,6 +881,11 @@
             "description" : "Subscription name or merchant display name",
             "type" : "string"
           },
+          "newAmountMinor" : {
+            "description" : "Price change: the new amount; missed: the expected one",
+            "format" : "int64",
+            "type" : "integer"
+          },
           "nextExpectedDate" : {
             "format" : "date",
             "type" : "string"
@@ -842,6 +893,29 @@
           "occurrences" : {
             "description" : "Charges linked to the subscription",
             "format" : "int32",
+            "type" : "integer"
+          },
+          "pendingAmountMinor" : {
+            "description" : "Signed minor units",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "pendingDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "postedAmountMinor" : {
+            "description" : "Signed minor units",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "postedDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "previousAmountMinor" : {
+            "description" : "Price change: the amount before",
+            "format" : "int64",
             "type" : "integer"
           },
           "since" : {
@@ -925,7 +999,7 @@
             "type" : "integer"
           },
           "cadence" : {
-            "enum" : [ "MONTHLY", "YEARLY" ],
+            "enum" : [ "DAILY", "WEEKLY", "MONTHLY", "YEARLY" ],
             "type" : "string"
           },
           "confidence" : {
@@ -1059,9 +1133,21 @@
           },
           "merchantName" : {
             "type" : "string"
+          },
+          "status" : {
+            "description" : "PENDING: not posted yet (e.g. a card reservation); may still change",
+            "type" : "string"
+          },
+          "transferAccountName" : {
+            "description" : "The other own account of a transfer",
+            "type" : "string"
+          },
+          "transferState" : {
+            "description" : "PAIRED: a transfer between own accounts, both sides seen; PROVISIONAL: only this side, recognised by the other account's IBAN; absent: not an own-account transfer",
+            "type" : "string"
           }
         },
-        "required" : [ "accountId", "amountMinor", "bookingDate", "currency", "description", "id", "merchantKey", "merchantName" ],
+        "required" : [ "accountId", "amountMinor", "bookingDate", "currency", "description", "id", "merchantKey", "merchantName", "status" ],
         "type" : "object"
       }
     }
@@ -1277,6 +1363,18 @@
             "default" : "RON",
             "type" : "string"
           }
+        }, {
+          "description" : "Account ids to include (accounts filter); absent = all accounts",
+          "in" : "query",
+          "name" : "accounts",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -1312,6 +1410,18 @@
           "schema" : {
             "default" : "RON",
             "type" : "string"
+          }
+        }, {
+          "description" : "Account ids to include (accounts filter); absent = all accounts",
+          "in" : "query",
+          "name" : "accounts",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
           }
         } ],
         "responses" : {
@@ -1422,6 +1532,66 @@
         "tags" : [ "review" ]
       }
     },
+    "/api/review/alerts/{id}" : {
+      "post" : {
+        "operationId" : "answerAlert",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AlertAnswer"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "tags" : [ "review" ]
+      }
+    },
+    "/api/review/duplicates/{id}" : {
+      "post" : {
+        "operationId" : "answerDuplicate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Duplicate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "tags" : [ "review" ]
+      }
+    },
     "/api/review/merchants/{merchantId}/category" : {
       "post" : {
         "operationId" : "categorizeMerchant",
@@ -1498,6 +1668,18 @@
           "schema" : {
             "default" : "RON",
             "type" : "string"
+          }
+        }, {
+          "description" : "Account ids to include (accounts filter); absent = all accounts",
+          "in" : "query",
+          "name" : "accounts",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
           }
         } ],
         "responses" : {
@@ -1701,6 +1883,18 @@
           "required" : false,
           "schema" : {
             "type" : "string"
+          }
+        }, {
+          "description" : "Account ids to include (accounts filter); absent = all accounts",
+          "in" : "query",
+          "name" : "accounts",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
           }
         } ],
         "responses" : {

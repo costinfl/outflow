@@ -180,6 +180,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/review/alerts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["answerAlert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/review/duplicates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["answerDuplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/review/merchants/{merchantId}/category": {
         parameters: {
             query?: never;
@@ -357,6 +389,13 @@ export interface components {
             /** Format: date */
             periodTo?: string;
         };
+        AlertAnswer: {
+            /**
+             * @description Price change: GOT_IT or END. Missed charge: STILL_ACTIVE or CANCELLED
+             * @enum {string}
+             */
+            action: "GOT_IT" | "END" | "STILL_ACTIVE" | "CANCELLED";
+        };
         AliasResult: {
             /** Format: int32 */
             movedTransactions: number;
@@ -443,7 +482,7 @@ export interface components {
         /** @description Corrections made while confirming; omitted fields keep the detected value */
         Confirm: {
             /** @enum {string} */
-            cadence?: "MONTHLY" | "YEARLY";
+            cadence?: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
             /** Format: int64 */
             expectedAmountMinor?: number;
             name?: string;
@@ -465,6 +504,10 @@ export interface components {
             to?: string;
             /** @description 13+ months: yearly payments detectable */
             yearly: boolean;
+        };
+        Duplicate: {
+            /** @description true: the same payment, pending then posted */
+            same: boolean;
         };
         Explanation: {
             categoryCode?: string;
@@ -497,6 +540,11 @@ export interface components {
             rows: number;
             /** @enum {string} */
             status: "IMPORTED" | "DUPLICATE_FILE" | "NEEDS_PARSER" | "NEEDS_ACCOUNT" | "FAILED";
+            /**
+             * Format: int32
+             * @description Transactions this upload recognised as transfers between own accounts (excluded from spending)
+             */
+            transfers: number;
         };
         Group: {
             /** @description Highest monthly equivalent first */
@@ -524,6 +572,11 @@ export interface components {
             files: components["schemas"]["FileOutcome"][];
             /** Format: int32 */
             newTransactions: number;
+            /**
+             * Format: int32
+             * @description Transactions recognised as transfers between own accounts, excluded from spending
+             */
+            transfers: number;
         };
         Inbox: {
             cards: components["schemas"]["ReviewCard"][];
@@ -539,7 +592,7 @@ export interface components {
             /** @enum {string} */
             amountKind: "FIXED" | "VARIABLE";
             /** @enum {string} */
-            cadence: "MONTHLY" | "YEARLY";
+            cadence: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
             /**
              * Format: int64
              * @description Category of its latest charge
@@ -560,7 +613,7 @@ export interface components {
             /** Format: date */
             nextExpectedDate?: string;
             /** @enum {string} */
-            status: "ACTIVE" | "ENDED";
+            status: "ACTIVE" | "PRICE_CHANGED" | "MISSED" | "ENDED";
             /** Format: int64 */
             yearlyMinor: number;
         };
@@ -725,13 +778,28 @@ export interface components {
              * @description Money the answer affects (positive minor units); cards are sorted by it, largest first
              */
             affectedMinor: number;
+            /**
+             * Format: int64
+             * @description Price change / missed charge: the alert to answer
+             */
+            alertId?: number;
             /** @enum {string} */
             amountKind?: "FIXED" | "VARIABLE";
             /** @enum {string} */
-            cadence?: "MONTHLY" | "YEARLY";
+            cadence?: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
             /** @description Detector confidence, 0–1 */
             confidence?: number;
             currency: string;
+            /**
+             * Format: date
+             * @description Missed charge: when it was due
+             */
+            dueDate?: string;
+            /**
+             * Format: int64
+             * @description Possible duplicate: the question to answer
+             */
+            duplicateId?: number;
             /** Format: int64 */
             expectedAmountMinor?: number;
             /**
@@ -740,11 +808,16 @@ export interface components {
              */
             key: string;
             /** @enum {string} */
-            kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT";
+            kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT" | "POSSIBLE_DUPLICATE" | "PRICE_CHANGE" | "MISSED_CHARGE";
             /** Format: int64 */
             merchantId: number;
             /** @description Subscription name or merchant display name */
             name: string;
+            /**
+             * Format: int64
+             * @description Price change: the new amount; missed: the expected one
+             */
+            newAmountMinor?: number;
             /** Format: date */
             nextExpectedDate?: string;
             /**
@@ -752,6 +825,25 @@ export interface components {
              * @description Charges linked to the subscription
              */
             occurrences?: number;
+            /**
+             * Format: int64
+             * @description Signed minor units
+             */
+            pendingAmountMinor?: number;
+            /** Format: date */
+            pendingDate?: string;
+            /**
+             * Format: int64
+             * @description Signed minor units
+             */
+            postedAmountMinor?: number;
+            /** Format: date */
+            postedDate?: string;
+            /**
+             * Format: int64
+             * @description Price change: the amount before
+             */
+            previousAmountMinor?: number;
             /**
              * Format: date
              * @description First charge of the subscription
@@ -798,7 +890,7 @@ export interface components {
             /** Format: int64 */
             bandMinMinor: number;
             /** @enum {string} */
-            cadence: "MONTHLY" | "YEARLY";
+            cadence: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
             /** @description Detector confidence, 0–1 */
             confidence: number;
             currency: string;
@@ -866,6 +958,12 @@ export interface components {
             id: number;
             merchantKey: string;
             merchantName: string;
+            /** @description PENDING: not posted yet (e.g. a card reservation); may still change */
+            status: string;
+            /** @description The other own account of a transfer */
+            transferAccountName?: string;
+            /** @description PAIRED: a transfer between own accounts, both sides seen; PROVISIONAL: only this side, recognised by the other account's IBAN; absent: not an own-account transfer */
+            transferState?: string;
         };
     };
     responses: never;
@@ -1023,6 +1121,8 @@ export interface operations {
                 /** @description YYYY-MM */
                 month: string;
                 currency?: string;
+                /** @description Account ids to include (accounts filter); absent = all accounts */
+                accounts?: number[];
             };
             header?: never;
             path: {
@@ -1050,6 +1150,8 @@ export interface operations {
                 month?: string;
                 /** @description ISO currency; v1 reports one currency at a time */
                 currency?: string;
+                /** @description Account ids to include (accounts filter); absent = all accounts */
+                accounts?: number[];
             };
             header?: never;
             path?: never;
@@ -1154,6 +1256,54 @@ export interface operations {
             };
         };
     };
+    answerAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertAnswer"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    answerDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Duplicate"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     categorizeMerchant: {
         parameters: {
             query?: never;
@@ -1208,6 +1358,8 @@ export interface operations {
                 /** @description YYYY-MM; absent = as of today */
                 month?: string;
                 currency?: string;
+                /** @description Account ids to include (accounts filter); absent = all accounts */
+                accounts?: number[];
             };
             header?: never;
             path?: never;
@@ -1334,6 +1486,8 @@ export interface operations {
                 merchant?: number;
                 /** @description Merchant or bank text contains it, or the amount equals it */
                 q?: string;
+                /** @description Account ids to include (accounts filter); absent = all accounts */
+                accounts?: number[];
             };
             header?: never;
             path?: never;

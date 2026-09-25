@@ -5,6 +5,8 @@ import type { Category, Inbox, ReviewCard } from '../api/types'
 import { cadenceWord, decimalToMinor, formatDay, formatMoney, formatSince, minorToDecimal } from '../lib/format'
 import { useApi } from '../lib/useApi'
 
+type Cadence = NonNullable<ReviewCard['cadence']>
+
 type Answer = (label: string, call: () => Promise<{ response: Response }>) => Promise<void>
 
 /**
@@ -42,6 +44,10 @@ export function ReviewPage() {
   const render = (card: ReviewCard) =>
     card.kind === 'SUBSCRIPTION' ? (
       <SubscriptionCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
+    ) : card.kind === 'POSSIBLE_DUPLICATE' ? (
+      <DuplicateCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
+    ) : card.kind === 'PRICE_CHANGE' || card.kind === 'MISSED_CHARGE' ? (
+      <AlertCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
     ) : (
       <MerchantCard key={card.key} card={card} categories={categoryList} answer={answer} skip={() => void skip(card)} />
     )
@@ -113,7 +119,7 @@ function SubscriptionCard({ card, answer, skip }: { card: ReviewCard; answer: An
   const [editing, setEditing] = useState(false)
   const id = card.subscriptionId!
   const amount = formatMoney(card.expectedAmountMinor!, card.currency)
-  const confirm = (body: { name?: string; cadence?: 'MONTHLY' | 'YEARLY'; expectedAmountMinor?: number } = {}) =>
+  const confirm = (body: { name?: string; cadence?: Cadence; expectedAmountMinor?: number } = {}) =>
     void answer(`${body.name ?? card.name} confirmed`, () =>
       api.POST('/api/subscriptions/{id}/confirm', { params: { path: { id } }, body }),
     )
@@ -159,12 +165,12 @@ function EditForm({
   onCancel,
 }: {
   card: ReviewCard
-  onSave: (body: { name?: string; cadence?: 'MONTHLY' | 'YEARLY'; expectedAmountMinor?: number }) => void
+  onSave: (body: { name?: string; cadence?: Cadence; expectedAmountMinor?: number }) => void
   onCancel: () => void
 }) {
   const [name, setName] = useState(card.name)
   const [amount, setAmount] = useState(minorToDecimal(card.expectedAmountMinor!, card.currency) as string)
-  const [cadence, setCadence] = useState<'MONTHLY' | 'YEARLY'>(card.cadence === 'YEARLY' ? 'YEARLY' : 'MONTHLY')
+  const [cadence, setCadence] = useState<Cadence>(card.cadence ?? 'MONTHLY')
   const minor = decimalToMinor(amount, card.currency)
   const valid = name.trim() !== '' && name.trim().length <= 100 && minor !== null && minor > 0
   const field = 'mt-1 block w-full rounded-lg bg-page px-2 py-1.5 text-sm text-ink ring-1 ring-hairline'
@@ -193,7 +199,9 @@ function EditForm({
         </label>
         <label className="block flex-1 text-xs text-ink-2">
           How often
-          <select value={cadence} onChange={(e) => setCadence(e.target.value as 'MONTHLY' | 'YEARLY')} className={field}>
+          <select value={cadence} onChange={(e) => setCadence(e.target.value as Cadence)} className={field}>
+            <option value="DAILY">Daily</option>
+            <option value="WEEKLY">Weekly</option>
             <option value="MONTHLY">Monthly</option>
             <option value="YEARLY">Yearly</option>
           </select>
@@ -209,6 +217,91 @@ function EditForm({
         </button>
       </div>
     </form>
+  )
+}
+
+type AlertAction = 'GOT_IT' | 'END' | 'STILL_ACTIVE' | 'CANCELLED'
+
+/** "Netflix went from 49.99 to 59.99 RON" · "Gym usually charges around the 5th: nothing this time". */
+function AlertCard({ card, answer, skip }: { card: ReviewCard; answer: Answer; skip: () => void }) {
+  const id = card.alertId!
+  const price = card.kind === 'PRICE_CHANGE'
+  const act = (action: AlertAction, label: string) =>
+    void answer(`${card.name}: ${label}`, () => api.POST('/api/review/alerts/{id}', { params: { path: { id } }, body: { action } }))
+  const [accept, reject] = price
+    ? ([['GOT_IT', 'Got it'], ['END', 'Mark ended']] as const)
+    : ([['STILL_ACTIVE', 'Still active'], ['CANCELLED', 'Cancelled']] as const)
+  // DESIGN: "usually charges around the 5th" for monthly payments; the due date itself for the other cadences.
+  const due = !card.dueDate ? '' : card.cadence === 'MONTHLY' ? `the ${ordinal(Number(card.dueDate.slice(8, 10)))}` : formatDay(card.dueDate)
+  return (
+    <Swipeable onRight={() => act(accept[0], accept[1].toLowerCase())} onLeft={() => act(reject[0], reject[1].toLowerCase())}>
+      <p className="text-xs font-medium tracking-wide text-muted uppercase">{price ? 'Price change' : 'Missed charge'}</p>
+      <p className="mt-1 text-ink">
+        {price ? (
+          <>
+            <span className="font-medium">{card.name}</span> went from {formatMoney(card.previousAmountMinor!, card.currency)} to{' '}
+            {formatMoney(card.newAmountMinor!, card.currency)}.
+          </>
+        ) : (
+          <>
+            <span className="font-medium">{card.name}</span> usually charges around {due} ({cadenceWord(card.cadence!)}).
+            Nothing has arrived since {formatDay(card.dueDate!)}. Cancelled?
+          </>
+        )}
+      </p>
+      <p className="mt-1 text-xs text-muted">
+        {price ? 'Got it keeps it with the new price.' : 'Still active skips this one; Cancelled ends it.'}
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button type="button" className={primary} onClick={() => act(accept[0], accept[1].toLowerCase())}>
+          {accept[1]}
+        </button>
+        <button type="button" className={secondary} onClick={() => act(reject[0], reject[1].toLowerCase())}>
+          {reject[1]}
+        </button>
+        <button type="button" className={quiet} onClick={skip}>
+          Skip
+        </button>
+      </div>
+    </Swipeable>
+  )
+}
+
+/** 1 → "1st", 22 → "22nd", 13 → "13th". */
+function ordinal(n: number): string {
+  const suffix = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'
+  return `${n}${suffix}`
+}
+
+/** "Same 120 RON at Emag, pending and posted": the pending one is replaced, or both stay. */
+function DuplicateCard({ card, answer, skip }: { card: ReviewCard; answer: Answer; skip: () => void }) {
+  const id = card.duplicateId!
+  const decide = (same: boolean) =>
+    void answer(same ? `${card.name}: same payment` : `${card.name}: different payments`, () =>
+      api.POST('/api/review/duplicates/{id}', { params: { path: { id } }, body: { same } }),
+    )
+  const pending = formatMoney(Math.abs(card.pendingAmountMinor!), card.currency)
+  const posted = formatMoney(Math.abs(card.postedAmountMinor!), card.currency)
+  return (
+    <Swipeable onRight={() => decide(true)} onLeft={() => decide(false)}>
+      <p className="text-xs font-medium tracking-wide text-muted uppercase">Possible duplicate</p>
+      <p className="mt-1 text-ink">
+        {pending === posted ? `Same ${pending}` : `${pending} then ${posted}`} at <span className="font-medium">{card.name}</span>,
+        pending on {formatDay(card.pendingDate!)} and posted on {formatDay(card.postedDate!)}. Is it one payment?
+      </p>
+      <p className="mt-1 text-xs text-muted">If it is, only the posted one counts.</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button type="button" className={primary} onClick={() => decide(true)}>
+          Same
+        </button>
+        <button type="button" className={secondary} onClick={() => decide(false)}>
+          Different
+        </button>
+        <button type="button" className={quiet} onClick={skip}>
+          Skip
+        </button>
+      </div>
+    </Swipeable>
   )
 }
 

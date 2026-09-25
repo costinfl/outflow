@@ -4,10 +4,191 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M4 — Recurring and review inbox: complete** (PR to `main` open) |
-| Last completed | **CP4.4** — home "Committed every month" block, Recurring screen, history nudge |
-| Next | **M5 / CP5.1** — transfer pairing incl. counterparty IBAN and one-sided provisional marking; excluded from spend |
-| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M4 work) |
+| Milestone | **M5 — Multi-account and tracking: complete** (PR to `main` open) |
+| Last completed | **CP5.4** — accounts filter on home |
+| Next | The plan's milestones are done (M0–M5). Candidates: re-anonymized ING sample + real golden test and M2 coverage; bi-weekly/quarterly; CSV/CAMT parsers for a second bank; "Standing transfers" group |
+| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M5 work) |
+
+## CP5.4 — done
+
+348 backend tests (6 new) and 10 web tests green; typecheck, the build and the demo build green; the spec is refreshed
+and `gen:api` is current.
+
+- **`txn.Slice`** (currency + accounts, empty = all) with the SQL `Scope.SLICE`. It replaces `t.currency = ?` in every
+  figure and list query:
+  - month summary (spent, income, categories, baseline, accuracy, available months)
+  - category detail (month, trend, merchants)
+  - `TransactionQueries.list`
+  - Recurring overview (subscriptions, coverage, suggestion count) and so the home "committed" figure
+- **`accounts`** (repeated or comma-separated ids) on `GET /api/insights/month`, `/api/insights/categories/{id}`,
+  `/api/transactions` and `/api/subscriptions`. A bad value returns 400; unknown ids simply give no data.
+- **Web:**
+  - Home has chips (All accounts + one per account, shown with 2+ accounts). The filter lives in the URL
+    (`?accounts=1,2`, `lib/accounts.ts`), and every drill-through link carries it: blocks, category page (including
+    trend columns), transactions and recurring.
+  - The transactions list shows it as a removable chip, and so does the Recurring screen.
+  - A filter with no data keeps the chips and says so.
+  - The review inbox stays global (every account needs answers).
+  - Demo: all demo data is Main's; filtering to Savings shows no data, as the real API would.
+- **`AccountsFilterTest` (6):**
+  - hand-computed Card-only month (spent, baseline from February only, −35%, categories)
+  - every figure equals its filtered drill-through, for all / Main / Card / both
+  - accounts add up to all, and both equals all
+  - category detail follows the filter
+  - committed follows the filter and equals the Recurring screen
+  - a bad id returns 400
+- **Verified in Chromium against the real API:**
+  - Card → March RON 130.00; its spending list totals RON 130.00; the category page keeps `accounts=2`.
+  - Removing the chip goes back to all accounts (RON 1,857.88).
+  - Main's committed RON 49.99 equals its Recurring screen.
+  - No overflow, no console errors.
+
+**M5 acceptance** (plan): a monthly savings transfer is never counted as spending nor proposed as a subscription.
+`TransferServiceTest.aMonthlySavingsTransferIsNeitherSpendingNorASubscription` checks this: 6 months paired, spending
+0 in every month, nothing detected, no subscription.
+
+## CP5.3 — done
+
+342 backend tests (15 new) and 10 web tests green; typecheck, the build and the demo build green; the spec is refreshed
+and `gen:api` is current.
+
+- **Cadences:**
+  - `WEEKLY`: anchored to the most frequent weekday, ±1 day, at least 4 charges.
+  - `DAILY`: every day, where a Friday → Monday gap over a weekend without charges counts as regular; at least 10
+    charges.
+  - Periods are weeks or days since 1970, in the same anchor framework as monthly and yearly.
+  - `Candidate.anchorDay` is the ISO weekday for weekly and null for daily.
+  - Equivalents: weekly × 4.33 / × 52, daily × 30.42 / × 365, integer, rounded half up.
+  - The Edit form offers all four cadences. Confirming with another cadence takes the new anchor and next date from
+    the latest charge.
+- **`recurring.AlertService.check(today)`** runs for confirmed and system-ended subscriptions at the start and end of
+  every refresh (V10: `subscription_alert`, `subscription.confirmed_through`):
+  - **Future charges link automatically:** same account and merchant, after the last one seen, within ± tolerance + 3
+    days of a due date, and within 50% of the expected amount. This works even beyond the detector's 25% band; a
+    candidate whose charges all belong to another subscription is not proposed.
+  - **Price change:** the latest charge since confirmation (or since the last "Got it") outside expected ± tolerance.
+    One open question at a time. "Got it" makes it the expected amount; "Mark ended" ends it (USER).
+  - **Missed:** nothing by next expected + tolerance + 3 days. "Still active" skips that period; "Cancelled" ends it
+    (USER). A late charge closes it as CHARGED.
+  - **Two missed in a row:** ENDED by the system, open alerts closed. It resumes (CONFIRMED) when charges return.
+- **Review:** `PRICE_CHANGE` / `MISSED_CHARGE` cards ("Netflix went from RON 49.99 to RON 59.99",
+  "World Class usually charges around the 3rd (monthly). Nothing has arrived since Sep 3. Cancelled?"). Money affected
+  is the monthly equivalent. `POST /api/review/alerts/{id} {action}`: GOT_IT or END for a price change, STILL_ACTIVE or
+  CANCELLED for a missed charge; 400 wrong action, 404, 409 closed.
+- **Recurring screen:** chips Active / Price changed / Missed / Ended; an expanded row with an open question links to
+  Review. Ending a subscription closes its open alerts.
+- **Tests:**
+  - `RecurrenceDetectorTest` (+4): weekly with a late day, weekly minimum count, daily over weekends, a missed weekday.
+  - `CadenceTest` (+1): weekly and daily equivalents.
+  - `SubscriptionAlertsTest` (10):
+    - the next charge links and moves the prediction on
+    - a price change: Got it, and a second answer gets 409
+    - a 40% rise stays the same subscription
+    - Mark ended
+    - missed on the deadline boundary, then Still active
+    - a late charge answers it; two missed → SYSTEM ended, then resumed
+    - Cancelled stays ended
+    - answer validation
+    - a cadence change re-anchors
+- **Verified in Chromium against the real API** (with the real date):
+  - Netflix confirmed, then a statement with 59.99 charges gave "Price changed".
+  - World Class stopped after August and showed "Missed".
+  - Got it and Still active moved Netflix to 59.99 (total 309.99) and the gym's next charge to Oct 3.
+  - Light and dark, no overflow, no console errors.
+
+## CP5.2 — done
+
+327 backend tests (12 new) and 10 web tests green; typecheck, the build and the demo build green; the spec is refreshed
+and `gen:api` is current.
+
+- **Pending rows:** CSV profiles can map `status` + `pendingValues` (`docs/parsers.md`), which gives
+  `ParsedRow.pending` and `transaction.status = PENDING`. No bundled format has a status column yet, so this is
+  dormant until a bank export has one.
+- **An identical posted row** (same identity key) turns the pending one POSTED, the same transaction. An AUTO link on
+  it gives way; a USER link does not.
+- **V9:**
+  - on `transaction`: `superseded_by` and `superseded_source` (AUTO / USER), with a check that only PENDING rows are
+    superseded
+  - `soft_match_review` (pending, posted, reason, resolution SAME / DIFFERENT)
+- **`txn.SoftMatchService.matchAll()`:**
+  - Runs in the pipeline after merchants, before categories. The pipeline is now `UploadService.derive()`: merchants →
+    soft match → categories → transfers → subscriptions.
+  - DESIGN's rule: same account, merchant and currency, same sign, |Δamount| ≤ 5% of the pending amount or ≤ 2
+    currency units, dates within 5 days.
+  - One candidate on each side links automatically. Several candidates become questions.
+  - AUTO links are recomputed every run: a later candidate turns a link into questions. USER links and DIFFERENT
+    answers are kept for good.
+- **Superseded rows count nowhere:**
+  - `Scope.MONTH` excludes them, so every figure and every list drops them
+  - also excluded from available months, recurrence (and unlinked from subscriptions), transfer pairing and
+    uncategorized cards
+  - a pending row counts as spending until it is replaced
+- **Review:**
+  - `POSSIBLE_DUPLICATE` cards: "Same RON 250.00 at Omv, pending on Mar 29 and posted on Mar 30. Is it one payment?",
+    with Same · Different · Skip; swipe right = Same, left = Different
+  - `POST /api/review/duplicates/{id} {same}`: 204; 404 unknown, 409 already answered, 400 without `same`
+  - Answering re-runs the derived stages.
+- **Transactions list:** a "Pending" label; `TransactionView.status`.
+- **Tests:**
+  - `ConfigurableCsvParserTest` (+2): status parsing, and status without `pendingValues` rejected.
+  - `SoftMatchServiceTest` (10):
+    - an identical posted row upgrades the pending one; a single match supersedes it
+    - amount, date and sign bounds (unit)
+    - other merchants and accounts never match
+    - a later candidate dissolves an AUTO link into questions
+    - review cards; Same links for good and survives later uploads; Different is remembered and the remaining match
+      links; bad answers
+    - a superseded pending row's transfer pair moves to the posted row
+- **Verified in Chromium against the real API**, with a temporary status profile from a scratch folder (nothing
+  committed):
+  - EMAG pending 120.00 was linked to posted 123.50 automatically.
+  - OMV pending 250 against posted 250 / 251 gave two cards; March showed RON 954.50 with the pending row labelled.
+  - "Same" on the second card → "Nothing needs your attention", March RON 704.50.
+  - Light and dark, no overflow, no console errors.
+
+## CP5.1 — done
+
+315 backend tests (12 new) and 10 web tests green; typecheck, the build and the demo build green; the spec is refreshed
+and `gen:api` is current.
+
+- **V8:**
+  - `transfer_pair` (out, in, method IBAN or AMOUNT_DATE, business days)
+  - on `transaction`: `transfer_pair_id`, `transfer_state` (PAIRED / PROVISIONAL), `transfer_account_id`, with a
+    consistency check
+- **`txn.TransferService.pairAll()`** runs in the upload pipeline after categories and before subscriptions (DESIGN
+  stages G–I, run synchronously in the same transaction).
+  - **A pair** is money out of one own account and the same amount into another, same currency, within 3 business
+    days. Accounts must differ.
+  - **Counterparty IBANs:** found in the counterparty and description text, HMAC-hashed and compared with the
+    accounts' `iban_hash`.
+    - They rule out pairs with any other account.
+    - They confirm a pair: IBAN-confirmed pairs win within the same gap.
+    - On their own they mark a one-sided transfer as PROVISIONAL. It becomes PAIRED when the other statement arrives.
+  - **Greedy by smallest gap.** If a transaction has two equally good partners at a level, it and those partners stay
+    unpaired.
+  - **Recomputed on every run:** only the difference is applied, so the result does not depend on upload order. A
+    later upload can turn a pair into a tie; the pair is then dissolved and its SYSTEM category recomputed.
+  - Paired and provisional transactions get category TRANSFER, source SYSTEM. `categorizeAll` leaves them alone.
+  - A user's non-transfer category excludes a transaction from pairing (a user decision wins).
+  - Recurrence ignores transfers.
+- **Import summary** (`FileOutcome.transfers`, `ImportSummary.transfers`): "2 transfers between your accounts,
+  excluded from spending."
+- **`TransactionView.transferState` / `transferAccountName`:** the expanded row says "Transfer to your Savings account:
+  both sides found…" or explains the provisional state. The demo's savings transfer is shown as provisional.
+- **`TransferServiceTest` (12):**
+  - pairing within 3 business days (Fri → Wed); 4 days apart is not a pair
+  - same account and different amounts never pair
+  - greedy by smallest gap
+  - a tie dissolves an earlier pair, and an IBAN decides a tie
+  - rerunning is idempotent
+  - provisional via IBAN, then paired; an unknown IBAN is ignored
+  - a user category is never overwritten; `categorizeAll` keeps transfers
+  - business-day counting
+  - **M5 acceptance:** 6 monthly savings transfers are paired, spending is 0 in every month, nothing recurring is
+    detected and no subscription is proposed
+- **Verified in Chromium (real API):** uploaded Main and Savings statements via `#/upload` and answered the account
+  questions. The summary said "2 transfers between your accounts, excluded from spending". March spending was
+  RON 120.00 (the 1,000 transfer excluded), and the row explained the transfer. No console errors.
 
 ## CP4.4 — done
 
@@ -502,3 +683,20 @@ Health tests now derive the expected schema version from the migrations instead 
 19. **"Committed every month" is not a transaction sum.** DESIGN defines it as monthly equivalents of confirmed
     recurring payments (yearly ÷ 12), so it cannot be a `txn.Scope` sum. Its drill-through is the Recurring screen for
     the same month, whose rows sum to it exactly (same `RecurringService.overview`).
+20. **Transfer ties.** DESIGN: "ties go to review". Tied transactions stay unpaired (so they count as ordinary money
+    out/in) until a later statement or an IBAN decides. A "which transfer is this?" review card can join the
+    CP5.2 soft-match card if you want one.
+21. **Cross-currency transfers** (FX tolerance) are not paired yet: every account so far is RON. They need a rate
+    source that does not leave the machine; proposal: a user-set tolerance per currency pair, when a second currency
+    appears.
+22. **Transfers without an IBAN on one side only** (the other account not uploaded, no IBAN in the text) are still
+    caught by the TRANSFER keyword seeds (ECONOMII, CONT PROPRIU, …), as before.
+23. **Pending rows need a bank format that marks them.** None of the current formats does (ING Home'Bank exports only
+    booked rows, as far as the purged sample showed). The mechanism is in place for when one does.
+24. **A duplicate card is about two transactions,** not one merchant (DESIGN: "one card = one merchant"). A pending row
+    with two posted candidates gets two cards, one per pair; answering one settles the other.
+25. **Two missed charges end a subscription automatically** (DESIGN: "Two missed in a row → propose state ENDED";
+    the lifecycle diagram: "user or 2 missed"). It is ENDED by the SYSTEM rather than proposed: it resumes by itself
+    when charges return, so nothing the user decided is overwritten.
+26. **Bi-weekly and quarterly** (in DESIGN's table, not in the plan's checkpoints) are not fitted yet. They fit the
+    same anchor framework (two-week periods; three-month periods ±5 days) when wanted.

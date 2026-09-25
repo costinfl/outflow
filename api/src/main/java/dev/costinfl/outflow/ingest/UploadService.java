@@ -13,6 +13,8 @@ import dev.costinfl.outflow.ingest.parse.StatementParser;
 import dev.costinfl.outflow.category.CategoryService;
 import dev.costinfl.outflow.merchant.MerchantService;
 import dev.costinfl.outflow.recurring.SubscriptionService;
+import dev.costinfl.outflow.txn.SoftMatchService;
+import dev.costinfl.outflow.txn.TransferService;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;
@@ -22,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * One uploaded file, end to end, in one DB transaction: pick parser → parse → resolve account → import → merchants →
- * categories → subscriptions.
+ * pending/posted soft match → categories → transfers → subscriptions ({@link #derive()}).
  */
 @Service
 public class UploadService {
@@ -40,15 +42,20 @@ public class UploadService {
     private final ImportService imports;
     private final MerchantService merchants;
     private final CategoryService categories;
+    private final SoftMatchService softMatches;
+    private final TransferService transfers;
     private final SubscriptionService subscriptions;
 
     public UploadService(StatementDetector detector, AccountService accounts, ImportService imports,
-            MerchantService merchants, CategoryService categories, SubscriptionService subscriptions) {
+            MerchantService merchants, CategoryService categories, SoftMatchService softMatches,
+            TransferService transfers, SubscriptionService subscriptions) {
         this.detector = detector;
         this.accounts = accounts;
         this.imports = imports;
         this.merchants = merchants;
         this.categories = categories;
+        this.softMatches = softMatches;
+        this.transfers = transfers;
         this.subscriptions = subscriptions;
     }
 
@@ -97,14 +104,28 @@ public class UploadService {
         }
 
         ImportResult r = imports.importParsed(account.id(), fileName, content, parser.get().id(), parsed);
-        // Stage H in the same DB transaction: new transactions get their merchant, then their category; then the
-        // recurrence detector sees them.
-        merchants.assignMissing();
-        categories.categorizeAll();
-        subscriptions.refreshNow();
+        var derived = derive();
         var outcome = new FileOutcome(fileName, r.duplicateFile() ? Status.DUPLICATE_FILE : Status.IMPORTED, null,
                 r.parserId(), account.id(), r.rows(), r.newTransactions(), r.alreadyImported(),
-                r.periodFrom().orElse(null), r.periodTo().orElse(null), List.of());
+                r.periodFrom().orElse(null), r.periodTo().orElse(null), derived.transfers().transactions(), List.of());
         return new Upload(outcome, Optional.of(account), created);
+    }
+
+    /** What the derived stages changed in one run. */
+    public record Derived(SoftMatchService.Result softMatch, TransferService.Result transfers) {}
+
+    /**
+     * Stages G–I over all transactions (DESIGN: Processing pipeline), in the caller's DB transaction: merchants for new
+     * rows, pending rows superseded by their posted version, categories, own-account transfers (they override the
+     * category with TRANSFER), then recurrence. Every stage is recomputable, so running it again changes nothing.
+     */
+    @Transactional
+    public Derived derive() {
+        merchants.assignMissing();
+        var softMatch = softMatches.matchAll();
+        categories.categorizeAll();
+        var transferResult = transfers.pairAll();
+        subscriptions.refreshNow();
+        return new Derived(softMatch, transferResult);
     }
 }

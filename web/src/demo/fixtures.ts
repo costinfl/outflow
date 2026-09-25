@@ -1,5 +1,5 @@
 import type { GetPath, GetResponse } from '../api/types'
-import { demoCategory, demoTransactions } from './ledger'
+import { demoAccountsInclude, demoCategory, demoTransactions } from './ledger'
 import { demoCommitted, demoRecurring } from './recurring'
 
 /**
@@ -80,7 +80,8 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
     categorySource: 'KEYWORD',
   },
   '/api/transactions': demoTransactions,
-  '/api/subscriptions': (url) => demoRecurring(url.searchParams.get('month') ?? undefined),
+  '/api/subscriptions': (url) =>
+    demoRecurring(url.searchParams.get('month') ?? undefined, demoAccountsInclude(url, 1), demoAccountsInclude(url, 2)),
   // Uncategorized cards are the demo ledger's two uncategorized merchants. The subscription cards are illustrative:
   // the ledger holds one March charge per merchant, the cards describe what four months of them would look like.
   '/api/review': {
@@ -114,11 +115,23 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
     count: 4,
   },
   '/api/insights/categories/{id}': demoCategory,
-  '/api/insights/month': (url) => demoMonths[url.searchParams.get('month') ?? '2026-03'] ?? demoMonths['2026-03']!,
+  // All demo transactions are the Main account's: a filter without it has no data, as the real API would answer.
+  '/api/insights/month': (url) =>
+    !demoAccountsInclude(url, 1)
+      ? noData(url.searchParams.get('month') ?? '2026-03')
+      : (demoMonths[url.searchParams.get('month') ?? '2026-03'] ?? demoMonths['2026-03']!),
 
 }
 
 const MONTHS = ['2025-12', '2026-01', '2026-02', '2026-03']
+
+function noData(month: string): MonthSummary {
+  return {
+    month, currency: 'RON', spentMinor: 0, baselineMonths: 0, incomeMinor: 0, netMinor: 0, accuracyPct: 0,
+    categorizedPct: 0, uncategorizedMinor: 0, uncategorizedCount: 0, categories: [],
+    rest: { spentMinor: 0, sharePct: 0, categoryCount: 0 }, committed: { monthlyMinor: 0, count: 0 }, availableMonths: [],
+  }
+}
 
 /** Only groceries in Dec–Feb, as in the InsightServiceTest ledger. */
 function groceriesOnly(month: string, spentMinor: number, baseline: number[]): MonthSummary {

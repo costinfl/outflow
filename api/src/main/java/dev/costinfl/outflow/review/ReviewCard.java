@@ -8,8 +8,10 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * One question for the user (DESIGN: Review inbox). One card = one merchant, never one transaction. Subscription fields
- * are set on SUBSCRIPTION cards, {@code transactionCount} on UNCATEGORIZED_MERCHANT cards.
+ * One question for the user (DESIGN: Review inbox). One card = one merchant, never one transaction (a possible duplicate
+ * is about two). Subscription fields are set on SUBSCRIPTION cards, {@code transactionCount} on UNCATEGORIZED_MERCHANT
+ * cards, the pending/posted fields on POSSIBLE_DUPLICATE cards, the alert fields on PRICE_CHANGE and MISSED_CHARGE
+ * cards (which also carry the subscription's id, cadence and expected amount).
  */
 public record ReviewCard(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Stable id, used to skip the card",
@@ -30,9 +32,18 @@ public record ReviewCard(
         @Schema(description = "Charges linked to the subscription") Integer occurrences,
         @Schema(description = "Detector confidence, 0–1") BigDecimal confidence,
         LocalDate nextExpectedDate,
-        @Schema(description = "Uncategorized transactions of the merchant") Integer transactionCount) {
+        @Schema(description = "Uncategorized transactions of the merchant") Integer transactionCount,
+        @Schema(description = "Possible duplicate: the question to answer") Long duplicateId,
+        LocalDate pendingDate,
+        @Schema(description = "Signed minor units") Long pendingAmountMinor,
+        LocalDate postedDate,
+        @Schema(description = "Signed minor units") Long postedAmountMinor,
+        @Schema(description = "Price change / missed charge: the alert to answer") Long alertId,
+        @Schema(description = "Price change: the amount before") Long previousAmountMinor,
+        @Schema(description = "Price change: the new amount; missed: the expected one") Long newAmountMinor,
+        @Schema(description = "Missed charge: when it was due") LocalDate dueDate) {
 
-    public enum Kind { SUBSCRIPTION, UNCATEGORIZED_MERCHANT }
+    public enum Kind { SUBSCRIPTION, UNCATEGORIZED_MERCHANT, POSSIBLE_DUPLICATE, PRICE_CHANGE, MISSED_CHARGE }
 
     /** The inbox: cards to answer, and weaker subscription guesses shown collapsed ("possible"). */
     public record Inbox(

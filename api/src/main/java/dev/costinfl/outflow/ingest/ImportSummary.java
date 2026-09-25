@@ -10,7 +10,10 @@ public record ImportSummary(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<FileOutcome> files,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<AccountImport> accounts,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int newTransactions,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int alreadyImported) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int alreadyImported,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Transactions recognised as transfers between own accounts, excluded from spending")
+        int transfers) {
 
     /** Totals for one account across the uploaded files. */
     public record AccountImport(

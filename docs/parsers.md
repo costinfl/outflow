@@ -25,6 +25,8 @@ columns:                    # header names as they appear in the file (case-inse
   description: [Descriere, Beneficiar]  # one or more columns, joined with a space
   reference: Referinta      # optional bank reference, used for identity when present
   accountIban: IBAN         # optional column holding the account's own IBAN
+  status: Stare             # optional: a column saying whether the row is posted yet
+  pendingValues: [In asteptare, Pending]  # with status: cell values (case-insensitive) meaning "not posted yet"
 ```
 
 Rules the parser enforces:
@@ -35,3 +37,6 @@ Rules the parser enforces:
 - Any row that cannot be read fails the whole file with its row number. Rows are never silently skipped.
   Blank lines are ignored.
 - Unknown YAML keys are an error, so a typo never silently drops a column.
+- Pending rows (a `status` cell in `pendingValues`) are imported as PENDING. When the bank later exports the same row
+  as posted, an identical row turns it POSTED; a changed one (date, final amount) is matched by the soft-match pass
+  and the pending row is superseded, never deleted.

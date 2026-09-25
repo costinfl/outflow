@@ -98,7 +98,8 @@ public class ImportController {
         var files = results.stream().map(UploadService.Upload::outcome).toList();
         return new ImportSummary(files, List.copyOf(byAccount.values()),
                 files.stream().mapToInt(FileOutcome::newTransactions).sum(),
-                files.stream().mapToInt(FileOutcome::alreadyImported).sum());
+                files.stream().mapToInt(FileOutcome::alreadyImported).sum(),
+                files.stream().mapToInt(FileOutcome::transfers).sum());
     }
 
     private static LocalDate min(LocalDate a, LocalDate b) {

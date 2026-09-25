@@ -2,6 +2,8 @@ import { Link, useSearchParams } from 'react-router'
 import { api } from '../api/client'
 import type { MonthSummary } from '../api/types'
 import { useApi } from '../lib/useApi'
+import { useAccountsFilter } from '../lib/accounts'
+import { AccountsFilter } from './AccountsFilter'
 import { AttentionBlock } from './AttentionBlock'
 import { CommittedBlock } from './CommittedBlock'
 import { MonthSwitcher } from './MonthSwitcher'
@@ -12,8 +14,9 @@ import { WhereItWentBlock } from './WhereItWentBlock'
 export function HomePage() {
   const [params, setParams] = useSearchParams()
   const month = params.get('month') ?? undefined
-  const state = useApi<MonthSummary>(`month:${month ?? 'latest'}`, () =>
-    api.GET('/api/insights/month', { params: { query: month ? { month } : {} } }),
+  const accounts = useAccountsFilter()
+  const state = useApi<MonthSummary>(`month:${month ?? 'latest'}:${accounts.key}`, () =>
+    api.GET('/api/insights/month', { params: { query: { ...(month ? { month } : {}), ...accounts.query } } }),
   )
 
   if (state.kind === 'loading') return <p className="py-12 text-center text-muted">Loading…</p>
@@ -24,6 +27,14 @@ export function HomePage() {
       </p>
     )
   const s = state.data
+  if (s.availableMonths.length === 0 && accounts.ids.length > 0) {
+    return (
+      <div className="space-y-4">
+        <AccountsFilter />
+        <p className="py-8 text-center text-ink-2">No transactions in the selected accounts yet.</p>
+      </div>
+    )
+  }
   if (s.availableMonths.length === 0) {
     return (
       <div className="py-12 text-center">
@@ -38,7 +49,16 @@ export function HomePage() {
   return (
     <div className="space-y-4">
       <h1 className="sr-only">Outflow: where your money went</h1>
-      <MonthSwitcher month={s.month} available={s.availableMonths} onChange={(m) => setParams({ month: m })} />
+      <AccountsFilter />
+      <MonthSwitcher
+        month={s.month}
+        available={s.availableMonths}
+        onChange={(m) => {
+          const next = new URLSearchParams(params)
+          next.set('month', m)
+          setParams(next)
+        }}
+      />
       <SpentBlock s={s} />
       <WhereItWentBlock s={s} />
       <CommittedBlock s={s} />
