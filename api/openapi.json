@@ -850,6 +850,18 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "standingMonthlyMinor" : {
+            "description" : "Standing transfers per month: active ones only",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "standingTransfers" : {
+            "description" : "Recurring transfers to own accounts or savings: shown, never part of the totals",
+            "items" : {
+              "$ref" : "#/components/schemas/StandingTransfer"
+            },
+            "type" : "array"
+          },
           "suggestionCount" : {
             "description" : "Suggestions waiting in the review inbox",
             "format" : "int32",
@@ -861,7 +873,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "countedCount", "coverage", "currency", "groups", "incomeMonthlyMinor", "monthlyMinor", "suggestionCount", "yearlyMinor" ],
+        "required" : [ "countedCount", "coverage", "currency", "groups", "incomeMonthlyMinor", "monthlyMinor", "standingMonthlyMinor", "standingTransfers", "suggestionCount", "yearlyMinor" ],
         "type" : "object"
       },
       "Rename" : {
@@ -1055,6 +1067,59 @@
           }
         },
         "required" : [ "key" ],
+        "type" : "object"
+      },
+      "StandingTransfer" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "active" : {
+            "description" : "false once the next transfer is overdue (the transfer stopped)",
+            "type" : "boolean"
+          },
+          "amountKind" : {
+            "enum" : [ "FIXED", "VARIABLE" ],
+            "type" : "string"
+          },
+          "cadence" : {
+            "enum" : [ "DAILY", "WEEKLY", "MONTHLY", "YEARLY" ],
+            "type" : "string"
+          },
+          "expectedAmountMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "lastDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "merchantId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "monthlyMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "nextExpectedDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "occurrences" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "toAccountName" : {
+            "description" : "The own account it goes to, when the transfer is paired",
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "active", "amountKind", "cadence", "expectedAmountMinor", "lastDate", "merchantId", "monthlyMinor", "name", "nextExpectedDate", "occurrences" ],
         "type" : "object"
       },
       "Step" : {
