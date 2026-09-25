@@ -1,22 +1,23 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { CategorySpend, MonthSummary } from '../api/types'
-import { formatMoney } from '../lib/format'
+import { formatMoney, perMonth } from '../lib/format'
 import { categoryLink, transactionsLink } from '../lib/links'
 import { useAccountsFilter } from '../lib/accounts'
 import { Card } from './Card'
 import { Delta } from './Delta'
+import { InsightLine } from './InsightLine'
 
 /**
  * Block 2: which categories take most of it? Horizontal bars (one series, one hue), longest = largest category,
  * every row labelled in text and linking to what makes it up. Uncategorized and the folded rest are neutral gray.
  */
 export function WhereItWentBlock({ s }: { s: MonthSummary }) {
-  const { withAccounts } = useAccountsFilter()
+  const { withFilters } = useAccountsFilter()
   if (s.categories.length === 0) {
     return (
       <Card title="Where it went" id="where">
-        <p className="text-sm text-muted">No spending this month.</p>
+        <p className="text-sm text-muted">No spending {s.months > 1 ? 'in these months' : 'this month'}.</p>
       </Card>
     )
   }
@@ -27,7 +28,13 @@ export function WhereItWentBlock({ s }: { s: MonthSummary }) {
         {s.categories.map((c) => (
           <Row
             key={c.categoryId ?? 'uncategorized'}
-            to={withAccounts(c.categoryId != null ? categoryLink(c.categoryId, s.month) : transactionsLink(s.month, 'spend', { uncategorized: true }))}
+            to={withFilters(
+              c.categoryId == null
+                ? transactionsLink(s.month, 'spend', { uncategorized: true })
+                : s.months > 1 // the category screen shows one month; the row is these months' total
+                  ? transactionsLink(s.month, 'spend', { category: c.categoryId })
+                  : categoryLink(c.categoryId, s.month),
+            )}
             name={c.name}
             amount={formatMoney(c.spentMinor, s.currency)}
             share={c.sharePct}
@@ -38,7 +45,7 @@ export function WhereItWentBlock({ s }: { s: MonthSummary }) {
         ))}
         {s.rest.categoryCount > 0 && (
           <Row
-            to={withAccounts(transactionsLink(s.month, 'spend'))}
+            to={withFilters(transactionsLink(s.month, 'spend'))}
             name={`Other (${s.rest.categoryCount} ${s.rest.categoryCount === 1 ? 'category' : 'categories'})`}
             amount={formatMoney(s.rest.spentMinor, s.currency)}
             share={s.rest.sharePct}
@@ -47,12 +54,25 @@ export function WhereItWentBlock({ s }: { s: MonthSummary }) {
           />
         )}
       </ul>
+      <InsightLine s={s} />
     </Card>
   )
 }
 
 function CategoryNote({ c, s }: { c: CategorySpend; s: MonthSummary }) {
-  if (c.deltaPct != null) return <Delta pct={c.deltaPct} against={`usual (${formatMoney(c.usualMinor, s.currency)})`} />
+  const money = (minor: number) => formatMoney(minor, s.currency)
+  if (s.months > 1) {
+    const monthly = <span className="text-muted">≈ {money(perMonth(c.spentMinor, s.monthsWithData))} a month</span>
+    if (c.deltaPct != null)
+      return (
+        <>
+          {monthly} · <Delta pct={c.deltaPct} against={`usual (${money(c.usualMinor)})`} />
+        </>
+      )
+    if (c.categoryId == null) return <>{monthly} · <span className="text-muted">Tap to categorize</span></>
+    return s.baselineMonths > 0 ? <>{monthly} · <span className="text-muted">New in these months</span></> : monthly
+  }
+  if (c.deltaPct != null) return <Delta pct={c.deltaPct} against={`usual (${money(c.usualMinor)})`} />
   if (c.categoryId == null) return <span className="text-muted">Tap to categorize</span>
   return s.baselineMonths > 0 ? <span className="text-muted">New this month</span> : null
 }

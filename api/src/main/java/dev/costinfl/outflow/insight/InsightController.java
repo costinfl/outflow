@@ -51,6 +51,8 @@ public class InsightController {
     public MonthSummary month(
             @Parameter(description = "YYYY-MM; defaults to the latest month with data") @RequestParam(required = false) String month,
             @Parameter(description = "ISO currency; v1 reports one currency at a time") @RequestParam(defaultValue = "RON") String currency,
+            @Parameter(description = "1, or 3 for the 'last 3 months' view ending with the month")
+            @RequestParam(defaultValue = "1") int months,
             @Parameter(description = "Account ids to include (accounts filter); absent = all accounts")
             @RequestParam(required = false) List<Long> accounts) {
         if (!currency.matches("[A-Z]{3}")) {
@@ -67,6 +69,9 @@ public class InsightController {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "month must be YYYY-MM");
             }
         }
-        return insights.month(ym, new Slice(currency, accounts));
+        if (months != 1 && months != 3) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "months must be 1 or 3");
+        }
+        return insights.month(ym, new Slice(currency, accounts), months);
     }
 }

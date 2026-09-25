@@ -117,10 +117,11 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
   },
   '/api/insights/categories/{id}': demoCategory,
   // All demo transactions are the Main account's: a filter without it has no data, as the real API would answer.
-  '/api/insights/month': (url) =>
-    !demoAccountsInclude(url, 1)
-      ? noData(url.searchParams.get('month') ?? '2026-03')
-      : (demoMonths[url.searchParams.get('month') ?? '2026-03'] ?? demoMonths['2026-03']!),
+  '/api/insights/month': (url) => {
+    const month = url.searchParams.get('month') ?? '2026-03'
+    if (!demoAccountsInclude(url, 1)) return noData(month)
+    return url.searchParams.get('months') === '3' ? lastThreeMonths(month) : (demoMonths[month] ?? demoMonths['2026-03']!)
+  },
 
 }
 
@@ -131,6 +132,7 @@ function noData(month: string): MonthSummary {
     month, currency: 'RON', spentMinor: 0, baselineMonths: 0, incomeMinor: 0, netMinor: 0, accuracyPct: 0,
     categorizedPct: 0, uncategorizedMinor: 0, uncategorizedCount: 0, categories: [],
     rest: { spentMinor: 0, sharePct: 0, categoryCount: 0 }, committed: { monthlyMinor: 0, count: 0 }, availableMonths: [],
+    months: 1, periodFrom: month, monthsWithData: 0,
   }
 }
 
@@ -157,6 +159,9 @@ function groceriesOnly(month: string, spentMinor: number, baseline: number[]): M
     rest: { spentMinor: 0, sharePct: 0, categoryCount: 0 },
     committed: demoCommitted(month, spentMinor),
     availableMonths: MONTHS,
+    months: 1,
+    periodFrom: month,
+    monthsWithData: 1,
   }
 }
 
@@ -188,6 +193,72 @@ const demoMonths: Record<string, MonthSummary> = {
     rest: { spentMinor: 16999, sharePct: 13, categoryCount: 3 },
     committed: demoCommitted('2026-03', 130000),
     availableMonths: ['2025-12', '2026-01', '2026-02', '2026-03'],
+    months: 1,
+    periodFrom: '2026-03',
+    monthsWithData: 1,
+    insight: {
+      categoryId: 1, code: 'GROCERIES', name: 'Groceries', deltaPct: -59, differenceMinor: -65000, perMonthMinor: 45000,
+      usualMinor: 110000, transactionCount: 3,
+    },
   },
+}
+
+const shiftMonth = (month: string, by: number) => {
+  const [y, m] = month.split('-').map(Number)
+  const d = new Date(y!, m! - 1 + by, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+const halfUp = (a: number, b: number) => Math.floor((2 * a + b) / (2 * b))
+
+/**
+ * The "last 3 months" view, merged from the demo months as InsightService does: totals over the window, compared per
+ * month with the average of the 3 months before it (only those with data). March gives LastThreeMonthsTest's numbers.
+ */
+function lastThreeMonths(month: string): MonthSummary {
+  const window = [-2, -1, 0].map((i) => shiftMonth(month, i)).filter((m) => demoMonths[m])
+  const before = [-5, -4, -3].map((i) => shiftMonth(month, i)).filter((m) => demoMonths[m])
+  const divisor = Math.max(1, window.length)
+  const total = (ms: string[], f: (s: MonthSummary) => number) => ms.reduce((a, m) => a + f(demoMonths[m]!), 0)
+  const spent = total(window, (s) => s.spentMinor)
+  const income = total(window, (s) => s.incomeMinor)
+  const average = before.length ? halfUp(total(before, (s) => s.spentMinor), before.length) : undefined
+  const perMonth = halfUp(spent, divisor)
+  const byCategory = new Map<number, MonthSummary['categories'][number]>()
+  for (const m of window) {
+    for (const c of demoMonths[m]!.categories) {
+      const prev = byCategory.get(c.categoryId!)
+      byCategory.set(c.categoryId!, { ...c, spentMinor: (prev?.spentMinor ?? 0) + c.spentMinor,
+        transactionCount: (prev?.transactionCount ?? 0) + c.transactionCount })
+    }
+  }
+  const usualOf = (id: number) => before.length
+    ? halfUp(total(before, (s) => s.categories.find((c) => c.categoryId === id)?.spentMinor ?? 0), before.length) : 0
+  const categories = [...byCategory.values()].sort((a, b) => b.spentMinor - a.spentMinor).map((c) => {
+    const usual = usualOf(c.categoryId!)
+    const per = halfUp(c.spentMinor, divisor)
+    return { ...c, sharePct: spent ? Math.round((c.spentMinor * 100) / spent) : 0, usualMinor: usual,
+      deltaPct: usual ? Math.round(((per - usual) * 100) / usual) : undefined }
+  })
+  const rest = total(window, (s) => s.rest.spentMinor)
+  const last = demoMonths[month] ?? demoMonths['2026-03']!
+  return {
+    ...last,
+    month,
+    spentMinor: spent,
+    baselineMonths: before.length,
+    averageSpentMinor: average,
+    deltaPct: average ? Math.round(((perMonth - average) * 100) / average) || undefined : undefined,
+    incomeMinor: income,
+    netMinor: income - spent,
+    uncategorizedMinor: total(window, (s) => s.uncategorizedMinor),
+    uncategorizedCount: total(window, (s) => s.uncategorizedCount),
+    categories,
+    rest: { spentMinor: rest, sharePct: spent ? Math.round((rest * 100) / spent) : 0, categoryCount: last.rest.categoryCount },
+    committed: demoCommitted(month, perMonth),
+    months: 3,
+    periodFrom: shiftMonth(month, -2),
+    monthsWithData: window.length,
+    insight: undefined, // nothing moves more than 25% and 100 RON per month here
+  }
 }
 

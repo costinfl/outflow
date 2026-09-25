@@ -36,7 +36,32 @@ public record MonthSummary(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Block 3: confirmed recurring payments")
         Committed committed,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Months with data, oldest first, e.g. 2026-01")
-        List<String> availableMonths) {
+        List<String> availableMonths,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "1, or 3 for the 'last 3 months' view: figures are totals over the months ending with `month`")
+        int months,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "First month of the period (YYYY-MM)")
+        String periodFrom,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Months of the period that have data: totals ÷ this = per-month averages")
+        int monthsWithData,
+        @Schema(description = "The plain-language insight line; absent when nothing moved notably") Insight insight) {
+
+    /**
+     * "Restaurants are up 40% vs. your usual — 9 visits this month": a category whose per-month spending differs from
+     * its usual by more than 25% and more than 100 currency units.
+     */
+    public record Insight(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long categoryId,
+            String code,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "vs. usual, e.g. 40 or -59") int deltaPct,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Per month minus usual; negative = less")
+            long differenceMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Spent per month in the period") long perMonthMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long usualMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Transactions in the period (visits)")
+            int transactionCount) {}
 
     /**
      * Committed every month: the monthly equivalents of the recurring payments active in the month (yearly ÷ 12). Equals
@@ -57,9 +82,10 @@ public record MonthSummary(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long spentMinor,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Of the month's spent") int sharePct,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Average over the baseline months")
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "Per-month average over the baseline months (the 3 before the period)")
             long usualMinor,
-            @Schema(description = "vs. usual; absent when there is no usual to compare with") Integer deltaPct,
+            @Schema(description = "Per month vs. usual; absent when there is no usual to compare with") Integer deltaPct,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int transactionCount) {}
 
     public record Rest(

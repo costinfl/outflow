@@ -7,6 +7,7 @@ import { AccountsFilter } from './AccountsFilter'
 import { AttentionBlock } from './AttentionBlock'
 import { CommittedBlock } from './CommittedBlock'
 import { MonthSwitcher } from './MonthSwitcher'
+import { PeriodToggle } from './PeriodToggle'
 import { SpentBlock } from './SpentBlock'
 import { WhereItWentBlock } from './WhereItWentBlock'
 
@@ -15,8 +16,10 @@ export function HomePage() {
   const [params, setParams] = useSearchParams()
   const month = params.get('month') ?? undefined
   const accounts = useAccountsFilter()
-  const state = useApi<MonthSummary>(`month:${month ?? 'latest'}:${accounts.key}`, () =>
-    api.GET('/api/insights/month', { params: { query: { ...(month ? { month } : {}), ...accounts.query } } }),
+  const state = useApi<MonthSummary>(`month:${month ?? 'latest'}:${accounts.months}:${accounts.key}`, () =>
+    api.GET('/api/insights/month', {
+      params: { query: { ...(month ? { month } : {}), ...accounts.monthsQuery, ...accounts.query } },
+    }),
   )
 
   if (state.kind === 'loading') return <p className="py-12 text-center text-muted">Loading…</p>
@@ -56,6 +59,15 @@ export function HomePage() {
         onChange={(m) => {
           const next = new URLSearchParams(params)
           next.set('month', m)
+          setParams(next)
+        }}
+      />
+      <PeriodToggle
+        months={s.months}
+        onChange={(m) => {
+          const next = new URLSearchParams(params)
+          if (m === 3) next.set('months', '3')
+          else next.delete('months')
           setParams(next)
         }}
       />

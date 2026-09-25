@@ -10,17 +10,17 @@ import { Card } from './Card'
  * Opens the Recurring screen for the same month, whose total is the same number.
  */
 export function CommittedBlock({ s }: { s: MonthSummary }) {
-  const { withAccounts } = useAccountsFilter()
+  const { withFilters } = useAccountsFilter()
   const months = s.availableMonths.length
   const { monthlyMinor, count, sharePct } = s.committed
   return (
     <Card title="Committed every month" id="committed">
       {count > 0 ? (
-        <Link to={withAccounts(recurringLink(s.month))} className="block hover:underline">
+        <Link to={withFilters(recurringLink(s.month))} className="block hover:underline">
           <span className="text-2xl font-semibold text-ink tabular-nums">{formatMoney(monthlyMinor, s.currency)}</span>
           <span className="mt-1 block text-sm text-ink-2">
             {count} recurring {count === 1 ? 'payment' : 'payments'}
-            {sharePct !== undefined && sharePct !== null ? ` · ${sharePct}% of this month's spending` : ''} ›
+            {sharePct !== undefined && sharePct !== null ? ` · ${sharePct}% of ${s.months > 1 ? 'monthly' : "this month's"} spending` : ''} ›
           </span>
         </Link>
       ) : (
@@ -29,7 +29,7 @@ export function CommittedBlock({ s }: { s: MonthSummary }) {
           <Link to="/review" className="text-bar underline">
             Review suggestions
           </Link>{' '}
-          or see <Link to={withAccounts(recurringLink())} className="text-bar underline">recurring payments</Link>.
+          or see <Link to={withFilters(recurringLink())} className="text-bar underline">recurring payments</Link>.
         </p>
       )}
       {months < 3 && (

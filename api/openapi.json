@@ -183,7 +183,7 @@
             "type" : "string"
           },
           "deltaPct" : {
-            "description" : "vs. usual; absent when there is no usual to compare with",
+            "description" : "Per month vs. usual; absent when there is no usual to compare with",
             "format" : "int32",
             "type" : "integer"
           },
@@ -204,7 +204,7 @@
             "type" : "integer"
           },
           "usualMinor" : {
-            "description" : "Average over the baseline months",
+            "description" : "Per-month average over the baseline months (the 3 before the period)",
             "format" : "int64",
             "type" : "integer"
           }
@@ -466,6 +466,46 @@
         "required" : [ "cards", "count", "possible" ],
         "type" : "object"
       },
+      "Insight" : {
+        "properties" : {
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "deltaPct" : {
+            "description" : "vs. usual, e.g. 40 or -59",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "differenceMinor" : {
+            "description" : "Per month minus usual; negative = less",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "perMonthMinor" : {
+            "description" : "Spent per month in the period",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "transactionCount" : {
+            "description" : "Transactions in the period (visits)",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "usualMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "categoryId", "deltaPct", "differenceMinor", "name", "perMonthMinor", "transactionCount", "usualMinor" ],
+        "type" : "object"
+      },
       "Item" : {
         "properties" : {
           "amountKind" : {
@@ -666,14 +706,32 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "insight" : {
+            "$ref" : "#/components/schemas/Insight",
+            "description" : "The plain-language insight line; absent when nothing moved notably"
+          },
           "month" : {
             "example" : "2026-03",
             "type" : "string"
+          },
+          "months" : {
+            "description" : "1, or 3 for the 'last 3 months' view: figures are totals over the months ending with `month`",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "monthsWithData" : {
+            "description" : "Months of the period that have data: totals ÷ this = per-month averages",
+            "format" : "int32",
+            "type" : "integer"
           },
           "netMinor" : {
             "description" : "Income − spent; negative when spending more",
             "format" : "int64",
             "type" : "integer"
+          },
+          "periodFrom" : {
+            "description" : "First month of the period (YYYY-MM)",
+            "type" : "string"
           },
           "rest" : {
             "$ref" : "#/components/schemas/Rest",
@@ -693,7 +751,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "accuracyPct", "availableMonths", "baselineMonths", "categories", "categorizedPct", "committed", "currency", "incomeMinor", "month", "netMinor", "rest", "spentMinor", "uncategorizedCount", "uncategorizedMinor" ],
+        "required" : [ "accuracyPct", "availableMonths", "baselineMonths", "categories", "categorizedPct", "committed", "currency", "incomeMinor", "month", "months", "monthsWithData", "netMinor", "periodFrom", "rest", "spentMinor", "uncategorizedCount", "uncategorizedMinor" ],
         "type" : "object"
       },
       "NewAccount" : {
@@ -1071,8 +1129,14 @@
             "type" : "array"
           },
           "month" : {
+            "description" : "The period's last month",
             "example" : "2026-03",
             "type" : "string"
+          },
+          "months" : {
+            "description" : "1, or 3 for the 3 months ending with `month`",
+            "format" : "int32",
+            "type" : "integer"
           },
           "scope" : {
             "enum" : [ "SPEND", "INCOME", "ALL" ],
@@ -1084,7 +1148,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "count", "currency", "items", "month", "scope", "totalMinor" ],
+        "required" : [ "count", "currency", "items", "month", "months", "scope", "totalMinor" ],
         "type" : "object"
       },
       "TransactionView" : {
@@ -1410,6 +1474,16 @@
           "schema" : {
             "default" : "RON",
             "type" : "string"
+          }
+        }, {
+          "description" : "1, or 3 for the 'last 3 months' view ending with the month",
+          "in" : "query",
+          "name" : "months",
+          "required" : false,
+          "schema" : {
+            "default" : 1,
+            "format" : "int32",
+            "type" : "integer"
           }
         }, {
           "description" : "Account ids to include (accounts filter); absent = all accounts",
@@ -1883,6 +1957,16 @@
           "required" : false,
           "schema" : {
             "type" : "string"
+          }
+        }, {
+          "description" : "1, or 3 for the 'last 3 months' view ending with the month",
+          "in" : "query",
+          "name" : "months",
+          "required" : false,
+          "schema" : {
+            "default" : 1,
+            "format" : "int32",
+            "type" : "integer"
           }
         }, {
           "description" : "Account ids to include (accounts filter); absent = all accounts",

@@ -62,10 +62,11 @@ IBAN HMAC key: `OUTFLOW_IBAN_HMAC_KEY` (base64, ≥ 32 bytes) or generated once 
 Pipeline per upload (one DB transaction): parse → import → `UploadService.derive()`: `MerchantService.assignMissing` →
 `SoftMatchService.matchAll` (pending rows superseded by their posted version) → `CategoryService.categorizeAll` →
 `TransferService.pairAll` (recomputes own-account transfer pairs) → `SubscriptionService.refreshNow` (also after
-category or alias changes). Superseded pending rows count nowhere (`Scope.MONTH` excludes them). Transactions with `category_source = 'USER'` are never recomputed.
+category or alias changes). Superseded pending rows count nowhere (`Scope.PERIOD` excludes them). Transactions with `category_source = 'USER'` are never recomputed.
 Home-screen numbers: every figure is a sum over a `txn.Scope` predicate; the transaction list uses the same
 predicates, so figures always equal their drill-through. Never compute a figure outside `Scope`. Currency and the
 accounts filter are one `txn.Slice` (`Scope.SLICE`); endpoints take `accounts` ids, the web keeps `?accounts=` in the URL.
+The "last 3 months" view is a `txn.Period` (`months` = 1 or 3, `?months=3` in the URL): figures are totals over it.
 Count tests from `api/target/surefire-reports/TEST-*.xml`: `@Nested` classes are missing from the text summary.
 Tests truncate tables between cases (`ImportFixtures.reset`): TRUNCATE is the only way past the raw_row trigger.
 

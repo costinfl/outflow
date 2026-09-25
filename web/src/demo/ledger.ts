@@ -85,10 +85,16 @@ function rowsFor(url: URL): TransactionView[] {
 export function demoTransactions(url: URL): GetResponse<'/api/transactions'> {
   const p = url.searchParams
   const month = p.get('month') ?? '2026-03'
+  const months = p.get('months') === '3' ? 3 : 1
+  const [y, m] = month.split('-').map(Number)
+  const window = Array.from({ length: months }, (_, i) => {
+    const d = new Date(y!, m! - 1 - i, 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
   const scope = (p.get('scope') ?? 'ALL') as 'SPEND' | 'INCOME' | 'ALL'
   const q = p.get('q')?.trim()
   const amount = q ? amountQuery(q) : undefined
-  const items = rowsFor(url).filter((t) => t.bookingDate.startsWith(month))
+  const items = rowsFor(url).filter((t) => window.includes(t.bookingDate.slice(0, 7)))
     .filter((t) => (scope === 'SPEND' ? inSpend(t) : scope === 'INCOME' ? kindOf(t) === 'INCOME' : true))
     .filter((t) => !p.get('category') || t.categoryId === Number(p.get('category')))
     .filter((t) => p.get('uncategorized') !== 'true' || t.categoryId == null)
@@ -100,7 +106,7 @@ export function demoTransactions(url: URL): GetResponse<'/api/transactions'> {
     )
     .sort((a, b) => b.bookingDate.localeCompare(a.bookingDate) || b.id - a.id)
   const sum = items.reduce((s, t) => s + t.amountMinor, 0)
-  return { month, currency: 'RON', scope, totalMinor: scope === 'SPEND' ? -sum : sum, count: items.length, items }
+  return { month, months, currency: 'RON', scope, totalMinor: scope === 'SPEND' ? -sum : sum, count: items.length, items }
 }
 
 export function demoCategory(url: URL): GetResponse<'/api/insights/categories/{id}'> {

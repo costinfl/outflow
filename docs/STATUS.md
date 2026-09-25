@@ -5,9 +5,35 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.2** — Insurance category (spec question 27) |
+| Last completed | **CP6.3** — home insight line and "last 3 months" toggle |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.3 — done
+
+373 backend tests green (9 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px, in
+light and dark, on the demo.
+
+- **Insight line** (DESIGN, home block 2): at most one plain-language line under "Where it went", e.g. "▼ Groceries
+  down 59% vs. your usual (RON 450.00 vs. RON 1,100.00) — 3 transactions this month."
+  - The API picks it (`MonthSummary.insight`): the category whose per-month spending moved furthest from its usual,
+    only when the move is more than 25% **and** more than 100 currency units.
+  - Uncategorized spending and categories with no usual yet ("New this month") never make the line.
+  - It links to that category's transactions.
+- **"Last 3 months" toggle** (`?months=3`, in the URL like the accounts filter):
+  - `GET /api/insights/month` and `GET /api/transactions` take `months` = 1 or 3; anything else is a 400.
+  - `txn.Period` replaces the one-month window; `Scope.PERIOD` replaces `Scope.MONTH`.
+  - Details in spec question 28.
+- **Web:**
+  - The home screen shows "Spent per month, Jan – Mar 2026": the per-month average, with the total below it.
+  - Category rows keep the total (it equals the list behind them) and add "≈ X a month".
+  - Every drill-through carries `months=3`, except the category screen's own figures, which are one month's.
+  - The transactions list shows the range and a removable "3 months" chip.
+- **Demo:** March has the Groceries insight. The 3-month view is merged from the demo months, the way the API does it,
+  and gives `LastThreeMonthsTest`'s numbers.
+- **Tests:** `InsightLineTest` (thresholds at their boundaries, the biggest move wins, uncategorized and new
+  categories excluded, per-month in 3-month mode). `LastThreeMonthsTest` (hand-computed window and baseline;
+  drill-through equals the figures; `months` = 2 or 6 → 400).
 
 ## CP6.2 — done
 
@@ -25,8 +51,7 @@ _Resume entrypoint. Updated at every checkpoint._
 ## What is left
 
 From DESIGN, not built yet:
-1. **Home:** the plain-language insight line under "Where it went" ("Restaurants are up 40% vs. your usual…") and the
-   "last 3 months" smoothing toggle.
+1. ~~**Home:** insight line and "last 3 months" toggle~~ — done in CP6.3.
 2. **Recurring:** the "Standing transfers" group (e.g. the monthly savings transfer, shown but not counted);
    "remind me before next charge".
 3. **Subscriptions:** merge / split candidates and "mark this one transaction as a subscription" (manual add, useful
@@ -777,3 +802,11 @@ Health tests now derive the expected schema version from the migrations instead 
     same anchor framework (two-week periods; three-month periods ±5 days) when wanted.
 27. **Insurance category** (decided by the user: add it). DESIGN's seed list had none; V12 adds "Insurance" (SPEND,
     Bills on the Recurring screen).
+28. **What "last 3 months" means** (DESIGN names the toggle only; my reading, open to change):
+    - The window is the selected month and the two before it.
+    - Every figure is a **total** over the window, so it still equals its drill-through. The home screen shows
+      spending as a per-month average: the total divided by the window's months that have data.
+    - "Usual" and the deltas compare that per-month average with the average of the 3 months **before** the window
+      (only those with data).
+    - The insight line uses the same per-month figures and thresholds (> 25% and > 100 units a month).
+    - "Committed every month" is still as of the selected month; its share is of the per-month spending.

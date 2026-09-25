@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router'
 import { api, isDemo } from '../api/client'
 import type { Account, Category, TransactionList, TransactionView } from '../api/types'
 import { parseAccounts } from '../lib/accounts'
-import { formatMoney, formatMonth } from '../lib/format'
+import { addMonths, formatMoney, formatMonth, formatMonthRange } from '../lib/format'
 import { useApi } from '../lib/useApi'
 
 type Scope = 'SPEND' | 'INCOME' | 'ALL'
@@ -15,6 +15,7 @@ type Scope = 'SPEND' | 'INCOME' | 'ALL'
 export function TransactionsPage() {
   const [params, setParams] = useSearchParams()
   const month = params.get('month') ?? ''
+  const months = params.get('months') === '3' ? 3 : 1
   const scope = (params.get('scope')?.toUpperCase() ?? 'ALL') as Scope
   const category = params.get('category')
   const uncategorized = params.get('uncategorized') === '1'
@@ -32,6 +33,7 @@ export function TransactionsPage() {
       params: {
         query: {
           month,
+          ...(months === 3 ? { months } : {}),
           scope,
           ...(category ? { category: Number(category) } : {}),
           ...(uncategorized ? { uncategorized: true } : {}),
@@ -67,6 +69,7 @@ export function TransactionsPage() {
     const name = state.kind === 'ok' ? state.data.items[0]?.merchantName : undefined
     chips.push({ label: name ?? 'One merchant', keys: ['merchant'] })
   }
+  if (months === 3) chips.push({ label: '3 months', keys: ['months'] })
   if (q) chips.push({ label: `“${q}”`, keys: ['q'] })
   if (accountIds.length > 0) {
     const names = accountList.filter((a) => accountIds.includes(a.id)).map((a) => a.name)
@@ -76,8 +79,13 @@ export function TransactionsPage() {
   return (
     <div className="space-y-4">
       <header className="flex items-baseline justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-ink">{formatMonth(month)}</h1>
-        <Link to={`/?month=${month}${accountIds.length > 0 ? `&accounts=${accountIds.join(',')}` : ''}`} className="text-sm text-bar underline">
+        <h1 className="text-2xl font-semibold text-ink">
+          {months === 3 ? formatMonthRange(addMonths(month, -2), month) : formatMonth(month)}
+        </h1>
+        <Link
+          to={`/?month=${month}${accountIds.length > 0 ? `&accounts=${accountIds.join(',')}` : ''}${months === 3 ? '&months=3' : ''}`}
+          className="text-sm text-bar underline"
+        >
           Overview
         </Link>
       </header>
