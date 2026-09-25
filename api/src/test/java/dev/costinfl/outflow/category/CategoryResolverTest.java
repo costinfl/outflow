@@ -57,6 +57,29 @@ class CategoryResolverTest {
         assertThat(Source.KEYWORD.confidence).isEqualByComparingTo("0.70");
     }
 
+    /** CP6.4: a person paid rent may also pay you back; a rule for money sent says nothing about money received. */
+    @Test
+    void aRuleForOneDirectionLeavesTheOtherToTheNextTier() {
+        var sentOnly = new CategoryRule(CategoryRule.Source.USER, 10, MERCHANT, "KAUFLAND", SHOPPING, CategoryRule.Direction.OUT);
+        var resolver = new CategoryResolver(List.of(seed("KAUFLAND", GROCERIES), sentOnly));
+
+        assertThat(resolver.resolve("KAUFLAND", null, CategoryRule.Direction.OUT)).contains(new Resolution(SHOPPING, Source.RULE));
+        assertThat(resolver.resolve("KAUFLAND", null, CategoryRule.Direction.IN)).contains(new Resolution(GROCERIES, Source.KEYWORD));
+        assertThat(resolver.resolve("KAUFLAND", OTHER, CategoryRule.Direction.IN)).contains(new Resolution(OTHER, Source.LEARNED));
+        assertThat(CategoryRule.Direction.of(-1)).isEqualTo(CategoryRule.Direction.OUT);
+        assertThat(CategoryRule.Direction.of(0)).isEqualTo(CategoryRule.Direction.IN);
+    }
+
+    @Test
+    void aRuleForThisDirectionBeatsOneForBoth() {
+        var both = user(MERCHANT, "PERSON A", SHOPPING);
+        var received = new CategoryRule(CategoryRule.Source.USER, 100, MERCHANT, "PERSON A", OTHER, CategoryRule.Direction.IN);
+        var resolver = new CategoryResolver(List.of(both, received));
+
+        assertThat(resolver.resolve("PERSON A", null, CategoryRule.Direction.IN)).map(Resolution::categoryId).contains(OTHER);
+        assertThat(resolver.resolve("PERSON A", null, CategoryRule.Direction.OUT)).map(Resolution::categoryId).contains(SHOPPING);
+    }
+
     @Test
     void merchantRuleBeatsKeywordRuleWithinTheUserTier() {
         var resolver = new CategoryResolver(List.of(user(KEYWORD, "KAUFLAND", GROCERIES), user(MERCHANT, "KAUFLAND", SHOPPING)));

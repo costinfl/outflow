@@ -305,6 +305,12 @@ function DuplicateCard({ card, answer, skip }: { card: ReviewCard; answer: Answe
   )
 }
 
+type Direction = 'IN' | 'OUT'
+
+/**
+ * An uncategorized merchant or person. Money sent and money received are answered separately (a person you pay rent
+ * to may also pay you back, and that is not rent); a card with only one of them asks only about that one.
+ */
 function MerchantCard({
   card,
   categories,
@@ -316,43 +322,110 @@ function MerchantCard({
   answer: Answer
   skip: () => void
 }) {
-  const [choice, setChoice] = useState('')
-  const count = card.transactionCount ?? 0
-  const apply = () => {
-    const category = categories.find((c) => c.id === Number(choice))
-    if (!category) return
-    void answer(`${card.name} → ${category.name}`, () =>
-      api.POST('/api/review/merchants/{merchantId}/category', {
-        params: { path: { merchantId: card.merchantId } },
-        body: { categoryId: category.id },
-      }),
-    )
+  const [sent, setSent] = useState('')
+  const [received, setReceived] = useState('') // a category id, or 'same': paid back, nets the sent category
+  const hasSent = (card.sentCount ?? 0) > 0
+  const hasReceived = (card.receivedCount ?? 0) > 0
+  const both = hasSent && hasReceived
+  const money = (minor: number | undefined) => formatMoney(minor ?? 0, card.currency)
+  const byId = (id: string) => categories.find((c) => c.id === Number(id))
+  const sentCategory = byId(sent)
+  const receivedCategory = received === 'same' ? sentCategory : byId(received)
+  const transfer = categories.find((c) => c.kind === 'TRANSFER')
+
+  const post = (categoryId: number, direction?: Direction) =>
+    api.POST('/api/review/merchants/{merchantId}/category', {
+      params: { path: { merchantId: card.merchantId } },
+      body: { categoryId, ...(direction ? { direction } : {}) },
+    })
+  const apply = (out: Category | undefined, into: Category | undefined) => {
+    const paidBack = received === 'same' && into !== undefined && into.kind === 'SPEND'
+    const parts = [out && `sent → ${out.name}`, into && (paidBack ? 'received → paying me back' : `received → ${into.name}`)]
+      .filter(Boolean)
+    if (parts.length === 0) return
+    void answer(`${card.name}: ${parts.join(', ')}`, async () => {
+      if (out && into && out.id === into.id) return post(out.id)
+      if (out) {
+        const r = await post(out.id, 'OUT')
+        if (!into || !r.response.ok) return r
+      }
+      return post(into!.id, 'IN')
+    })
   }
+
+  const picker = (label: string, value: string, onChange: (v: string) => void, extra?: ReactNode) => (
+    <label className="block text-xs text-ink-2">
+      {label}
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={`${label} (${card.name})`}
+        className="mt-1 block w-full rounded-lg bg-page px-2 py-1.5 text-sm text-ink ring-1 ring-hairline"
+      >
+        <option value="">Choose a category</option>
+        {extra}
+        {categories.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+
   return (
     <Swipeable onLeft={skip}>
-      <p className="text-xs font-medium tracking-wide text-muted uppercase">Uncategorized</p>
+      <p className="text-xs font-medium tracking-wide text-muted uppercase">{both ? 'Money both ways' : 'Uncategorized'}</p>
       <p className="mt-1 text-ink">
-        {count} {count === 1 ? 'transaction' : 'transactions'}, {formatMoney(card.affectedMinor, card.currency)} from{' '}
         <span className="font-medium">{card.name}</span>
+        {card.firstDate && <span className="text-ink-2"> · since {formatSince(card.firstDate)}</span>}
       </p>
-      <div className="mt-3 flex flex-wrap items-end gap-2">
-        <label className="min-w-40 flex-1 text-xs text-ink-2">
-          Category for all of them
-          <select
-            value={choice}
-            onChange={(e) => setChoice(e.target.value)}
-            aria-label={`Category for ${card.name}`}
-            className="mt-1 block w-full rounded-lg bg-page px-2 py-1.5 text-sm text-ink ring-1 ring-hairline"
-          >
-            <option value="">Choose a category</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" className={primary} disabled={choice === ''} onClick={apply}>
+      <dl className="mt-2 grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0.5 text-sm">
+        {hasSent && (
+          <>
+            <dt className="text-ink-2">Sent</dt>
+            <dd className="text-ink-2">
+              {card.sentCount} {card.sentCount === 1 ? 'payment' : 'payments'}
+            </dd>
+            <dd className="text-right text-ink tabular-nums">{money(card.sentMinor)}</dd>
+          </>
+        )}
+        {hasReceived && (
+          <>
+            <dt className="text-ink-2">Received</dt>
+            <dd className="text-ink-2">
+              {card.receivedCount} {card.receivedCount === 1 ? 'payment' : 'payments'}
+            </dd>
+            <dd className="text-right text-ink tabular-nums">{money(card.receivedMinor)}</dd>
+          </>
+        )}
+      </dl>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {hasSent && picker('Money sent is', sent, setSent)}
+        {hasReceived &&
+          picker(
+            'Money received is',
+            received,
+            setReceived,
+            sentCategory?.kind === 'SPEND' && <option value="same">Paying me back: less {sentCategory.name}</option>,
+          )}
+      </div>
+      {both && transfer && (
+        <p className="mt-2 text-xs text-ink-2">
+          Moving your own money, or the household&apos;s?{' '}
+          <button type="button" className="text-bar underline" onClick={() => apply(transfer, transfer)}>
+            Both ways are a transfer
+          </button>{' '}
+          (neither spending nor income).
+        </p>
+      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          className={primary}
+          disabled={!(hasSent && sentCategory) && !(hasReceived && receivedCategory)}
+          onClick={() => apply(hasSent ? sentCategory : undefined, hasReceived ? receivedCategory : undefined)}
+        >
           Apply
         </button>
         <button type="button" className={quiet} onClick={skip}>

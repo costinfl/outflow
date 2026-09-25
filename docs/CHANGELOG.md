@@ -2,6 +2,15 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — people in the review inbox (2026-09-25)
+
+- **Answers by direction (V13):** a category rule can apply to money sent or money received only. A person paid for
+  rent who also pays money back is no longer a Housing refund. A rule for one direction splits an earlier rule for both.
+- **Review cards** show money sent and received separately, with one picker per direction, "paying me back" (nets the
+  sent category) and a one-tap "both ways are a transfer".
+- **Real export:** answering the top 3 people takes spending categorized from 22.6% to 78.8%.
+- **Tests:** 386 backend (13 new), 10 web.
+
 ## After the plan — home insight line and 3-month view (2026-09-25)
 
 - **Insight line:** at most one plain-language line under "Where it went". It names the category whose per-month

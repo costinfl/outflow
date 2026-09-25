@@ -38,6 +38,7 @@ public final class CategoryResolver {
 
     /** Within a tier: explicit priority (lower first), then the more specific (longer) pattern. */
     private static final Comparator<CategoryRule> ORDER = Comparator.comparingInt(CategoryRule::priority)
+            .thenComparing(r -> r.direction() == null) // a rule for this direction before one for both
             .thenComparing(r -> r.matchType() != CategoryRule.MatchType.MERCHANT)
             .thenComparing(r -> -r.pattern().length())
             .thenComparing(CategoryRule::pattern);
@@ -50,21 +51,27 @@ public final class CategoryResolver {
         this.seedRules = rules.stream().filter(r -> r.source() == CategoryRule.Source.SEED).sorted(ORDER).toList();
     }
 
+    /** Resolution for money sent: what a merchant's spending is. */
+    public Optional<Resolution> resolve(String merchantKey, Long learnedCategoryId) {
+        return resolve(merchantKey, learnedCategoryId, CategoryRule.Direction.OUT);
+    }
+
     /**
      * @param learnedCategoryId the merchant's category learned from user confirmations ({@code merchant.default_category_id})
+     * @param money money sent or received: user rules may apply to one direction only
      */
-    public Optional<Resolution> resolve(String merchantKey, Long learnedCategoryId) {
-        var user = first(userRules, merchantKey);
+    public Optional<Resolution> resolve(String merchantKey, Long learnedCategoryId, CategoryRule.Direction money) {
+        var user = first(userRules, merchantKey, money);
         if (user.isPresent()) {
             return Optional.of(new Resolution(user.get().categoryId(), Source.RULE));
         }
         if (learnedCategoryId != null) {
             return Optional.of(new Resolution(learnedCategoryId, Source.LEARNED));
         }
-        return first(seedRules, merchantKey).map(r -> new Resolution(r.categoryId(), Source.KEYWORD));
+        return first(seedRules, merchantKey, money).map(r -> new Resolution(r.categoryId(), Source.KEYWORD));
     }
 
-    private static Optional<CategoryRule> first(List<CategoryRule> rules, String merchantKey) {
-        return rules.stream().filter(r -> r.matches(merchantKey)).findFirst();
+    private static Optional<CategoryRule> first(List<CategoryRule> rules, String merchantKey, CategoryRule.Direction money) {
+        return rules.stream().filter(r -> r.matches(merchantKey, money)).findFirst();
     }
 }

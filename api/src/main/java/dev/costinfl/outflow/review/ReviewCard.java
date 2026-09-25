@@ -9,8 +9,8 @@ import java.util.List;
 
 /**
  * One question for the user (DESIGN: Review inbox). One card = one merchant, never one transaction (a possible duplicate
- * is about two). Subscription fields are set on SUBSCRIPTION cards, {@code transactionCount} on UNCATEGORIZED_MERCHANT
- * cards, the pending/posted fields on POSSIBLE_DUPLICATE cards, the alert fields on PRICE_CHANGE and MISSED_CHARGE
+ * is about two). Subscription fields are set on SUBSCRIPTION cards, {@code transactionCount} and the sent / received
+ * split on UNCATEGORIZED_MERCHANT cards (a person can be both paid and paying back), the pending/posted fields on POSSIBLE_DUPLICATE cards, the alert fields on PRICE_CHANGE and MISSED_CHARGE
  * cards (which also carry the subscription's id, cadence and expected amount).
  */
 public record ReviewCard(
@@ -41,7 +41,12 @@ public record ReviewCard(
         @Schema(description = "Price change / missed charge: the alert to answer") Long alertId,
         @Schema(description = "Price change: the amount before") Long previousAmountMinor,
         @Schema(description = "Price change: the new amount; missed: the expected one") Long newAmountMinor,
-        @Schema(description = "Missed charge: when it was due") LocalDate dueDate) {
+        @Schema(description = "Missed charge: when it was due") LocalDate dueDate,
+        @Schema(description = "Uncategorized merchant: money sent to it") Integer sentCount,
+        @Schema(description = "Uncategorized merchant: positive minor units sent") Long sentMinor,
+        @Schema(description = "Uncategorized merchant: money received from it") Integer receivedCount,
+        @Schema(description = "Uncategorized merchant: positive minor units received") Long receivedMinor,
+        @Schema(description = "Uncategorized merchant: its oldest uncategorized transaction") LocalDate firstDate) {
 
     public enum Kind { SUBSCRIPTION, UNCATEGORIZED_MERCHANT, POSSIBLE_DUPLICATE, PRICE_CHANGE, MISSED_CHARGE }
 

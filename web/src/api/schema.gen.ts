@@ -657,6 +657,11 @@ export interface components {
         MerchantCategory: {
             /** Format: int64 */
             categoryId: number;
+            /**
+             * @description Only money sent (OUT) or only money received (IN); absent for both
+             * @enum {string}
+             */
+            direction?: "IN" | "OUT";
         };
         MerchantCategoryResult: {
             /**
@@ -845,6 +850,11 @@ export interface components {
             /** Format: int64 */
             expectedAmountMinor?: number;
             /**
+             * Format: date
+             * @description Uncategorized merchant: its oldest uncategorized transaction
+             */
+            firstDate?: string;
+            /**
              * @description Stable id, used to skip the card
              * @example subscription:12
              */
@@ -886,6 +896,26 @@ export interface components {
              * @description Price change: the amount before
              */
             previousAmountMinor?: number;
+            /**
+             * Format: int32
+             * @description Uncategorized merchant: money received from it
+             */
+            receivedCount?: number;
+            /**
+             * Format: int64
+             * @description Uncategorized merchant: positive minor units received
+             */
+            receivedMinor?: number;
+            /**
+             * Format: int32
+             * @description Uncategorized merchant: money sent to it
+             */
+            sentCount?: number;
+            /**
+             * Format: int64
+             * @description Uncategorized merchant: positive minor units sent
+             */
+            sentMinor?: number;
             /**
              * Format: date
              * @description First charge of the subscription
