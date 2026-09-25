@@ -123,5 +123,7 @@ export function demoCommitted(month: string, spentMinor: number): Schemas['Commi
     monthlyMinor: o.monthlyMinor,
     count: o.countedCount,
     sharePct: spentMinor === 0 ? undefined : Math.round((o.monthlyMinor * 100) / spentMinor),
+    incomeMonthlyMinor: o.incomeMonthlyMinor,
+    incomeCount: o.groups.filter((g) => g.kind === 'INCOME').flatMap((g) => g.items).filter((i) => i.counted).length,
   }
 }

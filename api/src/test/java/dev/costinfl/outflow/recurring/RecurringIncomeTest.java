@@ -174,6 +174,25 @@ class RecurringIncomeTest {
         assertThat(june.committed().count()).isEqualTo(1);
     }
 
+    /** CP6.8: the home screen's recurring income is the Recurring screen's, for the same month. */
+    @Test
+    void theHomeScreenShowsConfirmedRecurringIncome() {
+        assertThat(insights.month(YearMonth.of(2026, 6), "RON").committed().incomeMonthlyMinor()).isZero();
+
+        confirmAll();
+
+        var june = insights.month(YearMonth.of(2026, 6), "RON").committed();
+        assertThat(june.incomeMonthlyMinor()).isEqualTo(441_000 + 400_000);
+        assertThat(june.incomeCount()).isEqualTo(2);
+        assertThat(june.incomeMonthlyMinor())
+                .isEqualTo(recurring.overview(Optional.of(YearMonth.of(2026, 6)), "RON").incomeMonthlyMinor());
+        assertThat(june.monthlyMinor()).isEqualTo(4999);
+        // Before the salary started, nothing was expected.
+        var december = insights.month(YearMonth.of(2025, 12), "RON").committed();
+        assertThat(december.incomeMonthlyMinor()).isZero();
+        assertThat(december.incomeCount()).isZero();
+    }
+
     @Test
     void newPaymentsJoinThePartTheyAreDueFor() throws Exception {
         confirmAll();

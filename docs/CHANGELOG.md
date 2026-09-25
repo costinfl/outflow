@@ -2,6 +2,13 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — recurring income on the home screen (2026-09-25)
+
+- **Home:** with confirmed recurring income, the Committed block adds "Recurring income X a month" and "Leaves Y a
+  month after commitments". The figure is the Recurring screen's for the same month and accounts.
+- **API:** `MonthSummary.committed.incomeMonthlyMinor` and `incomeCount`.
+- **Tests:** 402 backend (1 new), 17 web.
+
 ## After the plan — account picker (2026-09-25)
 
 - **Accounts filter:** up to 4 accounts stay chips. With more, one summary button ("All accounts", "Main + Visa",
