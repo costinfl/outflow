@@ -7,6 +7,7 @@ import { useAccountsFilter } from '../lib/accounts'
 import { useApi } from '../lib/useApi'
 
 type Item = RecurringOverview['groups'][number]['items'][number]
+type StandingTransfer = RecurringOverview['standingTransfers'][number]
 
 const GROUP_TITLES: Record<string, string> = { SUBSCRIPTIONS: 'Subscriptions', BILLS: 'Bills', INCOME: 'Recurring income' }
 
@@ -124,6 +125,10 @@ export function RecurringPage() {
             </ul>
           </section>
         ))
+      )}
+
+      {o.standingTransfers.length > 0 && (
+        <StandingTransfers transfers={o.standingTransfers} monthlyMinor={o.standingMonthlyMinor} currency={o.currency} />
       )}
 
       <section aria-labelledby="coverage" className="rounded-2xl bg-surface p-4 ring-1 ring-hairline">
@@ -282,5 +287,62 @@ function Row({
         </div>
       )}
     </li>
+  )
+}
+
+/**
+ * DESIGN: "Standing transfers (savings, own accounts — shown but excluded from the total)". Detected from the
+ * transactions, never a question; each row drills to that transfer's transactions in its latest month.
+ */
+function StandingTransfers({
+  transfers,
+  monthlyMinor,
+  currency,
+}: {
+  transfers: StandingTransfer[]
+  monthlyMinor: number
+  currency: string
+}) {
+  const { withFilters } = useAccountsFilter()
+  return (
+    <section aria-labelledby="group-standing" className="rounded-2xl bg-surface p-4 shadow-sm ring-1 ring-hairline">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 id="group-standing" className="text-sm font-medium text-ink-2">
+          Standing transfers
+        </h2>
+        <span className="text-sm text-ink tabular-nums">{formatMoney(monthlyMinor, currency)} / month</span>
+      </div>
+      <p className="mt-0.5 text-xs text-muted">Money you move to savings or your own accounts: shown, not in the totals.</p>
+      <ul className="mt-2 divide-y divide-hairline">
+        {transfers.map((t) => (
+          <li key={`${t.accountId}:${t.merchantId}:${t.expectedAmountMinor}`} className={t.active ? '' : 'opacity-70'}>
+            <Link
+              to={withFilters(`/transactions?${new URLSearchParams({ month: t.lastDate.slice(0, 7), merchant: String(t.merchantId) })}`)}
+              className="flex items-start justify-between gap-3 py-2.5 hover:underline"
+            >
+              <span className="min-w-0">
+                <span className="flex items-center gap-2">
+                  <span className="truncate text-sm font-medium text-ink">
+                    {t.toAccountName ? `To ${t.toAccountName}` : t.name}
+                  </span>
+                  {!t.active && (
+                    <span className="shrink-0 rounded-full bg-bar-track px-2 py-0.5 text-[11px] text-ink-2">Stopped</span>
+                  )}
+                </span>
+                <span className="block text-xs text-muted">
+                  {t.amountKind === 'VARIABLE' ? 'about ' : ''}
+                  {formatMoney(t.expectedAmountMinor, currency)} {cadenceWord(t.cadence)}
+                  {t.active ? ` · next ~ ${formatDay(t.nextExpectedDate)}` : ` · last ${formatDay(t.lastDate)}`}
+                </span>
+              </span>
+              <span className="shrink-0 text-right">
+                <span className="block text-sm text-ink tabular-nums">{formatMoney(t.monthlyMinor, currency)}</span>
+                <span className="block text-[11px] text-muted">{t.active ? 'per month' : 'not counted'}</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

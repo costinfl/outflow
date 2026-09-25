@@ -26,7 +26,12 @@ public record RecurringOverview(
         int suggestionCount,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "Recurring income per month: the INCOME group's counted items (a salary in two parts is two)")
-        long incomeMonthlyMinor) {
+        long incomeMonthlyMinor,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Recurring transfers to own accounts or savings: shown, never part of the totals")
+        List<StandingTransfer> standingTransfers,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Standing transfers per month: active ones only")
+        long standingMonthlyMinor) {
 
     /** Payments (subscriptions, bills) are commitments; INCOME is money expected in. */
     public enum GroupKind { SUBSCRIPTIONS, BILLS, INCOME }
@@ -56,6 +61,26 @@ public record RecurringOverview(
             boolean counted,
             @Schema(description = "Category of its latest charge") Long categoryId,
             String categoryName) {}
+
+    /**
+     * A recurring transfer out (DESIGN: "Standing transfers (savings, own accounts — shown but excluded from the
+     * total)"). Detected from the transactions each time, never stored and never a question.
+     */
+    public record StandingTransfer(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long accountId,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long merchantId,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+            @Schema(description = "The own account it goes to, when the transfer is paired") String toAccountName,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Cadence cadence,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) AmountKind amountKind,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long expectedAmountMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long monthlyMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int occurrences,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) LocalDate lastDate,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) LocalDate nextExpectedDate,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "false once the next transfer is overdue (the transfer stopped)")
+            boolean active) {}
 
     public record Coverage(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long accountId,

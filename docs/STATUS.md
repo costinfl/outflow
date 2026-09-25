@@ -5,9 +5,38 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.5** — recurring income, including a salary paid in two parts |
-| Next | See "What is left" below; the user picks |
+| Last completed | **CP6.6** — standing transfers on the Recurring screen |
+| Next | CP6.7 — account picker that scales past 4 accounts (the user's order: standing transfers, then the picker) |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.6 — done
+
+401 backend tests green (4 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px
+against the API loaded with the real export and on the demo, in light and dark.
+
+- **What:** DESIGN's third Recurring group, "Standing transfers (savings, own accounts — shown but excluded from the
+  total)".
+  - Recurring money out that is a transfer: paired or provisional own-account transfers, or the Transfer category (for
+    example a person the user answered "both ways are a transfer").
+  - Found by the same detector, as of today or as of a past month's last day, using only transactions booked by then.
+- **Nothing stored, never a question:** recomputed on each read (`RecurrenceService.detectTransfers`), so there is no
+  migration, no lifecycle and no review card. Never part of the committed totals, the active count or "Committed
+  every month".
+- **Stopped:** once the next transfer is overdue (the cadence's tolerance plus the 3-day grace), the transfer shows as
+  Stopped and leaves the group's per-month figure (`standingMonthlyMinor`).
+- **Where it goes:** `toAccountName` is the own account most of its paired transfers went to.
+- **Accounts filter:** only transfers out of the selected accounts.
+- **Web:**
+  - Rows read "To Savings" when paired, else the merchant name, with a Stopped chip.
+  - Each row drills to that transfer's transactions in its latest month.
+- **Real export:** once Person_7 is answered as a transfer both ways, two standing transfers show up: about 500 a
+  month (active) and 1,500 a month (Stopped, last 16 Aug).
+- **Tests:** `StandingTransfersTest` (4):
+  - listed with where they go;
+  - never commitments nor questions;
+  - the accounts filter;
+  - a past month sees only what was booked by its end.
+- **Demo:** the ledger's March savings transfer is shown as an illustrative monthly standing transfer.
 
 ## CP6.5 — done
 
@@ -119,8 +148,7 @@ light and dark, on the demo.
 
 From DESIGN, not built yet:
 1. ~~**Home:** insight line and "last 3 months" toggle~~ — done in CP6.3.
-2. **Recurring:** the "Standing transfers" group (e.g. the monthly savings transfer, shown but not counted);
-   "remind me before next charge".
+2. **Recurring:** ~~the "Standing transfers" group~~ (CP6.6); "remind me before next charge".
 3. **Subscriptions:** merge / split candidates and "mark this one transaction as a subscription" (manual add, useful
    for yearly items).
 4. **Cadences:** bi-weekly and quarterly (spec question 26).

@@ -803,6 +803,13 @@ export interface components {
              */
             monthlyMinor: number;
             /**
+             * Format: int64
+             * @description Standing transfers per month: active ones only
+             */
+            standingMonthlyMinor: number;
+            /** @description Recurring transfers to own accounts or savings: shown, never part of the totals */
+            standingTransfers: components["schemas"]["StandingTransfer"][];
+            /**
              * Format: int32
              * @description Suggestions waiting in the review inbox
              */
@@ -947,6 +954,31 @@ export interface components {
         };
         Skip: {
             key: string;
+        };
+        StandingTransfer: {
+            /** Format: int64 */
+            accountId: number;
+            /** @description false once the next transfer is overdue (the transfer stopped) */
+            active: boolean;
+            /** @enum {string} */
+            amountKind: "FIXED" | "VARIABLE";
+            /** @enum {string} */
+            cadence: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+            /** Format: int64 */
+            expectedAmountMinor: number;
+            /** Format: date */
+            lastDate: string;
+            /** Format: int64 */
+            merchantId: number;
+            /** Format: int64 */
+            monthlyMinor: number;
+            name: string;
+            /** Format: date */
+            nextExpectedDate: string;
+            /** Format: int32 */
+            occurrences: number;
+            /** @description The own account it goes to, when the transfer is paired */
+            toAccountName?: string;
         };
         Step: {
             name?: string;

@@ -103,6 +103,17 @@ export function demoRecurring(month?: string, includesMain = true, includesSavin
     ],
     suggestionCount: includesMain ? 2 : 0,
     incomeMonthlyMinor,
+    // Illustrative, like the items above: Main's monthly move to Savings, shown but not counted.
+    standingTransfers: includesMain
+      ? [
+          {
+            accountId: 1, merchantId: 10, name: 'Cont Economii', toAccountName: 'Savings', cadence: 'MONTHLY',
+            amountKind: 'FIXED', expectedAmountMinor: 100000, monthlyMinor: 100000, occurrences: 4,
+            lastDate: '2026-03-12', nextExpectedDate: '2026-04-12', active: true,
+          },
+        ]
+      : [],
+    standingMonthlyMinor: includesMain ? 100000 : 0,
   }
 }
 

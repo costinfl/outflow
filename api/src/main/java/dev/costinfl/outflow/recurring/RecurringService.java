@@ -5,6 +5,7 @@ import dev.costinfl.outflow.recurring.RecurringOverview.Coverage;
 import dev.costinfl.outflow.recurring.RecurringOverview.Group;
 import dev.costinfl.outflow.recurring.RecurringOverview.GroupKind;
 import dev.costinfl.outflow.recurring.RecurringOverview.Item;
+import dev.costinfl.outflow.recurring.RecurringOverview.StandingTransfer;
 import dev.costinfl.outflow.recurring.RecurringOverview.Status;
 import dev.costinfl.outflow.recurring.Subscription.State;
 import dev.costinfl.outflow.txn.Slice;
@@ -22,7 +23,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
- * The Recurring payments screen (with recurring income as its own group) and the home "Committed every month" figure. Only CONFIRMED subscriptions (and, for a
+ * The Recurring payments screen (with recurring income and standing transfers on their own) and the home "Committed
+ * every month" figure. Only CONFIRMED subscriptions (and, for a
  * past month, ones ENDED after it) count: a proposal is a question, not a commitment.
  */
 @Service
@@ -36,11 +38,16 @@ public class RecurringService {
     private final JdbcTemplate jdbc;
     private final SubscriptionService subscriptions;
     private final AlertService alerts;
+    private final RecurrenceService recurrence;
+    private final java.time.Clock clock;
 
-    public RecurringService(JdbcTemplate jdbc, SubscriptionService subscriptions, AlertService alerts) {
+    public RecurringService(JdbcTemplate jdbc, SubscriptionService subscriptions, AlertService alerts,
+            RecurrenceService recurrence, java.time.Clock clock) {
         this.jdbc = jdbc;
         this.subscriptions = subscriptions;
         this.alerts = alerts;
+        this.recurrence = recurrence;
+        this.clock = clock;
     }
 
     /**
@@ -119,8 +126,38 @@ public class RecurringService {
                 .filter(s -> s.state() == State.PROPOSED && s.confidence().compareTo(propose) >= 0
                         && s.currency().equals(currency) && slice.includes(s.accountId()))
                 .count();
+        var standing = standingTransfers(month, slice);
+        long standingMonthly = standing.stream().filter(StandingTransfer::active).mapToLong(StandingTransfer::monthlyMinor).sum();
         return new RecurringOverview(currency, month.map(YearMonth::toString).orElse(null), monthly, yearly, counted,
-                groups, coverage().stream().filter(c -> slice.includes(c.accountId())).toList(), suggestions, income);
+                groups, coverage().stream().filter(c -> slice.includes(c.accountId())).toList(), suggestions, income,
+                standing, standingMonthly);
+    }
+
+    /**
+     * Standing transfers as of today, or as of a past month's last day (only transfers booked by then count). Active
+     * until the next one is overdue (its cadence's tolerance plus the missed-charge grace). Largest monthly first.
+     */
+    List<StandingTransfer> standingTransfers(Optional<YearMonth> month, Slice slice) {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate asOf = month.map(YearMonth::atEndOfMonth).filter(d -> d.isBefore(today)).orElse(today);
+        var names = new HashMap<Long, String>();
+        jdbc.query("SELECT id, display_name FROM merchant WHERE id IN (SELECT merchant_id FROM transaction)", rs -> {
+            names.put(rs.getLong(1), rs.getString(2));
+        });
+        var accounts = new HashMap<Long, String>();
+        jdbc.query("SELECT id, name FROM account", rs -> {
+            accounts.put(rs.getLong(1), rs.getString(2));
+        });
+        return recurrence.detectTransfers(asOf, slice).stream().map(s -> {
+            Candidate c = s.candidate();
+            boolean active = !asOf.isAfter(c.nextExpectedDate().plusDays(c.cadence().toleranceDays + AlertService.GRACE_DAYS));
+            return new StandingTransfer(c.accountId(), c.merchantId(), names.get(c.merchantId()),
+                    s.toAccountId() == null ? null : accounts.get(s.toAccountId()), c.cadence(), c.amountKind(),
+                    c.expectedAmountMinor(), c.cadence().monthlyMinor(c.expectedAmountMinor()), c.occurrences(),
+                    c.lastDate(), c.nextExpectedDate(), active);
+        }).sorted(Comparator.comparing(StandingTransfer::active).reversed()
+                .thenComparing(Comparator.comparingLong(StandingTransfer::monthlyMinor).reversed())
+                .thenComparing(StandingTransfer::name)).toList();
     }
 
     private static Status status(Subscription s, AlertService.Kind openAlert) {
