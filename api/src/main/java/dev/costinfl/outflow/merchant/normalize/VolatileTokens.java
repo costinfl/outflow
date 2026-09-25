@@ -1,12 +1,14 @@
 package dev.costinfl.outflow.merchant.normalize;
 
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * Step 3b: remove what changes between charges from the same merchant: card masks, authorization codes, IBANs,
- * dates, times, processor suffixes after '*', and every token containing a digit (terminal, store, reference and
- * invoice numbers, plan codes like {@code P770487}).
+ * dates, times, processor suffixes after '*', and tokens with digits (terminal, store, reference and invoice numbers,
+ * plan codes like {@code P770487}). A brand spelled with a digit or two ({@code 1MINUTE}, {@code 7ELEVEN}: 4+ letters,
+ * at most 2 digits) is kept.
  */
 public final class VolatileTokens implements MerchantStep {
 
@@ -18,15 +20,25 @@ public final class VolatileTokens implements MerchantStep {
             Pattern.compile("\\b\\d{1,4}[./-]\\d{1,2}[./-]\\d{1,4}\\b"),                      // dates
             Pattern.compile("\\b\\d{1,2}:\\d{2}(?::\\d{2})?\\b"),                            // times
             Pattern.compile("(?<=\\S)\\*\\S*"),                                               // "AMZN MKTP DE*2B4XY7Z"
-            Pattern.compile("\\b\\S*\\d\\S*\\b"),                                             // any token with a digit
             Pattern.compile("(?<=\\s|^)[#/*.,:;-]+(?=\\s|$)"));                               // leftover punctuation
+    private static final Pattern DIGIT_TOKEN = Pattern.compile("\\b\\S*\\d\\S*\\b");
 
     @Override
     public String apply(String text) {
         String s = text;
-        for (Pattern p : PATTERNS) {
-            s = p.matcher(s).replaceAll(" ");
+        for (int i = 0; i < PATTERNS.size(); i++) {
+            if (i == PATTERNS.size() - 1) {
+                s = DIGIT_TOKEN.matcher(s).replaceAll(m -> isBrand(m.group()) ? Matcher.quoteReplacement(m.group()) : " ");
+            }
+            s = PATTERNS.get(i).matcher(s).replaceAll(" ");
         }
         return Words.collapse(s);
+    }
+
+    /** "1MINUTE", "7ELEVEN": 4+ letters and at most 2 digits read as a name, not a number. */
+    static boolean isBrand(String token) {
+        long letters = token.chars().filter(Character::isLetter).count();
+        long digits = token.chars().filter(Character::isDigit).count();
+        return letters >= 4 && digits <= 2;
     }
 }

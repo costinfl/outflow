@@ -39,6 +39,7 @@ the command-line tool for the same seed and names, so both can be mixed across e
 | Card numbers (Luhn-valid) and the 4 digits next to masks / "card" | fake digits |
 | Account holder, names from `--names`, and people in Beneficiar / Ordonator / Plătitor fields | `PERSON_1`, `PERSON_2`, … |
 | Free-text memos people type (Detalii / Details / Mesaj / Message / Explicatii), whole value; the bank's own "Suma tranzactiei: 5.95 RON" is kept | `NOTE_1`, `NOTE_2`, … (same text → same note) |
+| Lines where such a note wraps (no `Key:` label, ING) | blanked |
 | CNP (valid checksum) | 13 fake digits |
 | Emails, Romanian mobile numbers | `person1@example.invalid`, `0700…` |
 | Digit runs of 10+ (customer codes, references) | fake digits, same length |

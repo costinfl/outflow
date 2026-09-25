@@ -130,6 +130,13 @@ public class Anonymize {
         private static final Pattern MEMO = Pattern.compile(
                 "(?i)(\"(?:detalii|details|mesaj|message|explicatii)[ \\t]*:[ \\t]*)([^\"\\r\\n]*)(?=\")"
                         + "|(\\b(?:detalii|details|mesaj|message|explicatii)[ \\t]*:[ \\t]*)([^,;\"\\t\\r\\n]*)");
+        /**
+         * A long memo wraps onto following lines without a "Key:" label (ING). Each such line after a scrubbed memo is
+         * blanked; the ING parser skips detail lines with an empty text cell.
+         */
+        private static final Pattern MEMO_WRAP = Pattern.compile(
+                "(?i)((?:detalii|details|mesaj|message|explicatii)[ \\t]*:[ \\t]*NOTE_\\d+[^\\r\\n]*\\r?\\n"
+                        + "(?:,{3,}\\r?\\n)*,,,)(?:\"[^\"\\r\\n]*\"|[^,;:\"\\r\\n]+(?=[,;\\r\\n]|$))");
         /** Memos the bank writes itself, kept: ING's "Suma tranzactiei: 5.95 RON"; and an earlier run's NOTE_n. */
         private static final Pattern SYSTEM_MEMO = Pattern.compile("(?i)suma tranzactiei: [0-9.,]+ [A-Z]{3}|NOTE_\\d+");
         private static final Pattern TRANSFERISH = Pattern.compile(
@@ -187,6 +194,10 @@ public class Anonymize {
                 }
                 return prefix + noteOf.computeIfAbsent(fold(value), k -> "NOTE_" + (noteOf.size() + 1));
             });
+            for (String before = null; !s.equals(before); ) {
+                before = s;
+                s = replace(s, MEMO_WRAP, "memo", m -> m.group(1));
+            }
             s = replace(s, IBAN, "IBAN", m -> {
                 String original = m.group(1);
                 return Iban.valid(original) ? fakeIban(original) : null;

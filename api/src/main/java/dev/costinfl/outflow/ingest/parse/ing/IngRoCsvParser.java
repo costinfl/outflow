@@ -151,11 +151,13 @@ public final class IngRoCsvParser implements StatementParser {
 
     static Optional<LocalDate> parseDate(String text) {
         Matcher m = DATE_LINE.matcher(text);
-        if (!m.matches() || !MONTHS.containsKey(m.group(2))) {
+        // Month names are lowercase, except that real exports write "August" capitalised.
+        String month = m.matches() ? m.group(2).toLowerCase(java.util.Locale.ROOT) : "";
+        if (!MONTHS.containsKey(month)) {
             return Optional.empty();
         }
         try {
-            return Optional.of(LocalDate.of(Integer.parseInt(m.group(3)), MONTHS.get(m.group(2)), Integer.parseInt(m.group(1))));
+            return Optional.of(LocalDate.of(Integer.parseInt(m.group(3)), MONTHS.get(month), Integer.parseInt(m.group(1))));
         } catch (java.time.DateTimeException e) {
             return Optional.empty();
         }

@@ -61,6 +61,12 @@ const PERSON_LIKE = /^[\p{L}'-]+(?:[ .][\p{L}'-]+){1,4}$/u
  */
 const MEMO =
   /("(?:detalii|details|mesaj|message|explicatii)[ \t]*:[ \t]*)([^"\r\n]*)(?=")|(\b(?:detalii|details|mesaj|message|explicatii)[ \t]*:[ \t]*)([^,;"\t\r\n]*)/gi
+/**
+ * A long memo wraps onto following lines without a "Key:" label (ING). Each such line after a scrubbed memo is
+ * blanked; the ING parser skips detail lines with an empty text cell.
+ */
+const MEMO_WRAP =
+  /((?:detalii|details|mesaj|message|explicatii)[ \t]*:[ \t]*NOTE_\d+[^\r\n]*\r?\n(?:,{3,}\r?\n)*,,,)(?:"[^"\r\n]*"|[^,;:"\r\n]+(?=[,;\r\n]|$))/gi
 /** Memos the bank writes itself, kept: ING's "Suma tranzactiei: 5.95 RON"; and an earlier run's NOTE_n. */
 const SYSTEM_MEMO = /^(?:suma tranzactiei: [0-9.,]+ [A-Z]{3}|NOTE_\d+)$/i
 const TRANSFERISH = /transfer|catre|către|de la|beneficiar|ordonator|platitor|plătitor|p2p|revolut|incasare|încasare/i
@@ -276,6 +282,10 @@ class Anonymizer {
       if (!this.noteOf.has(k)) this.noteOf.set(k, `NOTE_${this.noteOf.size + 1}`)
       return prefix + this.noteOf.get(k)!
     })
+    for (let before: string | null = null; s !== before; ) {
+      before = s
+      s = await this.replace(s, MEMO_WRAP, 'memo', (m) => m[1]!)
+    }
     s = await this.replace(s, IBAN, 'IBAN', (m) => (ibanValid(m[1]!) ? this.fakeIban(m[1]!) : null))
     s = await this.replace(s, PAN, 'card number', async (m) => {
       const digits = m[1]!.replace(/[ -]/g, '')

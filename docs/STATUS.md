@@ -4,10 +4,50 @@ _Resume entrypoint. Updated at every checkpoint._
 
 | | |
 | --- | --- |
-| Milestone | **M5 — Multi-account and tracking: complete** (PR to `main` open) |
-| Last completed | **CP5.4** — accounts filter on home |
-| Next | The plan's milestones are done (M0–M5). Candidates: re-anonymized ING sample + real golden test and M2 coverage; bi-weekly/quarterly; CSV/CAMT parsers for a second bank; "Standing transfers" group |
-| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M5 work) |
+| Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
+| Last completed | **CP6.1** — real ING sample: anonymizer memo fix, golden test, categorization for real data |
+| Next | Candidates: bi-weekly/quarterly cadences; a second bank's format; "Standing transfers" group; insurance category (spec question 27) |
+| Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.1 — done
+
+363 backend tests (15 new) and 10 web tests green; typecheck green.
+
+- **Privacy first.** The user's re-anonymized ING export still had private people's first names in free-text
+  transfer notes (`Detalii:`), which the anonymizer never touched, and it had been pushed to the public repo.
+  - With the user's approval, the upload commit was replaced (force-push of the dev branch; `main` never had it).
+  - GitHub may keep the old commit reachable by its id until it is garbage-collected: ask GitHub Support to purge it.
+- **Anonymizer** (both implementations, byte-identical, shared golden files regenerated with the Java tool):
+  - Detalii / Details / Mesaj / Message / Explicatii values become `NOTE_n` (same text → same note). A quoted cell is
+    taken up to its closing quote. ING's own "Suma tranzactiei: X RON" is kept.
+  - Lines where a long note wraps (no `Key:` label) are blanked; the ING parser skips empty detail lines.
+  - `cnpValid` rejects anything but 13 digits: the Java tool crashed on 10-digit references.
+- **The sample**
+  (`samples/ING Bank Romania/…-anonymized.csv`) was re-run through the fixed tool. Audit: every payer/payee is
+  `PERSON_n` or an organisation, every note is `NOTE_n` or the bank's own text, no unlabelled detail line has content,
+  and `SamplesGuardTest` passes.
+- **ING parser:** real exports write "August" capitalised; month names are matched case-insensitively. Before this,
+  the real file failed at line 1055.
+- **`IngRealSampleTest`:** 4,026 records, debit and credit totals, period, 335 August rows. The running balance holds
+  except one July 2025 pair that cancels (+900 / −900), and the identity holds over all 21 months. No free-text note
+  survives. Expected values are from a separate script (`samples/synthetic/README.md`).
+- **Merchant keys:**
+  - Payment-processor prefixes are stripped: PAYU*, MOBILPAY*, NETOPIA*, NYX*, MPY*, EP*, PADDLE.NET*, SUMUP*.
+    "PayU*eMAG.ro" → EMAG, "MOBILPAY*AMPARCAT" → AMPARCAT.
+  - Brands spelled with a digit or two are kept (4+ letters, ≤ 2 digits: 1MINUTE, 7ELEVEN). Store numbers and codes
+    are still dropped.
+  - Merchant keys are interpretations: identity keys use their own normalizer and are unaffected.
+- **V11 seeds:** generic Romanian chains and kinds of business, e.g. MEGAIMAGE, MCD, VENDING, MEDICAL, CLINICA,
+  POLICLINICA, LABORATOR, FARM, SMYK, PRIMARK, LEROY MERLIN, DRM, EASYBOX, CINEMACITY, LOTO, AMPARCAT, CNADNR,
+  JETBRAINS, ANAF / IMPOZITE / GHISEUL, SCOALA / GRADINITA, TEMU, WOLT; REVOLUT → Transfer (top-ups of one's own
+  account). First names (PAUL, DONA) and ambiguous words (MEGA) deliberately left out.
+- **`RealDataCategorizationTest`** on the real export:
+  - Merchant spending categorized went from 40.8% to **70.3%** (floor 70); all spending from 13.3% to **21.9%**
+    (floor 20).
+  - The rest of all spending is transfers to people (`PERSON_n`), which only the user can categorize, in the review
+    inbox.
+  - No merchant key is a processor any more.
+  - Importing the file again is a no-op.
 
 ## CP5.4 — done
 
@@ -700,3 +740,6 @@ Health tests now derive the expected schema version from the migrations instead 
     when charges return, so nothing the user decided is overwritten.
 26. **Bi-weekly and quarterly** (in DESIGN's table, not in the plan's checkpoints) are not fitted yet. They fit the
     same anchor framework (two-week periods; three-month periods ±5 days) when wanted.
+27. **No insurance category.** DESIGN's seed list has none, so life and general insurance premiums (e.g.
+    Allianz-Tiriac) stay uncategorized. They are the largest uncategorized merchant amount in the real export. Add
+    "Insurance" to the seeds, or map it to an existing category?
