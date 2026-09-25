@@ -125,16 +125,22 @@ function SubscriptionCard({ card, answer, skip }: { card: ReviewCard; answer: An
     )
   const reject = () =>
     void answer(`${card.name} is not recurring`, () => api.POST('/api/subscriptions/{id}/reject', { params: { path: { id } } }))
+  const income = card.direction === 'IN'
+  // A salary in two parts is two cards: the day of month tells them apart.
+  const day =
+    card.cadence === 'MONTHLY' && card.nextExpectedDate ? ` around the ${ordinal(Number(card.nextExpectedDate.slice(8, 10)))}` : ''
 
   return (
     <Swipeable onRight={() => confirm()} onLeft={reject}>
-      <p className="text-xs font-medium tracking-wide text-muted uppercase">Subscription?</p>
+      <p className="text-xs font-medium tracking-wide text-muted uppercase">{income ? 'Recurring income?' : 'Subscription?'}</p>
       <p className="mt-1 text-ink">
         <span className="font-medium">{card.name}</span>, {card.amountKind === 'VARIABLE' ? 'about ' : ''}
-        {amount} {cadenceWord(card.cadence!)} since {formatSince(card.since!)}. Is this a subscription?
+        {amount} {cadenceWord(card.cadence!)}
+        {income ? day : ''} since {formatSince(card.since!)}.{' '}
+        {income ? 'Is this regular income, like a salary?' : 'Is this a subscription?'}
       </p>
       <p className="mt-1 text-xs text-muted">
-        {card.occurrences} charges, {formatMoney(card.affectedMinor, card.currency)} so far
+        {card.occurrences} {income ? 'payments received' : 'charges'}, {formatMoney(card.affectedMinor, card.currency)} so far
         {card.nextExpectedDate ? ` · next around ${formatDay(card.nextExpectedDate)}` : ''}
       </p>
       {editing ? (
@@ -228,14 +234,17 @@ function AlertCard({ card, answer, skip }: { card: ReviewCard; answer: Answer; s
   const price = card.kind === 'PRICE_CHANGE'
   const act = (action: AlertAction, label: string) =>
     void answer(`${card.name}: ${label}`, () => api.POST('/api/review/alerts/{id}', { params: { path: { id } }, body: { action } }))
+  const income = card.direction === 'IN'
   const [accept, reject] = price
     ? ([['GOT_IT', 'Got it'], ['END', 'Mark ended']] as const)
-    : ([['STILL_ACTIVE', 'Still active'], ['CANCELLED', 'Cancelled']] as const)
+    : ([['STILL_ACTIVE', 'Still active'], ['CANCELLED', income ? 'Stopped' : 'Cancelled']] as const)
   // DESIGN: "usually charges around the 5th" for monthly payments; the due date itself for the other cadences.
   const due = !card.dueDate ? '' : card.cadence === 'MONTHLY' ? `the ${ordinal(Number(card.dueDate.slice(8, 10)))}` : formatDay(card.dueDate)
   return (
     <Swipeable onRight={() => act(accept[0], accept[1].toLowerCase())} onLeft={() => act(reject[0], reject[1].toLowerCase())}>
-      <p className="text-xs font-medium tracking-wide text-muted uppercase">{price ? 'Price change' : 'Missed charge'}</p>
+      <p className="text-xs font-medium tracking-wide text-muted uppercase">
+        {price ? (income ? 'Income changed' : 'Price change') : income ? 'Missed income' : 'Missed charge'}
+      </p>
       <p className="mt-1 text-ink">
         {price ? (
           <>
@@ -244,13 +253,15 @@ function AlertCard({ card, answer, skip }: { card: ReviewCard; answer: Answer; s
           </>
         ) : (
           <>
-            <span className="font-medium">{card.name}</span> usually charges around {due} ({cadenceWord(card.cadence!)}).
-            Nothing has arrived since {formatDay(card.dueDate!)}. Cancelled?
+            <span className="font-medium">{card.name}</span> usually {income ? 'pays you' : 'charges'} around {due} ({cadenceWord(card.cadence!)}).
+            Nothing has arrived since {formatDay(card.dueDate!)}. {income ? 'Has it stopped?' : 'Cancelled?'}
           </>
         )}
       </p>
       <p className="mt-1 text-xs text-muted">
-        {price ? 'Got it keeps it with the new price.' : 'Still active skips this one; Cancelled ends it.'}
+        {price
+          ? `Got it keeps it with the new ${income ? 'amount' : 'price'}.`
+          : `Still active skips this one; ${income ? 'Stopped' : 'Cancelled'} ends it.`}
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button type="button" className={primary} onClick={() => act(accept[0], accept[1].toLowerCase())}>

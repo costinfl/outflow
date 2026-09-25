@@ -1,5 +1,6 @@
 package dev.costinfl.outflow.review;
 
+import dev.costinfl.outflow.category.CategoryRule.Direction;
 import dev.costinfl.outflow.recurring.Cadence;
 import dev.costinfl.outflow.recurring.Candidate.AmountKind;
 import dev.costinfl.outflow.recurring.RecurrenceDetector;
@@ -39,7 +40,7 @@ public class ReviewService {
         jdbc.query("""
                 SELECT s.id, s.merchant_id, s.name, s.currency, s.cadence, s.expected_amount_minor, s.amount_kind,
                        s.first_seen, s.confidence, s.next_expected_date,
-                       count(t.id), coalesce(sum(-t.amount_minor), 0)
+                       count(t.id), coalesce(sum(abs(t.amount_minor)), 0), s.direction
                 FROM subscription s LEFT JOIN transaction t ON t.subscription_id = s.id
                 WHERE s.state = 'PROPOSED'
                 GROUP BY s.id""", rs -> {
@@ -48,7 +49,7 @@ public class ReviewService {
                     rs.getString(4), rs.getLong(2), rs.getString(3), rs.getLong(1), Cadence.valueOf(rs.getString(5)),
                     rs.getLong(6), AmountKind.valueOf(rs.getString(7)), rs.getObject(8, LocalDate.class),
                     rs.getInt(11), confidence, rs.getObject(10, LocalDate.class), null, null, null, null, null, null,
-                    null, null, null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, null, null, Direction.valueOf(rs.getString(13)));
             if (!skipped.contains(card.key())) {
                 (confidence.compareTo(PROPOSE) >= 0 ? cards : possible).add(card);
             }
@@ -65,7 +66,7 @@ public class ReviewService {
                     rs.getLong(5), rs.getString(3), rs.getLong(1), rs.getString(2),
                     null, null, null, null, null, null, null, null, rs.getInt(4), null, null, null, null, null,
                     null, null, null, null, rs.getInt(6), rs.getLong(7), rs.getInt(8), rs.getLong(9),
-                    rs.getObject(10, LocalDate.class));
+                    rs.getObject(10, LocalDate.class), null);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }
@@ -83,7 +84,7 @@ public class ReviewService {
             var card = new ReviewCard("duplicate:" + rs.getLong(1), Kind.POSSIBLE_DUPLICATE, Math.abs(rs.getLong(6)),
                     rs.getString(4), rs.getLong(2), rs.getString(3), null, null, null, null, null, null, null, null, null,
                     rs.getLong(1), rs.getObject(5, LocalDate.class), rs.getLong(6), rs.getObject(7, LocalDate.class),
-                    rs.getLong(8), null, null, null, null, null, null, null, null, null);
+                    rs.getLong(8), null, null, null, null, null, null, null, null, null, null);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }
@@ -92,7 +93,8 @@ public class ReviewService {
         // "Gym usually charges around the 5th: nothing this month"). Money affected: the monthly equivalent.
         jdbc.query("""
                 SELECT a.id, a.kind, a.previous_amount_minor, a.amount_minor, a.due_date,
-                       s.id, s.merchant_id, s.name, s.currency, s.cadence, s.expected_amount_minor, s.amount_kind
+                       s.id, s.merchant_id, s.name, s.currency, s.cadence, s.expected_amount_minor, s.amount_kind,
+                       s.direction
                 FROM subscription_alert a JOIN subscription s ON s.id = a.subscription_id
                 WHERE a.resolution IS NULL AND s.state = 'CONFIRMED'""", rs -> {
             boolean price = rs.getString(2).equals("PRICE_CHANGE");
@@ -101,7 +103,7 @@ public class ReviewService {
                     cadence.monthlyMinor(rs.getLong(price ? 4 : 11)), rs.getString(9), rs.getLong(7), rs.getString(8),
                     rs.getLong(6), cadence, rs.getLong(11), AmountKind.valueOf(rs.getString(12)), null, null, null, null,
                     null, null, null, null, null, null, rs.getLong(1), (Long) rs.getObject(3), rs.getLong(4),
-                    rs.getObject(5, LocalDate.class), null, null, null, null, null);
+                    rs.getObject(5, LocalDate.class), null, null, null, null, null, Direction.valueOf(rs.getString(13)));
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }

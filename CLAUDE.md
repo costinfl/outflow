@@ -62,7 +62,7 @@ IBAN HMAC key: `OUTFLOW_IBAN_HMAC_KEY` (base64, ≥ 32 bytes) or generated once 
 Pipeline per upload (one DB transaction): parse → import → `UploadService.derive()`: `MerchantService.assignMissing` →
 `SoftMatchService.matchAll` (pending rows superseded by their posted version) → `CategoryService.categorizeAll` →
 `TransferService.pairAll` (recomputes own-account transfer pairs) → `SubscriptionService.refreshNow` (also after
-category or alias changes). Superseded pending rows count nowhere (`Scope.PERIOD` excludes them). Transactions with `category_source = 'USER'` are never recomputed.
+category or alias changes; detects payments and, from INCOME-category money in, recurring income: `direction` OUT/IN). Superseded pending rows count nowhere (`Scope.PERIOD` excludes them). Transactions with `category_source = 'USER'` are never recomputed.
 Home-screen numbers: every figure is a sum over a `txn.Scope` predicate; the transaction list uses the same
 predicates, so figures always equal their drill-through. Never compute a figure outside `Scope`. Currency and the
 accounts filter are one `txn.Slice` (`Scope.SLICE`); endpoints take `accounts` ids, the web keeps `?accounts=` in the URL.

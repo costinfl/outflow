@@ -1,5 +1,6 @@
 package dev.costinfl.outflow.recurring;
 
+import dev.costinfl.outflow.category.CategoryRule.Direction;
 import dev.costinfl.outflow.recurring.RecurringOverview.Coverage;
 import dev.costinfl.outflow.recurring.RecurringOverview.Group;
 import dev.costinfl.outflow.recurring.RecurringOverview.GroupKind;
@@ -21,7 +22,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
- * The Recurring payments screen and the home "Committed every month" figure. Only CONFIRMED subscriptions (and, for a
+ * The Recurring payments screen (with recurring income as its own group) and the home "Committed every month" figure. Only CONFIRMED subscriptions (and, for a
  * past month, ones ENDED after it) count: a proposal is a question, not a commitment.
  */
 @Service
@@ -80,12 +81,13 @@ public class RecurringService {
                     s.cadence().monthlyMinor(s.expectedAmountMinor()), s.cadence().yearlyMinor(s.expectedAmountMinor()),
                     s.nextExpectedDate(), status(s, open.get(s.id())), counted, cat.id(),
                     cat.name());
-            byGroup.computeIfAbsent(cat.code() != null && BILLS.contains(cat.code()) ? GroupKind.BILLS : GroupKind.SUBSCRIPTIONS,
-                    k -> new ArrayList<>()).add(item);
+            GroupKind kind = s.direction() == Direction.IN ? GroupKind.INCOME
+                    : cat.code() != null && BILLS.contains(cat.code()) ? GroupKind.BILLS : GroupKind.SUBSCRIPTIONS;
+            byGroup.computeIfAbsent(kind, k -> new ArrayList<>()).add(item);
         }
 
         var groups = new ArrayList<Group>();
-        long monthly = 0, yearly = 0;
+        long monthly = 0, yearly = 0, income = 0;
         int counted = 0;
         for (GroupKind kind : GroupKind.values()) {
             List<Item> items = byGroup.get(kind);
@@ -99,11 +101,17 @@ public class RecurringService {
             for (Item i : items) {
                 if (i.counted()) {
                     groupMonthly += i.monthlyMinor();
-                    yearly += i.yearlyMinor();
-                    counted++;
+                    if (kind != GroupKind.INCOME) {
+                        yearly += i.yearlyMinor();
+                        counted++;
+                    }
                 }
             }
-            monthly += groupMonthly;
+            if (kind == GroupKind.INCOME) {
+                income = groupMonthly;
+            } else {
+                monthly += groupMonthly;
+            }
             groups.add(new Group(kind, groupMonthly, items));
         }
         var propose = BigDecimal.valueOf(RecurrenceDetector.PROPOSE);
@@ -112,7 +120,7 @@ public class RecurringService {
                         && s.currency().equals(currency) && slice.includes(s.accountId()))
                 .count();
         return new RecurringOverview(currency, month.map(YearMonth::toString).orElse(null), monthly, yearly, counted,
-                groups, coverage().stream().filter(c -> slice.includes(c.accountId())).toList(), suggestions);
+                groups, coverage().stream().filter(c -> slice.includes(c.accountId())).toList(), suggestions, income);
     }
 
     private static Status status(Subscription s, AlertService.Kind openAlert) {

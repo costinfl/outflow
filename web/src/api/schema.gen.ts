@@ -550,7 +550,7 @@ export interface components {
             /** @description Highest monthly equivalent first */
             items: components["schemas"]["Item"][];
             /** @enum {string} */
-            kind: "SUBSCRIPTIONS" | "BILLS";
+            kind: "SUBSCRIPTIONS" | "BILLS" | "INCOME";
             /**
              * Format: int64
              * @description Counted items only
@@ -790,6 +790,11 @@ export interface components {
             currency: string;
             /** @description Non-empty groups, subscriptions first */
             groups: components["schemas"]["Group"][];
+            /**
+             * Format: int64
+             * @description Recurring income per month: the INCOME group's counted items (a salary in two parts is two)
+             */
+            incomeMonthlyMinor: number;
             /** @description The month viewed (YYYY-MM); absent = as of today */
             month?: string;
             /**
@@ -837,6 +842,11 @@ export interface components {
             /** @description Detector confidence, 0–1 */
             confidence?: number;
             currency: string;
+            /**
+             * @description Subscription and alert cards: OUT for a recurring payment, IN for recurring income
+             * @enum {string}
+             */
+            direction?: "IN" | "OUT";
             /**
              * Format: date
              * @description Missed charge: when it was due
@@ -966,6 +976,11 @@ export interface components {
             /** @description Detector confidence, 0–1 */
             confidence: number;
             currency: string;
+            /**
+             * @description OUT: a recurring payment; IN: recurring income
+             * @enum {string}
+             */
+            direction: "IN" | "OUT";
             /** @enum {string} */
             endedBy?: "USER" | "SYSTEM";
             /** Format: int64 */

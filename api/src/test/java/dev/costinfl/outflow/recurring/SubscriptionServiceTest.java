@@ -96,8 +96,12 @@ class SubscriptionServiceTest {
     void uploadProposesDetectedSubscriptionsAndLinksTheirCharges() {
         var all = subscriptions.list();
 
-        assertThat(all).extracting(this::key).containsExactlyInAnyOrder("NETFLIX", "ENEL", "ORANGE", "WORLD CLASS", "EMAG");
+        assertThat(all).extracting(this::key).containsExactlyInAnyOrder("NETFLIX", "ENEL", "ORANGE", "WORLD CLASS", "EMAG",
+                "SALARIU ACME SRL");
         assertThat(all).allSatisfy(s -> assertThat(s.state()).isEqualTo(State.PROPOSED));
+        assertThat(all).filteredOn(s -> s.direction() == dev.costinfl.outflow.category.CategoryRule.Direction.IN)
+                .extracting(this::key).containsExactly("SALARIU ACME SRL"); // CP6.5: recurring income
+        assertThat(linked(live("SALARIU ACME SRL").id())).isEqualTo(4);
         var netflix = live("NETFLIX");
         assertThat(netflix.name()).isEqualTo(jdbc.queryForObject(
                 "SELECT display_name FROM merchant WHERE key = 'NETFLIX'", String.class));

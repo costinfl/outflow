@@ -1,11 +1,12 @@
 package dev.costinfl.outflow.recurring;
 
+import dev.costinfl.outflow.category.CategoryRule.Direction;
 import dev.costinfl.outflow.recurring.Candidate.AmountKind;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/** A {@code subscription} row: a detector proposal or a user-confirmed recurring payment. */
+/** A {@code subscription} row: a detector proposal or a user-confirmed recurring payment (or recurring income). */
 public record Subscription(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long id,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long accountId,
@@ -26,7 +27,9 @@ public record Subscription(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) LocalDate lastSeen,
         LocalDate nextExpectedDate,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) State state,
-        EndedBy endedBy) {
+        EndedBy endedBy,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "OUT: a recurring payment; IN: recurring income")
+        Direction direction) {
 
     /** DESIGN: Subscription candidate lifecycle. */
     public enum State { PROPOSED, CONFIRMED, REJECTED, ENDED }

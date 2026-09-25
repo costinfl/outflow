@@ -1,5 +1,6 @@
 package dev.costinfl.outflow.recurring;
 
+import dev.costinfl.outflow.category.CategoryRule.Direction;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -11,6 +12,7 @@ import java.util.List;
  *                    weekly: ISO weekday, 1 = Monday; daily: null
  * @param anchorMonth month of year for yearly cadences, else null
  * @param toleranceMinor how far a charge may be from {@code expectedAmountMinor} and still match (2 × MAD)
+ * @param direction      OUT: a recurring payment; IN: recurring income
  */
 public record Candidate(
         long accountId,
@@ -28,7 +30,8 @@ public record Candidate(
         LocalDate lastDate,
         LocalDate nextExpectedDate,
         Score score,
-        List<Long> transactionIds) {
+        List<Long> transactionIds,
+        Direction direction) {
 
     public enum AmountKind { FIXED, VARIABLE }
 

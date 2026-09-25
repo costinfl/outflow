@@ -10,7 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Prediction and alerts for confirmed subscriptions (DESIGN: Recurrence detection, step 5):
+ * Prediction and alerts for confirmed subscriptions and recurring income (DESIGN: Recurrence detection, step 5); for
+ * income, a "charge" is a payment received:
  * <ul>
  *   <li>new charges near the next due date link automatically, even when the price moved out of the detector's band;</li>
  *   <li>a charge outside expected ± tolerance → PRICE_CHANGE question;</li>
@@ -37,7 +38,12 @@ public class AlertService {
 
     record Sub(long id, long accountId, long merchantId, String currency, Cadence cadence, Integer anchorDay,
             Integer anchorMonth, long expected, long tolerance, LocalDate lastSeen, LocalDate next,
-            LocalDate confirmedThrough, String state) {
+            LocalDate confirmedThrough, String state, String direction) {
+
+        /** +1 for income (money in), -1 for payments: {@code sign × amount_minor} is the positive amount. */
+        int sign() {
+            return direction.equals("IN") ? 1 : -1;
+        }
 
         Anchor anchor() {
             return new Anchor(cadence, anchorMonth == null ? 0 : anchorMonth, anchorDay == null ? 0 : anchorDay);
@@ -54,12 +60,12 @@ public class AlertService {
     public int check(LocalDate today) {
         List<Sub> subs = jdbc.query("""
                 SELECT id, account_id, merchant_id, currency, cadence, anchor_day, anchor_month, expected_amount_minor,
-                       tolerance_minor, last_seen, next_expected_date, confirmed_through, state
+                       tolerance_minor, last_seen, next_expected_date, confirmed_through, state, direction
                 FROM subscription WHERE state = 'CONFIRMED' OR (state = 'ENDED' AND ended_by = 'SYSTEM')""",
                 (rs, i) -> new Sub(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getString(4),
                         Cadence.valueOf(rs.getString(5)), rs.getObject(6, Integer.class), rs.getObject(7, Integer.class),
                         rs.getLong(8), rs.getLong(9), rs.getObject(10, LocalDate.class), rs.getObject(11, LocalDate.class),
-                        rs.getObject(12, LocalDate.class), rs.getString(13)));
+                        rs.getObject(12, LocalDate.class), rs.getString(13), rs.getString(14)));
         int linked = 0;
         for (Sub s : subs) {
             int n = linkNewCharges(s);
@@ -85,10 +91,10 @@ public class AlertService {
     int linkNewCharges(Sub s) {
         var anchor = s.anchor();
         List<Map<String, Object>> charges = jdbc.queryForList("""
-                SELECT id, booking_date, -amount_minor AS amount FROM transaction
-                WHERE account_id = ? AND merchant_id = ? AND currency = ? AND amount_minor < 0 AND booking_date > ?
+                SELECT id, booking_date, ? * amount_minor AS amount FROM transaction
+                WHERE account_id = ? AND merchant_id = ? AND currency = ? AND ? * amount_minor > 0 AND booking_date > ?
                   AND subscription_id IS NULL AND transfer_state IS NULL AND superseded_by IS NULL
-                ORDER BY booking_date, id""", s.accountId(), s.merchantId(), s.currency(), s.lastSeen());
+                ORDER BY booking_date, id""", s.sign(), s.accountId(), s.merchantId(), s.currency(), s.sign(), s.lastSeen());
         long lastPeriod = anchor.nearestPeriod(s.lastSeen());
         LocalDate lastSeen = s.lastSeen();
         int linked = 0;
@@ -119,9 +125,9 @@ public class AlertService {
     /** The latest charge since confirmation outside expected ± tolerance: one open question at a time. */
     void checkPrice(Sub s) {
         var latest = jdbc.queryForList("""
-                SELECT id, -amount_minor AS amount FROM transaction
+                SELECT id, ? * amount_minor AS amount FROM transaction
                 WHERE subscription_id = ? AND booking_date > coalesce(?, '-infinity'::date)
-                ORDER BY booking_date DESC, id DESC LIMIT 1""", s.id(), s.confirmedThrough());
+                ORDER BY booking_date DESC, id DESC LIMIT 1""", s.sign(), s.id(), s.confirmedThrough());
         if (latest.isEmpty()) {
             return;
         }
@@ -234,11 +240,11 @@ public class AlertService {
     private Sub reload(long id) {
         return jdbc.queryForObject("""
                 SELECT id, account_id, merchant_id, currency, cadence, anchor_day, anchor_month, expected_amount_minor,
-                       tolerance_minor, last_seen, next_expected_date, confirmed_through, state
+                       tolerance_minor, last_seen, next_expected_date, confirmed_through, state, direction
                 FROM subscription WHERE id = ?""",
                 (rs, i) -> new Sub(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getString(4),
                         Cadence.valueOf(rs.getString(5)), rs.getObject(6, Integer.class), rs.getObject(7, Integer.class),
                         rs.getLong(8), rs.getLong(9), rs.getObject(10, LocalDate.class), rs.getObject(11, LocalDate.class),
-                        rs.getObject(12, LocalDate.class), rs.getString(13)), id);
+                        rs.getObject(12, LocalDate.class), rs.getString(13), rs.getString(14)), id);
     }
 }

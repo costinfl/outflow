@@ -105,7 +105,8 @@ class RecurringControllerTest {
         assertThat(o.monthlyMinor()).isEqualTo(4999 + 22010 + 458);
         assertThat(o.yearlyMinor()).isEqualTo(59_988 + 264_120 + 5500);
         assertThat(o.countedCount()).isEqualTo(3);
-        assertThat(o.suggestionCount()).isEqualTo(2); // World Class, eMAG
+        assertThat(o.suggestionCount()).isEqualTo(3); // World Class, eMAG, and the salary as recurring income (CP6.5)
+        assertThat(o.incomeMonthlyMinor()).isZero(); // proposed, not confirmed
         assertThat(o.groups()).extracting(RecurringOverview.Group::kind).containsExactly(GroupKind.SUBSCRIPTIONS, GroupKind.BILLS);
 
         var subs = o.groups().get(0);

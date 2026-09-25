@@ -95,6 +95,28 @@ class RealDataPeopleTest {
         assertThat(review.inbox().cards()).noneMatch(c -> c.name().matches("Person_[347]"));
     }
 
+    /**
+     * CP6.5: the user's salary (confirmed by the user: Luxoft, paid in two parts, around the 25th of the month before and
+     * the 10th). Once its money received is Income, it is two monthly income streams.
+     */
+    @Test
+    void theSalaryIsRecurringIncomeInTwoParts() {
+        var luxoft = person("Luxoft Professional Romania Srl");
+        categories.setMerchantCategory(luxoft.merchantId(), categories.categoryId("INCOME"), Direction.IN);
+        subscriptions.refresh(java.time.LocalDate.of(2026, 9, 24)); // the export's last day
+
+        var income = jdbc.queryForList("""
+                SELECT anchor_day FROM subscription WHERE merchant_id = ? AND direction = 'IN' AND cadence = 'MONTHLY'
+                ORDER BY anchor_day""", Integer.class, luxoft.merchantId());
+        assertThat(income).containsExactly(10, 25);
+        // 41 of the 42 payments belong to a part: all but a one-off 560.
+        long linked = jdbc.queryForObject("""
+                SELECT count(*) FROM transaction t JOIN subscription s ON s.id = t.subscription_id
+                WHERE s.merchant_id = ? AND s.direction = 'IN'""", Long.class, luxoft.merchantId());
+        System.out.printf("Real ING export: Luxoft salary, %d of 42 payments in the two monthly parts%n", linked);
+        assertThat(linked).isEqualTo(41);
+    }
+
     @Test
     void aSpendingAnswerForMoneySentNeverTurnsMoneyReceivedIntoRefunds() {
         long spentBefore = spent();
