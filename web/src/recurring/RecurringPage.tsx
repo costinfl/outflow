@@ -124,6 +124,14 @@ export function RecurringPage() {
   )
 }
 
+/** DESIGN's status chips. Price changed and Missed come with a question in Review. */
+const CHIP: Record<Item['status'], { label: string; className: string }> = {
+  ACTIVE: { label: 'Active', className: 'bg-bar-track text-ink' },
+  PRICE_CHANGED: { label: 'Price changed', className: 'bg-banner text-banner-ink' },
+  MISSED: { label: 'Missed', className: 'bg-banner text-banner-ink' },
+  ENDED: { label: 'Ended', className: 'bg-page text-muted ring-1 ring-hairline' },
+}
+
 function Total({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-surface px-3 py-4 shadow-sm ring-1 ring-hairline">
@@ -168,8 +176,8 @@ function Row({
         <span className="min-w-0">
           <span className="flex items-center gap-2">
             <span className="truncate text-sm font-medium text-ink">{item.name}</span>
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${item.status === 'ENDED' ? 'bg-page text-muted ring-1 ring-hairline' : 'bg-bar-track text-ink'}`}>
-              {item.status === 'ENDED' ? 'Ended' : 'Active'}
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${CHIP[item.status].className}`}>
+              {CHIP[item.status].label}
             </span>
           </span>
           <span className="block text-xs text-muted">
@@ -184,6 +192,11 @@ function Row({
       </button>
       {open && (
         <div className="space-y-2 pb-3 text-sm">
+          {(item.status === 'PRICE_CHANGED' || item.status === 'MISSED') && (
+            <Link to="/review" className="block text-xs text-bar underline">
+              {item.status === 'PRICE_CHANGED' ? 'The price changed' : 'A charge is missing'}: answer in Review
+            </Link>
+          )}
           <form
             className="flex items-end gap-2"
             onSubmit={(e) => {

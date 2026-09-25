@@ -32,11 +32,13 @@ public class SubscriptionService {
     private final JdbcTemplate jdbc;
     private final RecurrenceService recurrence;
     private final Clock clock;
+    private final AlertService alerts;
 
-    public SubscriptionService(JdbcTemplate jdbc, RecurrenceService recurrence, Clock clock) {
+    public SubscriptionService(JdbcTemplate jdbc, RecurrenceService recurrence, Clock clock, AlertService alerts) {
         this.jdbc = jdbc;
         this.recurrence = recurrence;
         this.clock = clock;
+        this.alerts = alerts;
     }
 
     /** {@link #refresh(LocalDate)} as of today: after an upload, a category change or a merchant alias. */
@@ -61,6 +63,8 @@ public class SubscriptionService {
     public RefreshResult refresh(LocalDate today) {
         // A pending charge replaced by its posted version is no longer one of a subscription's charges.
         jdbc.update("UPDATE transaction SET subscription_id = NULL WHERE superseded_by IS NOT NULL AND subscription_id IS NOT NULL");
+        // Confirmed subscriptions claim their new charges first, so a price change is not proposed as a new stream.
+        int claimed = alerts.check(today);
         List<Subscription> live = new ArrayList<>(jdbc.query(
                 SELECT + " WHERE state <> 'REJECTED' ORDER BY id", this::row));
         var seen = new HashSet<Long>();
@@ -69,7 +73,7 @@ public class SubscriptionService {
             Optional<Subscription> match = live.stream()
                     .filter(s -> !seen.contains(s.id()) && sameStream(s, c)).findFirst();
             if (match.isEmpty()) {
-                if (rejected(c)) {
+                if (rejected(c) || allLinkedElsewhere(c)) {
                     continue;
                 }
                 long id = insert(c);
@@ -113,19 +117,40 @@ public class SubscriptionService {
                 dropped++;
             }
         }
+        linked += claimed + alerts.check(today);
         return new RefreshResult(proposed, updated, dropped, linked);
     }
 
-    /** PROPOSED or ENDED → CONFIRMED, with the user's edits. */
+    /**
+     * PROPOSED or ENDED → CONFIRMED, with the user's edits. A changed cadence gets its anchor from the latest charge
+     * (e.g. monthly on the 15th → weekly on that charge's weekday). Price checks start after the charges seen now.
+     */
     @Transactional
     public Subscription confirm(long id, Edits edits) {
         Subscription s = require(id, State.PROPOSED, State.ENDED);
+        Cadence cadence = edits.cadence() != null ? edits.cadence() : s.cadence();
+        Integer anchorDay = s.anchorDay(), anchorMonth = s.anchorMonth();
+        LocalDate next = s.nextExpectedDate();
+        if (cadence != s.cadence()) {
+            LocalDate last = s.lastSeen();
+            anchorDay = switch (cadence) {
+                case DAILY -> null;
+                case WEEKLY -> last.getDayOfWeek().getValue();
+                case MONTHLY, YEARLY -> last.getDayOfMonth();
+            };
+            anchorMonth = cadence == Cadence.YEARLY ? last.getMonthValue() : null;
+            next = new RecurrenceDetector.Anchor(cadence, anchorMonth == null ? 0 : anchorMonth,
+                    anchorDay == null ? 0 : anchorDay).nextDue(last);
+        } else if (next == null) {
+            next = RecurrenceDetector.Anchor.of(s).nextDue(s.lastSeen());
+        }
         jdbc.update("""
-                UPDATE subscription SET state = 'CONFIRMED', ended_by = NULL, name = ?, cadence = ?,
-                    expected_amount_minor = ?, decided_at = now(), updated_at = now()
+                UPDATE subscription SET state = 'CONFIRMED', ended_by = NULL, name = ?, cadence = ?, anchor_day = ?,
+                    anchor_month = ?, next_expected_date = ?, expected_amount_minor = ?, confirmed_through = last_seen,
+                    decided_at = now(), updated_at = now()
                 WHERE id = ?""",
                 edits.name() != null && !edits.name().isBlank() ? edits.name().strip() : s.name(),
-                (edits.cadence() != null ? edits.cadence() : s.cadence()).name(),
+                cadence.name(), anchorDay, anchorMonth, next,
                 edits.expectedAmountMinor() != null ? edits.expectedAmountMinor() : s.expectedAmountMinor(),
                 id);
         return find(id).orElseThrow();
@@ -152,6 +177,9 @@ public class SubscriptionService {
                 UPDATE subscription SET state = 'ENDED', ended_by = 'USER', next_expected_date = NULL,
                     decided_at = now(), updated_at = now()
                 WHERE id = ?""", id);
+        jdbc.update("""
+                UPDATE subscription_alert SET resolution = 'ENDED', resolved_at = now()
+                WHERE subscription_id = ? AND resolution IS NULL""", id);
         return find(id).orElseThrow();
     }
 
@@ -195,6 +223,12 @@ public class SubscriptionService {
     static boolean sameStream(Subscription s, Candidate c) {
         return s.accountId() == c.accountId() && s.merchantId() == c.merchantId() && s.currency().equals(c.currency())
                 && c.bandMinMinor() * 4 <= s.bandMaxMinor() * 5 && s.bandMinMinor() * 4 <= c.bandMaxMinor() * 5;
+    }
+
+    /** Every charge of the candidate already belongs to a subscription (e.g. a confirmed one after a price change). */
+    private boolean allLinkedElsewhere(Candidate c) {
+        return jdbc.queryForObject("SELECT count(*) FROM transaction WHERE id = ANY (?) AND subscription_id IS NULL",
+                Long.class, (Object) ids(c.transactionIds())) == 0;
     }
 
     /** A rejection covers the candidate unless its cadence differs or its amount moved more than 50%. */

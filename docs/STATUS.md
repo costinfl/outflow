@@ -5,9 +5,58 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | **M5 — Multi-account and tracking** (M4 merged to `main` in PR #5) |
-| Last completed | **CP5.2** — pending/posted soft match + "Possible duplicate" review card |
-| Next | **CP5.3** — weekly and daily cadences; price-change and missed-charge cards |
+| Last completed | **CP5.3** — weekly and daily cadences; price-change and missed-charge cards |
+| Next | **CP5.4** — accounts filter on home (then M5 CHANGELOG + PR) |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + M5 work) |
+
+## CP5.3 — done
+
+342 backend tests (15 new) and 10 web tests green; typecheck, the build and the demo build green; the spec is refreshed
+and `gen:api` is current.
+
+- **Cadences:**
+  - `WEEKLY`: anchored to the most frequent weekday, ±1 day, at least 4 charges.
+  - `DAILY`: every day, where a Friday → Monday gap over a weekend without charges counts as regular; at least 10
+    charges.
+  - Periods are weeks or days since 1970, in the same anchor framework as monthly and yearly.
+  - `Candidate.anchorDay` is the ISO weekday for weekly and null for daily.
+  - Equivalents: weekly × 4.33 / × 52, daily × 30.42 / × 365, integer, rounded half up.
+  - The Edit form offers all four cadences. Confirming with another cadence takes the new anchor and next date from
+    the latest charge.
+- **`recurring.AlertService.check(today)`** runs for confirmed and system-ended subscriptions at the start and end of
+  every refresh (V10: `subscription_alert`, `subscription.confirmed_through`):
+  - **Future charges link automatically:** same account and merchant, after the last one seen, within ± tolerance + 3
+    days of a due date, and within 50% of the expected amount. This works even beyond the detector's 25% band; a
+    candidate whose charges all belong to another subscription is not proposed.
+  - **Price change:** the latest charge since confirmation (or since the last "Got it") outside expected ± tolerance.
+    One open question at a time. "Got it" makes it the expected amount; "Mark ended" ends it (USER).
+  - **Missed:** nothing by next expected + tolerance + 3 days. "Still active" skips that period; "Cancelled" ends it
+    (USER). A late charge closes it as CHARGED.
+  - **Two missed in a row:** ENDED by the system, open alerts closed. It resumes (CONFIRMED) when charges return.
+- **Review:** `PRICE_CHANGE` / `MISSED_CHARGE` cards ("Netflix went from RON 49.99 to RON 59.99",
+  "World Class usually charges around the 3rd (monthly). Nothing has arrived since Sep 3. Cancelled?"). Money affected
+  is the monthly equivalent. `POST /api/review/alerts/{id} {action}`: GOT_IT or END for a price change, STILL_ACTIVE or
+  CANCELLED for a missed charge; 400 wrong action, 404, 409 closed.
+- **Recurring screen:** chips Active / Price changed / Missed / Ended; an expanded row with an open question links to
+  Review. Ending a subscription closes its open alerts.
+- **Tests:**
+  - `RecurrenceDetectorTest` (+4): weekly with a late day, weekly minimum count, daily over weekends, a missed weekday.
+  - `CadenceTest` (+1): weekly and daily equivalents.
+  - `SubscriptionAlertsTest` (10):
+    - the next charge links and moves the prediction on
+    - a price change: Got it, and a second answer gets 409
+    - a 40% rise stays the same subscription
+    - Mark ended
+    - missed on the deadline boundary, then Still active
+    - a late charge answers it; two missed → SYSTEM ended, then resumed
+    - Cancelled stays ended
+    - answer validation
+    - a cadence change re-anchors
+- **Verified in Chromium against the real API** (with the real date):
+  - Netflix confirmed, then a statement with 59.99 charges gave "Price changed".
+  - World Class stopped after August and showed "Missed".
+  - Got it and Still active moved Netflix to 59.99 (total 309.99) and the gym's next charge to Oct 3.
+  - Light and dark, no overflow, no console errors.
 
 ## CP5.2 — done
 
@@ -608,3 +657,8 @@ Health tests now derive the expected schema version from the migrations instead 
     booked rows, as far as the purged sample showed). The mechanism is in place for when one does.
 24. **A duplicate card is about two transactions,** not one merchant (DESIGN: "one card = one merchant"). A pending row
     with two posted candidates gets two cards, one per pair; answering one settles the other.
+25. **Two missed charges end a subscription automatically** (DESIGN: "Two missed in a row → propose state ENDED";
+    the lifecycle diagram: "user or 2 missed"). It is ENDED by the SYSTEM rather than proposed: it resumes by itself
+    when charges return, so nothing the user decided is overwritten.
+26. **Bi-weekly and quarterly** (in DESIGN's table, not in the plan's checkpoints) are not fitted yet. They fit the
+    same anchor framework (two-week periods; three-month periods ±5 days) when wanted.

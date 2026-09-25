@@ -67,6 +67,17 @@
         "required" : [ "account", "alreadyImported", "created", "newTransactions" ],
         "type" : "object"
       },
+      "AlertAnswer" : {
+        "properties" : {
+          "action" : {
+            "description" : "Price change: GOT_IT or END. Missed charge: STILL_ACTIVE or CANCELLED",
+            "enum" : [ "GOT_IT", "END", "STILL_ACTIVE", "CANCELLED" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "action" ],
+        "type" : "object"
+      },
       "AliasResult" : {
         "properties" : {
           "movedTransactions" : {
@@ -224,7 +235,7 @@
         "description" : "Corrections made while confirming; omitted fields keep the detected value",
         "properties" : {
           "cadence" : {
-            "enum" : [ "MONTHLY", "YEARLY" ],
+            "enum" : [ "DAILY", "WEEKLY", "MONTHLY", "YEARLY" ],
             "type" : "string"
           },
           "expectedAmountMinor" : {
@@ -462,7 +473,7 @@
             "type" : "string"
           },
           "cadence" : {
-            "enum" : [ "MONTHLY", "YEARLY" ],
+            "enum" : [ "DAILY", "WEEKLY", "MONTHLY", "YEARLY" ],
             "type" : "string"
           },
           "categoryId" : {
@@ -501,7 +512,7 @@
             "type" : "string"
           },
           "status" : {
-            "enum" : [ "ACTIVE", "ENDED" ],
+            "enum" : [ "ACTIVE", "PRICE_CHANGED", "MISSED", "ENDED" ],
             "type" : "string"
           },
           "yearlyMinor" : {
@@ -819,12 +830,17 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "alertId" : {
+            "description" : "Price change / missed charge: the alert to answer",
+            "format" : "int64",
+            "type" : "integer"
+          },
           "amountKind" : {
             "enum" : [ "FIXED", "VARIABLE" ],
             "type" : "string"
           },
           "cadence" : {
-            "enum" : [ "MONTHLY", "YEARLY" ],
+            "enum" : [ "DAILY", "WEEKLY", "MONTHLY", "YEARLY" ],
             "type" : "string"
           },
           "confidence" : {
@@ -832,6 +848,11 @@
             "type" : "number"
           },
           "currency" : {
+            "type" : "string"
+          },
+          "dueDate" : {
+            "description" : "Missed charge: when it was due",
+            "format" : "date",
             "type" : "string"
           },
           "duplicateId" : {
@@ -849,7 +870,7 @@
             "type" : "string"
           },
           "kind" : {
-            "enum" : [ "SUBSCRIPTION", "UNCATEGORIZED_MERCHANT", "POSSIBLE_DUPLICATE" ],
+            "enum" : [ "SUBSCRIPTION", "UNCATEGORIZED_MERCHANT", "POSSIBLE_DUPLICATE", "PRICE_CHANGE", "MISSED_CHARGE" ],
             "type" : "string"
           },
           "merchantId" : {
@@ -859,6 +880,11 @@
           "name" : {
             "description" : "Subscription name or merchant display name",
             "type" : "string"
+          },
+          "newAmountMinor" : {
+            "description" : "Price change: the new amount; missed: the expected one",
+            "format" : "int64",
+            "type" : "integer"
           },
           "nextExpectedDate" : {
             "format" : "date",
@@ -886,6 +912,11 @@
           "postedDate" : {
             "format" : "date",
             "type" : "string"
+          },
+          "previousAmountMinor" : {
+            "description" : "Price change: the amount before",
+            "format" : "int64",
+            "type" : "integer"
           },
           "since" : {
             "description" : "First charge of the subscription",
@@ -968,7 +999,7 @@
             "type" : "integer"
           },
           "cadence" : {
-            "enum" : [ "MONTHLY", "YEARLY" ],
+            "enum" : [ "DAILY", "WEEKLY", "MONTHLY", "YEARLY" ],
             "type" : "string"
           },
           "confidence" : {
@@ -1472,6 +1503,36 @@
               }
             },
             "description" : "OK"
+          }
+        },
+        "tags" : [ "review" ]
+      }
+    },
+    "/api/review/alerts/{id}" : {
+      "post" : {
+        "operationId" : "answerAlert",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AlertAnswer"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
           }
         },
         "tags" : [ "review" ]

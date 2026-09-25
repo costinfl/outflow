@@ -180,6 +180,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/review/alerts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["answerAlert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/review/duplicates/{id}": {
         parameters: {
             query?: never;
@@ -373,6 +389,13 @@ export interface components {
             /** Format: date */
             periodTo?: string;
         };
+        AlertAnswer: {
+            /**
+             * @description Price change: GOT_IT or END. Missed charge: STILL_ACTIVE or CANCELLED
+             * @enum {string}
+             */
+            action: "GOT_IT" | "END" | "STILL_ACTIVE" | "CANCELLED";
+        };
         AliasResult: {
             /** Format: int32 */
             movedTransactions: number;
@@ -459,7 +482,7 @@ export interface components {
         /** @description Corrections made while confirming; omitted fields keep the detected value */
         Confirm: {
             /** @enum {string} */
-            cadence?: "MONTHLY" | "YEARLY";
+            cadence?: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
             /** Format: int64 */
             expectedAmountMinor?: number;
             name?: string;
@@ -569,7 +592,7 @@ export interface components {
             /** @enum {string} */
             amountKind: "FIXED" | "VARIABLE";
             /** @enum {string} */
-            cadence: "MONTHLY" | "YEARLY";
+            cadence: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
             /**
              * Format: int64
              * @description Category of its latest charge
@@ -590,7 +613,7 @@ export interface components {
             /** Format: date */
             nextExpectedDate?: string;
             /** @enum {string} */
-            status: "ACTIVE" | "ENDED";
+            status: "ACTIVE" | "PRICE_CHANGED" | "MISSED" | "ENDED";
             /** Format: int64 */
             yearlyMinor: number;
         };
@@ -755,13 +778,23 @@ export interface components {
              * @description Money the answer affects (positive minor units); cards are sorted by it, largest first
              */
             affectedMinor: number;
+            /**
+             * Format: int64
+             * @description Price change / missed charge: the alert to answer
+             */
+            alertId?: number;
             /** @enum {string} */
             amountKind?: "FIXED" | "VARIABLE";
             /** @enum {string} */
-            cadence?: "MONTHLY" | "YEARLY";
+            cadence?: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
             /** @description Detector confidence, 0–1 */
             confidence?: number;
             currency: string;
+            /**
+             * Format: date
+             * @description Missed charge: when it was due
+             */
+            dueDate?: string;
             /**
              * Format: int64
              * @description Possible duplicate: the question to answer
@@ -775,11 +808,16 @@ export interface components {
              */
             key: string;
             /** @enum {string} */
-            kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT" | "POSSIBLE_DUPLICATE";
+            kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT" | "POSSIBLE_DUPLICATE" | "PRICE_CHANGE" | "MISSED_CHARGE";
             /** Format: int64 */
             merchantId: number;
             /** @description Subscription name or merchant display name */
             name: string;
+            /**
+             * Format: int64
+             * @description Price change: the new amount; missed: the expected one
+             */
+            newAmountMinor?: number;
             /** Format: date */
             nextExpectedDate?: string;
             /**
@@ -801,6 +839,11 @@ export interface components {
             postedAmountMinor?: number;
             /** Format: date */
             postedDate?: string;
+            /**
+             * Format: int64
+             * @description Price change: the amount before
+             */
+            previousAmountMinor?: number;
             /**
              * Format: date
              * @description First charge of the subscription
@@ -847,7 +890,7 @@ export interface components {
             /** Format: int64 */
             bandMinMinor: number;
             /** @enum {string} */
-            cadence: "MONTHLY" | "YEARLY";
+            cadence: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
             /** @description Detector confidence, 0–1 */
             confidence: number;
             currency: string;
@@ -1206,6 +1249,30 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Inbox"];
                 };
+            };
+        };
+    };
+    answerAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertAnswer"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

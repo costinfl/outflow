@@ -16,8 +16,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Builds the review inbox (DESIGN: Review inbox): every decision the system needs, one card per merchant, largest money
- * impact first: subscription suggestions, uncategorized merchants, possible pending/posted duplicates. Price-change and
- * missed-charge cards come with CP5.3.
+ * impact first: subscription suggestions, uncategorized merchants, possible pending/posted duplicates, price changes
+ * and missed charges.
  */
 @Service
 public class ReviewService {
@@ -47,7 +47,8 @@ public class ReviewService {
             var card = new ReviewCard("subscription:" + rs.getLong(1), Kind.SUBSCRIPTION, rs.getLong(12),
                     rs.getString(4), rs.getLong(2), rs.getString(3), rs.getLong(1), Cadence.valueOf(rs.getString(5)),
                     rs.getLong(6), AmountKind.valueOf(rs.getString(7)), rs.getObject(8, LocalDate.class),
-                    rs.getInt(11), confidence, rs.getObject(10, LocalDate.class), null, null, null, null, null, null);
+                    rs.getInt(11), confidence, rs.getObject(10, LocalDate.class), null, null, null, null, null, null,
+                    null, null, null, null);
             if (!skipped.contains(card.key())) {
                 (confidence.compareTo(PROPOSE) >= 0 ? cards : possible).add(card);
             }
@@ -59,7 +60,8 @@ public class ReviewService {
                 GROUP BY t.merchant_id, m.display_name, t.currency""", rs -> {
             var card = new ReviewCard("merchant:" + rs.getLong(1) + ":" + rs.getString(3), Kind.UNCATEGORIZED_MERCHANT,
                     rs.getLong(5), rs.getString(3), rs.getLong(1), rs.getString(2),
-                    null, null, null, null, null, null, null, null, rs.getInt(4), null, null, null, null, null);
+                    null, null, null, null, null, null, null, null, rs.getInt(4), null, null, null, null, null,
+                    null, null, null, null);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }
@@ -77,7 +79,25 @@ public class ReviewService {
             var card = new ReviewCard("duplicate:" + rs.getLong(1), Kind.POSSIBLE_DUPLICATE, Math.abs(rs.getLong(6)),
                     rs.getString(4), rs.getLong(2), rs.getString(3), null, null, null, null, null, null, null, null, null,
                     rs.getLong(1), rs.getObject(5, LocalDate.class), rs.getLong(6), rs.getObject(7, LocalDate.class),
-                    rs.getLong(8));
+                    rs.getLong(8), null, null, null, null);
+            if (!skipped.contains(card.key())) {
+                cards.add(card);
+            }
+        });
+        // Price changes and missed charges on confirmed subscriptions (DESIGN: "Netflix went from 49.99 to 59.99 RON",
+        // "Gym usually charges around the 5th: nothing this month"). Money affected: the monthly equivalent.
+        jdbc.query("""
+                SELECT a.id, a.kind, a.previous_amount_minor, a.amount_minor, a.due_date,
+                       s.id, s.merchant_id, s.name, s.currency, s.cadence, s.expected_amount_minor, s.amount_kind
+                FROM subscription_alert a JOIN subscription s ON s.id = a.subscription_id
+                WHERE a.resolution IS NULL AND s.state = 'CONFIRMED'""", rs -> {
+            boolean price = rs.getString(2).equals("PRICE_CHANGE");
+            Cadence cadence = Cadence.valueOf(rs.getString(10));
+            var card = new ReviewCard("alert:" + rs.getLong(1), price ? Kind.PRICE_CHANGE : Kind.MISSED_CHARGE,
+                    cadence.monthlyMinor(rs.getLong(price ? 4 : 11)), rs.getString(9), rs.getLong(7), rs.getString(8),
+                    rs.getLong(6), cadence, rs.getLong(11), AmountKind.valueOf(rs.getString(12)), null, null, null, null,
+                    null, null, null, null, null, null, rs.getLong(1), (Long) rs.getObject(3), rs.getLong(4),
+                    rs.getObject(5, LocalDate.class));
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }

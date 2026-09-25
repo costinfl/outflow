@@ -7,7 +7,8 @@ import java.util.List;
  * A recurring payment the detector found in one (account, merchant, currency, amount band) group
  * (DESIGN: Recurrence detection). Not stored yet: CP4.2 turns candidates into {@code subscription} rows.
  *
- * @param anchorDay   day of month the charge is due on (clamped to shorter months when used)
+ * @param anchorDay   monthly and yearly: day of month the charge is due on (clamped to shorter months when used);
+ *                    weekly: ISO weekday, 1 = Monday; daily: null
  * @param anchorMonth month of year for yearly cadences, else null
  * @param toleranceMinor how far a charge may be from {@code expectedAmountMinor} and still match (2 × MAD)
  */
@@ -16,7 +17,7 @@ public record Candidate(
         long merchantId,
         String currency,
         Cadence cadence,
-        int anchorDay,
+        Integer anchorDay,
         Integer anchorMonth,
         AmountKind amountKind,
         long expectedAmountMinor,

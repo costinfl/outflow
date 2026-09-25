@@ -21,4 +21,13 @@ class CadenceTest {
         assertThat(Cadence.MONTHLY.yearlyMinor(4999)).isEqualTo(59_988);
         assertThat(Cadence.YEARLY.yearlyMinor(5500)).isEqualTo(5500);
     }
+
+    @Test
+    void weeklyAndDailyEquivalents() {
+        assertThat(Cadence.WEEKLY.monthlyMinor(1000)).isEqualTo(4330); // × 4.33
+        assertThat(Cadence.WEEKLY.monthlyMinor(1)).isEqualTo(4); // 4.33 rounds to 4
+        assertThat(Cadence.WEEKLY.yearlyMinor(1000)).isEqualTo(52_000);
+        assertThat(Cadence.DAILY.monthlyMinor(1000)).isEqualTo(30_420); // × 30.42
+        assertThat(Cadence.DAILY.yearlyMinor(1000)).isEqualTo(365_000);
+    }
 }

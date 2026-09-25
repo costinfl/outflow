@@ -2,6 +2,7 @@ package dev.costinfl.outflow.review;
 
 import dev.costinfl.outflow.category.CategoryService;
 import dev.costinfl.outflow.ingest.UploadService;
+import dev.costinfl.outflow.recurring.AlertService;
 import dev.costinfl.outflow.txn.SoftMatchService;
 import java.util.NoSuchElementException;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,19 +36,26 @@ public class ReviewController {
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "true: the same payment, pending then posted")
             Boolean same) {}
 
+    public record AlertAnswer(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "Price change: GOT_IT or END. Missed charge: STILL_ACTIVE or CANCELLED")
+            AlertService.Action action) {}
+
     public record MerchantCategoryResult(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Transactions whose category changed")
             int changedTransactions) {}
 
     private final ReviewService review;
     private final SoftMatchService softMatches;
+    private final AlertService alerts;
     private final UploadService pipeline;
     private final CategoryService categories;
     private final SubscriptionService subscriptions;
     private final JdbcTemplate jdbc;
 
     public ReviewController(ReviewService review, CategoryService categories, SubscriptionService subscriptions,
-            JdbcTemplate jdbc, SoftMatchService softMatches, UploadService pipeline) {
+            JdbcTemplate jdbc, SoftMatchService softMatches, UploadService pipeline, AlertService alerts) {
+        this.alerts = alerts;
         this.review = review;
         this.softMatches = softMatches;
         this.pipeline = pipeline;
@@ -90,6 +98,22 @@ public class ReviewController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
         }
         pipeline.derive();
+    }
+
+    /** "Got it · Mark ended" on a price change, "Cancelled · Still active" on a missed charge. */
+    @PostMapping(path = "/alerts/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void answerAlert(@PathVariable long id, @RequestBody AlertAnswer body) {
+        if (body.action() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "action is required");
+        }
+        try {
+            alerts.answer(id, body.action());
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No alert " + id);
+        } catch (AlertService.AnswerException e) {
+            throw new ResponseStatusException(e.conflict() ? HttpStatus.CONFLICT : HttpStatus.BAD_REQUEST, e.getMessage());
+        }
     }
 
     /** "Pick category (applies to all)": a rule for the merchant; every automatic transaction of it follows. */

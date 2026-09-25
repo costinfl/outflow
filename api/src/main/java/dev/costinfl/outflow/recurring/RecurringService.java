@@ -33,10 +33,12 @@ public class RecurringService {
 
     private final JdbcTemplate jdbc;
     private final SubscriptionService subscriptions;
+    private final AlertService alerts;
 
-    public RecurringService(JdbcTemplate jdbc, SubscriptionService subscriptions) {
+    public RecurringService(JdbcTemplate jdbc, SubscriptionService subscriptions, AlertService alerts) {
         this.jdbc = jdbc;
         this.subscriptions = subscriptions;
+        this.alerts = alerts;
     }
 
     /**
@@ -54,6 +56,7 @@ public class RecurringService {
             categories.put(rs.getLong(1), new Cat((Long) rs.getObject(2), rs.getString(3), rs.getString(4)));
         });
 
+        var open = alerts.openBySubscription();
         var byGroup = new HashMap<GroupKind, List<Item>>();
         for (Subscription s : subscriptions.list()) {
             if (!s.currency().equals(currency) || (s.state() != State.CONFIRMED && s.state() != State.ENDED)) {
@@ -67,7 +70,7 @@ public class RecurringService {
             Cat cat = categories.getOrDefault(s.id(), new Cat(null, null, null));
             var item = new Item(s.id(), s.name(), s.merchantId(), s.cadence(), s.amountKind(), s.expectedAmountMinor(),
                     s.cadence().monthlyMinor(s.expectedAmountMinor()), s.cadence().yearlyMinor(s.expectedAmountMinor()),
-                    s.nextExpectedDate(), s.state() == State.ENDED ? Status.ENDED : Status.ACTIVE, counted, cat.id(),
+                    s.nextExpectedDate(), status(s, open.get(s.id())), counted, cat.id(),
                     cat.name());
             byGroup.computeIfAbsent(cat.code() != null && BILLS.contains(cat.code()) ? GroupKind.BILLS : GroupKind.SUBSCRIPTIONS,
                     k -> new ArrayList<>()).add(item);
@@ -99,6 +102,16 @@ public class RecurringService {
                 Integer.class, BigDecimal.valueOf(RecurrenceDetector.PROPOSE));
         return new RecurringOverview(currency, month.map(YearMonth::toString).orElse(null), monthly, yearly, counted,
                 groups, coverage(), suggestions);
+    }
+
+    private static Status status(Subscription s, AlertService.Kind openAlert) {
+        if (s.state() == State.ENDED) {
+            return Status.ENDED;
+        }
+        if (openAlert == null) {
+            return Status.ACTIVE;
+        }
+        return openAlert == AlertService.Kind.PRICE_CHANGE ? Status.PRICE_CHANGED : Status.MISSED;
     }
 
     /** Per account: first and last booking date, and which cadences that much history can detect. */

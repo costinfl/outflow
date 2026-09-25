@@ -66,7 +66,7 @@ public final class RecurrenceDetector {
         long[] gaps = new long[n - 1];
         int regular = 0;
         for (int i = 0; i < n - 1; i++) {
-            gaps[i] = period[i + 1] - period[i];
+            gaps[i] = anchor.gap(period[i], period[i + 1]);
             if (gaps[i] == 1 && onTime[i] && onTime[i + 1]) {
                 regular++;
             }
@@ -85,7 +85,7 @@ public final class RecurrenceDetector {
                 Math.min(1, n / (2.0 * cadence.minCount)),
                 recency(ChronoUnit.DAYS.between(last, today) / cadence.stepDays));
         return new Candidate(group.accountId(), group.merchantId(), group.currency(), cadence,
-                anchor.day(), cadence == Cadence.YEARLY ? anchor.month() : null,
+                cadence == Cadence.DAILY ? null : anchor.day(), cadence == Cadence.YEARLY ? anchor.month() : null,
                 cv <= FIXED_MAX_CV ? AmountKind.FIXED : AmountKind.VARIABLE,
                 median(lastThree), 2 * medianAbsoluteDeviation(amounts),
                 Arrays.stream(amounts).min().orElseThrow(), Arrays.stream(amounts).max().orElseThrow(),
@@ -128,13 +128,37 @@ public final class RecurrenceDetector {
     }
 
     /**
-     * Where a cadence's charges are due: a day of month (monthly) or a month and day (yearly). Periods are numbered
-     * (months since year 0, or the year) so that consecutive periods differ by one.
+     * Where a cadence's charges are due: a day of month (monthly), a month and day (yearly), a weekday (weekly, {@code
+     * day} = ISO weekday) or every day (daily). Periods are numbered (months since year 0, the year, weeks or days since
+     * 1970) so that consecutive periods differ by one.
      */
     record Anchor(Cadence cadence, int month, int day) {
 
-        /** Monthly: the median day of month. Yearly: the median date across years, measured around the first one. */
+        /** The anchor stored with a subscription, to compute its due dates. */
+        static Anchor of(Subscription s) {
+            return new Anchor(s.cadence(), s.anchorMonth() == null ? 0 : s.anchorMonth(),
+                    s.anchorDay() == null ? 0 : s.anchorDay());
+        }
+
+        /**
+         * Monthly: the median day of month. Yearly: the median date across years, measured around the first one.
+         * Weekly: the most frequent weekday (the earliest on a tie). Daily: none.
+         */
         static Anchor of(Cadence cadence, List<LocalDate> dates) {
+            if (cadence == Cadence.DAILY) {
+                return new Anchor(cadence, 0, 0);
+            }
+            if (cadence == Cadence.WEEKLY) {
+                int[] counts = new int[8];
+                dates.forEach(d -> counts[d.getDayOfWeek().getValue()]++);
+                int best = 1;
+                for (int d = 2; d <= 7; d++) {
+                    if (counts[d] > counts[best]) {
+                        best = d;
+                    }
+                }
+                return new Anchor(cadence, 0, best);
+            }
             if (cadence == Cadence.MONTHLY) {
                 long[] days = dates.stream().mapToLong(LocalDate::getDayOfMonth).toArray();
                 return new Anchor(cadence, 0, (int) lowerMedian(days));
@@ -150,6 +174,12 @@ public final class RecurrenceDetector {
 
         /** The due date in a period, clamped to the month's length (31 → 30, 28 or 29; 29 Feb → 28 Feb). */
         LocalDate dateIn(long period) {
+            if (cadence == Cadence.DAILY) {
+                return LocalDate.ofEpochDay(period);
+            }
+            if (cadence == Cadence.WEEKLY) {
+                return LocalDate.ofEpochDay(7 * period + weekOffset());
+            }
             if (cadence == Cadence.MONTHLY) {
                 var ym = YearMonth.of((int) Math.floorDiv(period, 12), (int) Math.floorMod(period, 12) + 1);
                 return ym.atDay(Math.min(day, ym.lengthOfMonth()));
@@ -159,7 +189,12 @@ public final class RecurrenceDetector {
 
         /** The period whose due date is closest to {@code date}: a charge on 1 March can pay February's 31st. */
         long nearestPeriod(LocalDate date) {
-            long own = cadence == Cadence.MONTHLY ? date.getYear() * 12L + date.getMonthValue() - 1 : date.getYear();
+            long own = switch (cadence) {
+                case DAILY -> date.toEpochDay();
+                case WEEKLY -> Math.floorDiv(date.toEpochDay() - weekOffset(), 7);
+                case MONTHLY -> date.getYear() * 12L + date.getMonthValue() - 1;
+                case YEARLY -> date.getYear();
+            };
             long best = own;
             for (long p = own - 1; p <= own + 1; p++) {
                 if (distance(date, p) < distance(date, best)) {
@@ -167,6 +202,31 @@ public final class RecurrenceDetector {
                 }
             }
             return best;
+        }
+
+        /** 1970-01-01 (epoch day 0) is a Thursday: the offset of this anchor's weekday within an epoch week. */
+        private long weekOffset() {
+            return Math.floorMod(day - 4, 7);
+        }
+
+        /** Periods between two charges. Daily: a Friday → Monday gap over a weekend without charges counts as one. */
+        long gap(long from, long to) {
+            long diff = to - from;
+            if (cadence == Cadence.DAILY && diff > 1 && diff <= 3) {
+                for (long d = from + 1; d < to; d++) {
+                    var dow = LocalDate.ofEpochDay(d).getDayOfWeek();
+                    if (dow != java.time.DayOfWeek.SATURDAY && dow != java.time.DayOfWeek.SUNDAY) {
+                        return diff;
+                    }
+                }
+                return 1;
+            }
+            return diff;
+        }
+
+        /** The due date after the one {@code date} belongs to. */
+        LocalDate nextDue(LocalDate date) {
+            return dateIn(nearestPeriod(date) + 1);
         }
 
         /** Days from the due date, or from the next business day when the due date falls on a weekend. */

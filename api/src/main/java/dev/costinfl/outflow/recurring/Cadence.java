@@ -1,12 +1,14 @@
 package dev.costinfl.outflow.recurring;
 
 /**
- * Cadences the detector fits (DESIGN: Recurrence detection, table in step 2). Monthly and yearly are calendar-anchored:
- * a charge belongs to the period whose anchor date it is closest to, not to a fixed number of days after the last one.
- * Weekly and daily cadences come in M5 (CP5.3).
+ * Cadences the detector fits (DESIGN: Recurrence detection, table in step 2). Every cadence is anchored: a charge
+ * belongs to the period whose due date it is closest to, not to a fixed number of days after the last one. Monthly: a
+ * day of month; yearly: a month and day; weekly: a weekday; daily: every day (a weekend without charges is no gap).
  */
 public enum Cadence {
 
+    DAILY(0, 10, 1.0),
+    WEEKLY(1, 4, 7.0),
     MONTHLY(3, 3, 30.44),
     YEARLY(7, 2, 365.25);
 
@@ -23,9 +25,14 @@ public enum Cadence {
         this.stepDays = stepDays;
     }
 
-    /** What one charge of {@code amountMinor} costs per month (DESIGN: yearly ÷ 12), rounded half up. */
+    /**
+     * What one charge of {@code amountMinor} costs per month (DESIGN: yearly ÷ 12, weekly × 4.33; daily × 30.42, a
+     * twelfth of 365), rounded half up in integer arithmetic.
+     */
     public long monthlyMinor(long amountMinor) {
         return switch (this) {
+            case DAILY -> Math.floorDiv(amountMinor * 3042 + 50, 100);
+            case WEEKLY -> Math.floorDiv(amountMinor * 433 + 50, 100);
             case MONTHLY -> amountMinor;
             case YEARLY -> Math.floorDiv(amountMinor + 6, 12);
         };
@@ -34,6 +41,8 @@ public enum Cadence {
     /** What one charge of {@code amountMinor} costs per year. */
     public long yearlyMinor(long amountMinor) {
         return switch (this) {
+            case DAILY -> amountMinor * 365;
+            case WEEKLY -> amountMinor * 52;
             case MONTHLY -> amountMinor * 12;
             case YEARLY -> amountMinor;
         };

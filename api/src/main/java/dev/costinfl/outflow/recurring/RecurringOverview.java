@@ -26,7 +26,8 @@ public record RecurringOverview(
 
     public enum GroupKind { SUBSCRIPTIONS, BILLS }
 
-    public enum Status { ACTIVE, ENDED }
+    /** DESIGN's status chip: Active, Price changed, Missed, Ended (an open alert decides the middle two). */
+    public enum Status { ACTIVE, PRICE_CHANGED, MISSED, ENDED }
 
     public record Group(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) GroupKind kind,
