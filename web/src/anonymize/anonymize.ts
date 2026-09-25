@@ -55,6 +55,14 @@ const NAME_FIELD =
 const ORGANISATION =
   /\b(?:SRL|SA|SCS|SNC|SCA|LTD|LIMITED|GMBH|AG|BV|NV|INC|LLC|PLC|SAS|SPA|IFN|BANK|BANCA|ROMANIA|ASOCIATIA|FUNDATIA|PRIMARIA|DIRECTIA|MINISTERUL|UNIVERSITATEA|SCOALA|LICEUL|GRADINITA|SPITALUL|CLINICA|CENTRUL|MEDICAL|HOSPITAL|ASIGURARI|INSURANCE|TRADING|SYSTEMS|SERVICES|SERV|GROUP|HOLDING|COMPANY|INTERNATIONAL|TREZORERIA|ADMINISTRATIA|ANAF|CNAS)\b/i
 const PERSON_LIKE = /^[\p{L}'-]+(?:[ .][\p{L}'-]+){1,4}$/u
+/**
+ * Free-text memos typed by people (transfer details, messages): anything can be in them, first names included.
+ * A quoted cell is taken up to its closing quote, so a comma inside a memo cannot leak the rest of it.
+ */
+const MEMO =
+  /("(?:detalii|details|mesaj|message|explicatii)[ \t]*:[ \t]*)([^"\r\n]*)(?=")|(\b(?:detalii|details|mesaj|message|explicatii)[ \t]*:[ \t]*)([^,;"\t\r\n]*)/gi
+/** Memos the bank writes itself, kept: ING's "Suma tranzactiei: 5.95 RON"; and an earlier run's NOTE_n. */
+const SYSTEM_MEMO = /^(?:suma tranzactiei: [0-9.,]+ [A-Z]{3}|NOTE_\d+)$/i
 const TRANSFERISH = /transfer|catre|către|de la|beneficiar|ordonator|platitor|plătitor|p2p|revolut|incasare|încasare/i
 
 /** Java's String.strip(): Character.isWhitespace, which (unlike JS trim) keeps no-break spaces. */
@@ -93,6 +101,7 @@ export function luhn(digits: string): boolean {
 }
 
 export function cnpValid(cnp: string): boolean {
+  if (cnp.length !== 13) return false // a CNP has exactly 13 digits (long references of 10+ digits are checked too)
   const w = '279146358279'
   let sum = 0
   for (let i = 0; i < 12; i++) sum += (cnp.charCodeAt(i) - 48) * (w.charCodeAt(i) - 48)
@@ -173,6 +182,7 @@ class Anonymizer {
   readonly examples: Record<string, string[]> = {}
   private readonly personOf = new Map<string, string>()
   private readonly emailOf = new Map<string, string>()
+  private readonly noteOf = new Map<string, string>()
   readonly keptCounterparties: string[] = []
   detectedNames = 0
   private readonly names: string[]
@@ -258,6 +268,14 @@ class Anonymizer {
         this.keptCounterparties.push(value)
       }
     }
+    s = await this.replace(s, MEMO, 'memo', (m) => {
+      const prefix = m[1] !== undefined ? m[1] : m[3]!
+      const value = strip(m[1] !== undefined ? m[2]! : m[4]!)
+      if (!value || SYSTEM_MEMO.test(value)) return null
+      const k = fold(value)
+      if (!this.noteOf.has(k)) this.noteOf.set(k, `NOTE_${this.noteOf.size + 1}`)
+      return prefix + this.noteOf.get(k)!
+    })
     s = await this.replace(s, IBAN, 'IBAN', (m) => (ibanValid(m[1]!) ? this.fakeIban(m[1]!) : null))
     s = await this.replace(s, PAN, 'card number', async (m) => {
       const digits = m[1]!.replace(/[ -]/g, '')
