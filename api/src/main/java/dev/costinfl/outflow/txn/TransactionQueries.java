@@ -38,8 +38,8 @@ public class TransactionQueries {
 
     /** The transactions behind a home-screen number, newest first. */
     public List<TransactionView> list(TransactionFilter f) {
-        var where = new StringBuilder(" WHERE " + Scope.MONTH + " AND " + Scope.SLICE);
-        var args = new ArrayList<Object>(java.util.Arrays.asList(f.slice().args(f.month().atDay(1), f.month().atDay(1))));
+        var where = new StringBuilder(" WHERE " + Scope.PERIOD + " AND " + Scope.SLICE);
+        var args = new ArrayList<Object>(java.util.Arrays.asList(f.slice().args(f.period().from(), f.period().toExclusive())));
         f.kind().ifPresent(k -> where.append(" AND ").append(k == TransactionFilter.Kind.SPEND ? Scope.SPEND : Scope.INCOME));
         f.category().ifPresent(id -> {
             where.append(" AND t.category_id = ?");

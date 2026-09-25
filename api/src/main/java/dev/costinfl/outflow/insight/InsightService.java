@@ -2,8 +2,10 @@ package dev.costinfl.outflow.insight;
 
 import dev.costinfl.outflow.insight.MonthSummary.CategorySpend;
 import dev.costinfl.outflow.insight.MonthSummary.Committed;
+import dev.costinfl.outflow.insight.MonthSummary.Insight;
 import dev.costinfl.outflow.insight.MonthSummary.Rest;
 import dev.costinfl.outflow.recurring.RecurringService;
+import dev.costinfl.outflow.txn.Period;
 import dev.costinfl.outflow.txn.Scope;
 import dev.costinfl.outflow.txn.Slice;
 import java.math.BigDecimal;
@@ -11,6 +13,7 @@ import java.math.RoundingMode;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Currency;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
@@ -60,17 +63,18 @@ public class InsightService {
         for (int i = TREND - 1; i >= 0; i--) {
             YearMonth m = month.minusMonths(i);
             long v = jdbc.queryForObject("SELECT coalesce(sum(" + amount + "), 0)" + FROM + "WHERE t.category_id = ? AND "
-                    + Scope.MONTH + " AND " + Scope.SLICE, Long.class, slice.args(categoryId, m.atDay(1), m.atDay(1)));
+                    + Scope.PERIOD + " AND " + Scope.SLICE, Long.class,
+                    slice.args(categoryId, m.atDay(1), m.plusMonths(1).atDay(1)));
             trend.add(new CategoryDetail.MonthAmount(m.toString(), v, available.contains(m)));
         }
         var withData = trend.stream().filter(CategoryDetail.MonthAmount::hasData).toList();
         Long average = withData.isEmpty() ? null
                 : divide(withData.stream().mapToLong(CategoryDetail.MonthAmount::amountMinor).sum(), withData.size());
         var merchants = jdbc.query("SELECT m.id, m.display_name, sum(" + amount + ") AS v, count(*)" + FROM
-                        + "JOIN merchant m ON m.id = t.merchant_id WHERE t.category_id = ? AND " + Scope.MONTH
+                        + "JOIN merchant m ON m.id = t.merchant_id WHERE t.category_id = ? AND " + Scope.PERIOD
                         + " AND " + Scope.SLICE + " GROUP BY m.id, m.display_name ORDER BY v DESC, m.display_name",
                 (rs, i) -> new CategoryDetail.MerchantAmount(rs.getLong(1), rs.getString(2), rs.getLong(3), rs.getInt(4)),
-                slice.args(categoryId, month.atDay(1), month.atDay(1)));
+                slice.args(categoryId, month.atDay(1), month.plusMonths(1).atDay(1)));
         return java.util.Optional.of(new CategoryDetail(category.get(), month.toString(), currency,
                 trend.getLast().amountMinor(), trend, average, merchants));
     }
@@ -90,32 +94,46 @@ public class InsightService {
     }
 
     public MonthSummary month(YearMonth month, Slice slice) {
-        String currency = slice.currency();
-        var available = availableMonths(slice);
+        return month(month, slice, 1);
+    }
 
-        long spent = sum(Scope.SPEND, month, slice, "-t.amount_minor");
-        long income = sum(Scope.INCOME, month, slice, "t.amount_minor");
+    /**
+     * The home screen for one month, or for the 3-month window ending with it ("last 3 months" smoothing). Every
+     * figure is a total over the period (so it equals its drill-through); comparisons with "usual" use the period's
+     * per-month average (over its months with data) against the 3 months before the period.
+     */
+    public MonthSummary month(YearMonth month, Slice slice, int months) {
+        String currency = slice.currency();
+        var period = new Period(month, months);
+        var available = availableMonths(slice);
+        int withData = (int) available.stream().filter(period::contains).count();
+        int perMonthDivisor = Math.max(1, withData);
+
+        long spent = sum(Scope.SPEND, period, slice, "-t.amount_minor");
+        long income = sum(Scope.INCOME, period, slice, "t.amount_minor");
+        long spentPerMonth = divide(spent, perMonthDivisor);
 
         var baseline = new ArrayList<YearMonth>();
         for (int i = 1; i <= BASELINE; i++) {
-            if (available.contains(month.minusMonths(i))) {
-                baseline.add(month.minusMonths(i));
+            if (available.contains(period.first().minusMonths(i))) {
+                baseline.add(period.first().minusMonths(i));
             }
         }
         Long average = baseline.isEmpty() ? null
-                : divide(baseline.stream().mapToLong(m -> sum(Scope.SPEND, m, slice, "-t.amount_minor")).sum(), baseline.size());
+                : divide(baseline.stream().mapToLong(m -> sum(Scope.SPEND, Period.month(m), slice, "-t.amount_minor")).sum(),
+                        baseline.size());
 
-        var byCategory = spendByCategory(month, slice);
+        var byCategory = spendByCategory(period, slice);
         var usual = new HashMap<Long, Long>(); // category id (0 = uncategorized) → summed over baseline
         for (YearMonth m : baseline) {
-            spendByCategory(m, slice).forEach(r -> usual.merge(key(r.categoryId()), r.spentMinor(), Long::sum));
+            spendByCategory(Period.month(m), slice).forEach(r -> usual.merge(key(r.categoryId()), r.spentMinor(), Long::sum));
         }
         var ranked = byCategory.stream()
                 .sorted(Comparator.comparingLong(CategorySpend::spentMinor).reversed().thenComparing(CategorySpend::name))
                 .map(r -> {
                     long u = baseline.isEmpty() ? 0 : divide(usual.getOrDefault(key(r.categoryId()), 0L), baseline.size());
                     return new CategorySpend(r.categoryId(), r.code(), r.name(), r.spentMinor(), pct(r.spentMinor(), spent),
-                            u, u > 0 ? deltaPct(r.spentMinor(), u) : null, r.transactionCount());
+                            u, u > 0 ? deltaPct(divide(r.spentMinor(), perMonthDivisor), u) : null, r.transactionCount());
                 })
                 .toList();
         var top = ranked.stream().limit(TOP).toList();
@@ -125,15 +143,15 @@ public class InsightService {
         var trust = jdbc.queryForMap("SELECT coalesce(sum(abs(t.amount_minor)), 0) AS total, "
                         + "coalesce(sum(abs(t.amount_minor) * coalesce(t.category_confidence, 0)), 0) AS weighted, "
                         + "coalesce(sum(abs(t.amount_minor)) FILTER (WHERE t.category_id IS NOT NULL), 0) AS categorized"
-                        + FROM + "WHERE " + Scope.SPEND + " AND " + Scope.MONTH + " AND " + Scope.SLICE,
-                slice.args(month.atDay(1), month.atDay(1)));
+                        + FROM + "WHERE " + Scope.SPEND + " AND " + Scope.PERIOD + " AND " + Scope.SLICE,
+                slice.args(period.from(), period.toExclusive()));
         BigDecimal total = new BigDecimal(trust.get("total").toString());
         var uncategorized = ranked.stream().filter(r -> r.categoryId() == null).findFirst();
         var committed = recurring.overview(Optional.of(month), slice);
 
         return new MonthSummary(
                 month.toString(), currency, spent, baseline.size(), average,
-                average == null || average == 0 ? null : deltaPct(spent, average),
+                average == null || average == 0 ? null : deltaPct(spentPerMonth, average),
                 income, income - spent,
                 ratioPct(new BigDecimal(trust.get("weighted").toString()), total),
                 ratioPct(new BigDecimal(trust.get("categorized").toString()), total),
@@ -141,23 +159,47 @@ public class InsightService {
                 uncategorized.map(CategorySpend::transactionCount).orElse(0),
                 top, new Rest(restSpent, pct(restSpent, spent), restRows.size()),
                 new Committed(committed.monthlyMinor(), committed.countedCount(),
-                        spent == 0 ? null : pct(committed.monthlyMinor(), spent)),
-                available.stream().map(YearMonth::toString).toList());
+                        spentPerMonth == 0 ? null : pct(committed.monthlyMinor(), spentPerMonth)),
+                available.stream().map(YearMonth::toString).toList(),
+                months, period.first().toString(), withData,
+                insight(ranked, perMonthDivisor, currency).orElse(null));
     }
 
-    private long sum(String scope, YearMonth month, Slice slice, String expression) {
+    /**
+     * DESIGN's insight line: the category whose per-month spending moved furthest from its usual, when the move is
+     * notable (more than {@value #INSIGHT_PCT}% and more than {@value #INSIGHT_UNITS} currency units a month).
+     * Uncategorized spending never makes the line: it says nothing about where the money went.
+     */
+    static Optional<Insight> insight(List<CategorySpend> ranked, int perMonthDivisor, String currency) {
+        long threshold = INSIGHT_UNITS * (long) Math.pow(10, Math.max(0, Currency.getInstance(currency).getDefaultFractionDigits()));
+        return ranked.stream()
+                .filter(c -> c.categoryId() != null && c.usualMinor() > 0 && c.deltaPct() != null)
+                .map(c -> {
+                    long perMonth = divide(c.spentMinor(), perMonthDivisor);
+                    return new Insight(c.categoryId(), c.code(), c.name(), c.deltaPct(), perMonth - c.usualMinor(),
+                            perMonth, c.usualMinor(), c.transactionCount());
+                })
+                .filter(i -> Math.abs(i.deltaPct()) > INSIGHT_PCT && Math.abs(i.differenceMinor()) > threshold)
+                .max(Comparator.comparingLong((Insight i) -> Math.abs(i.differenceMinor())).thenComparing(Insight::name,
+                        Comparator.reverseOrder()));
+    }
+
+    static final int INSIGHT_PCT = 25;
+    static final int INSIGHT_UNITS = 100;
+
+    private long sum(String scope, Period period, Slice slice, String expression) {
         return jdbc.queryForObject("SELECT coalesce(sum(" + expression + "), 0)" + FROM + "WHERE " + scope + " AND "
-                + Scope.MONTH + " AND " + Scope.SLICE, Long.class, slice.args(month.atDay(1), month.atDay(1)));
+                + Scope.PERIOD + " AND " + Scope.SLICE, Long.class, slice.args(period.from(), period.toExclusive()));
     }
 
-    private List<CategorySpend> spendByCategory(YearMonth month, Slice slice) {
+    private List<CategorySpend> spendByCategory(Period period, Slice slice) {
         return jdbc.query("SELECT t.category_id, c.code, c.name, sum(-t.amount_minor) AS spent, count(*) AS n" + FROM
-                        + "WHERE " + Scope.SPEND + " AND " + Scope.MONTH + " AND " + Scope.SLICE + " "
+                        + "WHERE " + Scope.SPEND + " AND " + Scope.PERIOD + " AND " + Scope.SLICE + " "
                         + "GROUP BY t.category_id, c.code, c.name",
                 (rs, i) -> new CategorySpend((Long) rs.getObject(1), rs.getString(2),
                         Objects.requireNonNullElse(rs.getString(3), "Uncategorized"), rs.getLong(4), 0, 0, null,
                         rs.getInt(5)),
-                slice.args(month.atDay(1), month.atDay(1)));
+                slice.args(period.from(), period.toExclusive()));
     }
 
     private static long key(Long categoryId) {

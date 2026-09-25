@@ -449,7 +449,7 @@ export interface components {
             code?: string;
             /**
              * Format: int32
-             * @description vs. usual; absent when there is no usual to compare with
+             * @description Per month vs. usual; absent when there is no usual to compare with
              */
             deltaPct?: number;
             name: string;
@@ -464,7 +464,7 @@ export interface components {
             transactionCount: number;
             /**
              * Format: int64
-             * @description Average over the baseline months
+             * @description Per-month average over the baseline months (the 3 before the period)
              */
             usualMinor: number;
         };
@@ -588,6 +588,34 @@ export interface components {
             /** @description Subscription suggestions with confidence between 0.45 and 0.65 */
             possible: components["schemas"]["ReviewCard"][];
         };
+        Insight: {
+            /** Format: int64 */
+            categoryId: number;
+            code?: string;
+            /**
+             * Format: int32
+             * @description vs. usual, e.g. 40 or -59
+             */
+            deltaPct: number;
+            /**
+             * Format: int64
+             * @description Per month minus usual; negative = less
+             */
+            differenceMinor: number;
+            name: string;
+            /**
+             * Format: int64
+             * @description Spent per month in the period
+             */
+            perMonthMinor: number;
+            /**
+             * Format: int32
+             * @description Transactions in the period (visits)
+             */
+            transactionCount: number;
+            /** Format: int64 */
+            usualMinor: number;
+        };
         Item: {
             /** @enum {string} */
             amountKind: "FIXED" | "VARIABLE";
@@ -692,13 +720,27 @@ export interface components {
             deltaPct?: number;
             /** Format: int64 */
             incomeMinor: number;
+            /** @description The plain-language insight line; absent when nothing moved notably */
+            insight?: components["schemas"]["Insight"];
             /** @example 2026-03 */
             month: string;
+            /**
+             * Format: int32
+             * @description 1, or 3 for the 'last 3 months' view: figures are totals over the months ending with `month`
+             */
+            months: number;
+            /**
+             * Format: int32
+             * @description Months of the period that have data: totals ÷ this = per-month averages
+             */
+            monthsWithData: number;
             /**
              * Format: int64
              * @description Income − spent; negative when spending more
              */
             netMinor: number;
+            /** @description First month of the period (YYYY-MM) */
+            periodFrom: string;
             /** @description Everything below the top 5, folded */
             rest: components["schemas"]["Rest"];
             /** Format: int64 */
@@ -924,8 +966,16 @@ export interface components {
             currency: string;
             /** @description Newest first */
             items: components["schemas"]["TransactionView"][];
-            /** @example 2026-03 */
+            /**
+             * @description The period's last month
+             * @example 2026-03
+             */
             month: string;
+            /**
+             * Format: int32
+             * @description 1, or 3 for the 3 months ending with `month`
+             */
+            months: number;
             /** @enum {string} */
             scope: "SPEND" | "INCOME" | "ALL";
             /**
@@ -1150,6 +1200,8 @@ export interface operations {
                 month?: string;
                 /** @description ISO currency; v1 reports one currency at a time */
                 currency?: string;
+                /** @description 1, or 3 for the 'last 3 months' view ending with the month */
+                months?: number;
                 /** @description Account ids to include (accounts filter); absent = all accounts */
                 accounts?: number[];
             };
@@ -1486,6 +1538,8 @@ export interface operations {
                 merchant?: number;
                 /** @description Merchant or bank text contains it, or the amount equals it */
                 q?: string;
+                /** @description 1, or 3 for the 'last 3 months' view ending with the month */
+                months?: number;
                 /** @description Account ids to include (accounts filter); absent = all accounts */
                 accounts?: number[];
             };

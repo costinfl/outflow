@@ -9,7 +9,7 @@ import { Card } from './Card'
 
 /** Block 4: how far to trust the numbers, and what still needs a decision. */
 export function AttentionBlock({ s }: { s: MonthSummary }) {
-  const { withAccounts } = useAccountsFilter()
+  const { withFilters } = useAccountsFilter()
   const inbox = useApi<Inbox>('review-count', () => api.GET('/api/review'))
   const questions = inbox.kind === 'ok' ? inbox.data.count : 0
   return (
@@ -40,11 +40,11 @@ export function AttentionBlock({ s }: { s: MonthSummary }) {
         <div className="h-2 rounded-full bg-bar" style={{ width: `${s.accuracyPct}%` }} />
       </div>
       <p className="mt-1 text-xs text-muted">
-        How much of this month's spending is categorized, weighted by how sure we are ({s.categorizedPct}% has a category).
+        How much of {s.months > 1 ? "these months'" : "this month's"} spending is categorized, weighted by how sure we are ({s.categorizedPct}% has a category).
       </p>
       {s.uncategorizedCount > 0 ? (
         <Link
-          to={withAccounts(transactionsLink(s.month, 'spend', { uncategorized: true }))}
+          to={withFilters(transactionsLink(s.month, 'spend', { uncategorized: true }))}
           className="mt-3 flex items-center justify-between rounded-lg bg-page px-3 py-2 text-sm hover:underline"
         >
           <span className="text-ink">
@@ -53,7 +53,7 @@ export function AttentionBlock({ s }: { s: MonthSummary }) {
           <span className="text-ink tabular-nums">{formatMoney(s.uncategorizedMinor, s.currency)} ›</span>
         </Link>
       ) : (
-        <p className="mt-3 text-sm text-ink-2">Every payment this month has a category.</p>
+        <p className="mt-3 text-sm text-ink-2">Every payment {s.months > 1 ? 'in these months' : 'this month'} has a category.</p>
       )}
     </Card>
   )

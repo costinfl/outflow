@@ -25,14 +25,15 @@ export function CategoryPage() {
   const money = (m: number) => formatMoney(m, d.currency)
   const scope = d.category.kind === 'INCOME' ? 'income' : d.category.kind === 'SPEND' ? 'spend' : ''
   const txLink = (extra: Record<string, string> = {}) =>
-    accounts.withAccounts(
+    accounts.withFilters(
       `/transactions?${new URLSearchParams({ month: d.month, ...(scope ? { scope } : {}), category: String(d.category.id), ...extra })}`,
+      { period: false },
     )
   return (
     <div className="space-y-4">
       <header>
         <p className="text-sm text-ink-2">
-          <Link to={accounts.withAccounts(`/?month=${d.month}`)} className="underline">
+          <Link to={accounts.withFilters(`/?month=${d.month}`)} className="underline">
             {formatMonth(d.month)}
           </Link>
         </p>
@@ -83,7 +84,7 @@ export function CategoryPage() {
  */
 function Trend({ d }: { d: CategoryDetail }) {
   const navigate = useNavigate()
-  const { withAccounts } = useAccountsFilter()
+  const { withFilters } = useAccountsFilter()
   const max = Math.max(...d.trend.map((t) => t.amountMinor), d.averageMinor ?? 0, 1)
   const height = 120
   const avgY = d.averageMinor != null ? (d.averageMinor / max) * height : null
@@ -109,7 +110,7 @@ function Trend({ d }: { d: CategoryDetail }) {
                 )}
                 <button
                   type="button"
-                  onClick={() => navigate(withAccounts(`/categories/${d.category.id}?month=${t.month}`))}
+                  onClick={() => navigate(withFilters(`/categories/${d.category.id}?month=${t.month}`))}
                   title={`${formatMonth(t.month)}: ${t.hasData ? formatMoney(t.amountMinor, d.currency) : 'no data'}`}
                   aria-label={`${formatMonth(t.month)}: ${t.hasData ? formatMoney(t.amountMinor, d.currency) : 'no data'}`}
                   className="flex h-full w-full max-w-6 items-end"

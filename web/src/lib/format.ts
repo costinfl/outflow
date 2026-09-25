@@ -68,3 +68,23 @@ export function formatDay(isoDate: string): string {
   const [y, m, d] = isoDate.split('-').map(Number)
   return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(new Date(y!, m! - 1, d!))
 }
+
+/** A period's total as a per-month average, rounded half up in integer arithmetic (display only). */
+export function perMonth(totalMinor: number, months: number): number {
+  const d = Math.max(1, months)
+  return Math.floor((2 * totalMinor + d) / (2 * d))
+}
+
+/** "2026-01".."2026-03" → "Jan – Mar 2026" (or "Nov 2025 – Jan 2026" across a year). */
+export function formatMonthRange(from: string, to: string): string {
+  if (from === to) return formatMonth(to)
+  const sameYear = from.slice(0, 4) === to.slice(0, 4)
+  return `${formatMonthShort(from)}${sameYear ? '' : ` ${from.slice(0, 4)}`} – ${formatMonthShort(to)} ${to.slice(0, 4)}`
+}
+
+/** "2026-03" plus -2 months → "2026-01". */
+export function addMonths(yearMonth: string, months: number): string {
+  const [y, m] = yearMonth.split('-').map(Number)
+  const d = new Date(y!, m! - 1 + months, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}

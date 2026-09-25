@@ -23,7 +23,10 @@ public class TransactionController {
 
     /** The transactions behind a number, and their total in the same sense as the number (spent is positive). */
     public record TransactionList(
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "2026-03") String month,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "2026-03", description = "The period's last month")
+            String month,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "1, or 3 for the 3 months ending with `month`")
+            int months,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "RON") String currency,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Scope scope,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
@@ -47,6 +50,8 @@ public class TransactionController {
             @RequestParam(defaultValue = "false") boolean uncategorized,
             @RequestParam(required = false) Long merchant,
             @Parameter(description = "Merchant or bank text contains it, or the amount equals it") @RequestParam(required = false) String q,
+            @Parameter(description = "1, or 3 for the 'last 3 months' view ending with the month")
+            @RequestParam(defaultValue = "1") int months,
             @Parameter(description = "Account ids to include (accounts filter); absent = all accounts")
             @RequestParam(required = false) List<Long> accounts) {
         YearMonth ym;
@@ -58,7 +63,10 @@ public class TransactionController {
         if (!currency.matches("[A-Z]{3}")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "currency must be an ISO code like RON");
         }
-        var f = TransactionFilter.month(ym, new Slice(currency, accounts)).matching(q);
+        if (months != 1 && months != 3) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "months must be 1 or 3");
+        }
+        var f = TransactionFilter.month(ym, new Slice(currency, accounts)).lastMonths(months).matching(q);
         f = switch (scope) {
             case SPEND -> f.spend();
             case INCOME -> f.income();
@@ -69,6 +77,6 @@ public class TransactionController {
         if (merchant != null) f = f.atMerchant(merchant);
         var items = transactions.list(f);
         long sum = items.stream().mapToLong(TransactionView::amountMinor).sum();
-        return new TransactionList(ym.toString(), currency, scope, scope == Scope.SPEND ? -sum : sum, items.size(), items);
+        return new TransactionList(ym.toString(), months, currency, scope, scope == Scope.SPEND ? -sum : sum, items.size(), items);
     }
 }
