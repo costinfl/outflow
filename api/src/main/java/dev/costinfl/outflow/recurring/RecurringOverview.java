@@ -60,7 +60,9 @@ public record RecurringOverview(
                     description = "Part of the totals: active (in the month viewed, when one is given)")
             boolean counted,
             @Schema(description = "Category of its latest charge") Long categoryId,
-            String categoryName) {}
+            String categoryName,
+            @Schema(description = "Remind this many days before the next charge; absent = no reminder")
+            Integer remindDaysBefore) {}
 
     /**
      * A recurring transfer out (DESIGN: "Standing transfers (savings, own accounts — shown but excluded from the

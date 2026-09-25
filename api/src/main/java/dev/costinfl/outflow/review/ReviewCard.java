@@ -42,7 +42,7 @@ public record ReviewCard(
         @Schema(description = "Price change / missed charge: the alert to answer") Long alertId,
         @Schema(description = "Price change: the amount before") Long previousAmountMinor,
         @Schema(description = "Price change: the new amount; missed: the expected one") Long newAmountMinor,
-        @Schema(description = "Missed charge: when it was due") LocalDate dueDate,
+        @Schema(description = "Missed charge: when it was due; upcoming charge: when it is expected") LocalDate dueDate,
         @Schema(description = "Uncategorized merchant: money sent to it") Integer sentCount,
         @Schema(description = "Uncategorized merchant: positive minor units sent") Long sentMinor,
         @Schema(description = "Uncategorized merchant: money received from it") Integer receivedCount,
@@ -51,7 +51,8 @@ public record ReviewCard(
         @Schema(description = "Subscription and alert cards: OUT for a recurring payment, IN for recurring income")
         Direction direction) {
 
-    public enum Kind { SUBSCRIPTION, UNCATEGORIZED_MERCHANT, POSSIBLE_DUPLICATE, PRICE_CHANGE, MISSED_CHARGE }
+    /** UPCOMING_CHARGE: a reminder the user asked for ("remind me before next charge"); its dueDate is the charge. */
+    public enum Kind { SUBSCRIPTION, UNCATEGORIZED_MERCHANT, POSSIBLE_DUPLICATE, PRICE_CHANGE, MISSED_CHARGE, UPCOMING_CHARGE }
 
     /** The inbox: cards to answer, and weaker subscription guesses shown collapsed ("possible"). */
     public record Inbox(

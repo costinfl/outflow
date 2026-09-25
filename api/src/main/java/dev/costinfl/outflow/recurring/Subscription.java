@@ -29,7 +29,9 @@ public record Subscription(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) State state,
         EndedBy endedBy,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "OUT: a recurring payment; IN: recurring income")
-        Direction direction) {
+        Direction direction,
+        @Schema(description = "Remind this many days before the next charge; absent = no reminder")
+        Integer remindDaysBefore) {
 
     /** DESIGN: Subscription candidate lifecycle. */
     public enum State { PROPOSED, CONFIRMED, REJECTED, ENDED }

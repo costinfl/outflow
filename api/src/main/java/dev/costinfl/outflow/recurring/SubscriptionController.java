@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -35,12 +36,41 @@ public class SubscriptionController {
 
     public record Rename(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name) {}
 
+    @Schema(description = "Days before the next charge, 1–14; absent or null turns the reminder off")
+    public record Reminder(Integer daysBefore) {}
+
     private final SubscriptionService subscriptions;
     private final RecurringService recurring;
+    private final ReminderService reminders;
 
-    public SubscriptionController(SubscriptionService subscriptions, RecurringService recurring) {
+    public SubscriptionController(SubscriptionService subscriptions, RecurringService recurring, ReminderService reminders) {
         this.subscriptions = subscriptions;
         this.recurring = recurring;
+        this.reminders = reminders;
+    }
+
+    /** "Remind me before next charge" on a confirmed recurring payment, or off. */
+    @PutMapping(path = "/{id}/reminder", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Subscription reminder(@PathVariable long id, @RequestBody Reminder body) {
+        try {
+            reminders.set(id, body == null ? null : body.daysBefore());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
+        } catch (ReminderService.ReminderException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+        }
+        return subscriptions.find(id).orElseThrow();
+    }
+
+    /** The reminders as a calendar file to import in the phone's calendar: it rings, even when Outflow is closed. */
+    @GetMapping(path = "/reminders.ics", produces = "text/calendar")
+    public org.springframework.http.ResponseEntity<String> calendar() {
+        return org.springframework.http.ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"outflow-reminders.ics\"")
+                .contentType(MediaType.parseMediaType("text/calendar; charset=utf-8"))
+                .body(reminders.calendar());
     }
 
     /** The Recurring payments screen; with {@code month}, as it stood in that month (the home figure's drill-through). */

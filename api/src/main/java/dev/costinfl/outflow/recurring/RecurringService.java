@@ -87,7 +87,7 @@ public class RecurringService {
             var item = new Item(s.id(), s.name(), s.merchantId(), s.cadence(), s.amountKind(), s.expectedAmountMinor(),
                     s.cadence().monthlyMinor(s.expectedAmountMinor()), s.cadence().yearlyMinor(s.expectedAmountMinor()),
                     s.nextExpectedDate(), status(s, open.get(s.id())), counted, cat.id(),
-                    cat.name());
+                    cat.name(), s.remindDaysBefore());
             GroupKind kind = s.direction() == Direction.IN ? GroupKind.INCOME
                     : cat.code() != null && BILLS.contains(cat.code()) ? GroupKind.BILLS : GroupKind.SUBSCRIPTIONS;
             byGroup.computeIfAbsent(kind, k -> new ArrayList<>()).add(item);

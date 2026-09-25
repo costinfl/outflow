@@ -123,6 +123,10 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
     ],
     count: 5,
   },
+  // A calendar file, not JSON: the demo never offers the download (no server), so there is nothing to answer.
+  '/api/subscriptions/reminders.ics': () => {
+    throw new Error('Demo mode: no calendar download')
+  },
   '/api/insights/categories/{id}': demoCategory,
   // All demo transactions are the Main account's: a filter without it has no data, as the real API would answer.
   '/api/insights/month': (url) => {

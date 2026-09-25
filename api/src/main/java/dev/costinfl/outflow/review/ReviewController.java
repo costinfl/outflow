@@ -4,6 +4,7 @@ import dev.costinfl.outflow.category.CategoryRule;
 import dev.costinfl.outflow.category.CategoryService;
 import dev.costinfl.outflow.ingest.UploadService;
 import dev.costinfl.outflow.recurring.AlertService;
+import dev.costinfl.outflow.recurring.ReminderService;
 import dev.costinfl.outflow.txn.SoftMatchService;
 import java.util.NoSuchElementException;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,9 +57,12 @@ public class ReviewController {
     private final CategoryService categories;
     private final SubscriptionService subscriptions;
     private final JdbcTemplate jdbc;
+    private final ReminderService reminders;
 
     public ReviewController(ReviewService review, CategoryService categories, SubscriptionService subscriptions,
-            JdbcTemplate jdbc, SoftMatchService softMatches, UploadService pipeline, AlertService alerts) {
+            JdbcTemplate jdbc, SoftMatchService softMatches, UploadService pipeline, AlertService alerts,
+            ReminderService reminders) {
+        this.reminders = reminders;
         this.alerts = alerts;
         this.review = review;
         this.softMatches = softMatches;
@@ -102,6 +106,17 @@ public class ReviewController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
         }
         pipeline.derive();
+    }
+
+    /** "Got it" on an upcoming-charge reminder: this charge's reminder is answered; the next one comes back. */
+    @PostMapping("/reminders/{subscriptionId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void acknowledgeReminder(@PathVariable long subscriptionId) {
+        try {
+            reminders.acknowledge(subscriptionId);
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
+        }
     }
 
     /** "Got it · Mark ended" on a price change, "Cancelled · Still active" on a missed charge. */

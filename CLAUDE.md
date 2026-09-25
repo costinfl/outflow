@@ -39,7 +39,8 @@ API endpoints: `/api/health`, `POST /api/imports` (multipart `files`), `GET/POST
 `POST /api/merchants/aliases`, `GET /api/insights/month`, `GET /api/insights/categories/{id}`,
 `GET /api/transactions`, `GET /api/review`, `POST /api/review/skip`, `POST /api/review/merchants/{id}/category` (optional `direction` IN/OUT),
 `POST /api/review/duplicates/{id}`, `POST /api/review/alerts/{id}`,
-`GET /api/subscriptions`, `PATCH /api/subscriptions/{id}`,
+`GET /api/subscriptions`, `PATCH /api/subscriptions/{id}`, `PUT /api/subscriptions/{id}/reminder`,
+`GET /api/subscriptions/reminders.ics`, `POST /api/review/reminders/{id}`,
 `POST /api/subscriptions/{id}/confirm|reject|end`; OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
 Parsers: one YAML profile per CSV format in `api/src/main/resources/parsers/` (keys: `docs/parsers.md`).
 Golden files in `samples/`, byte-exact (`.gitattributes`); expected values in `samples/synthetic/README.md`.
