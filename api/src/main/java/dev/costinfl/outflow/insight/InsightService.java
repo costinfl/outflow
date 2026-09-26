@@ -143,7 +143,8 @@ public class InsightService {
 
         var trust = jdbc.queryForMap("SELECT coalesce(sum(abs(t.amount_minor)), 0) AS total, "
                         + "coalesce(sum(abs(t.amount_minor) * coalesce(t.category_confidence, 0)), 0) AS weighted, "
-                        + "coalesce(sum(abs(t.amount_minor)) FILTER (WHERE t.category_id IS NOT NULL), 0) AS categorized"
+                        + "coalesce(sum(abs(t.amount_minor)) FILTER (WHERE t.category_id IS NOT NULL), 0) AS categorized, "
+                        + "coalesce(sum(abs(t.amount_minor)) FILTER (WHERE " + Scope.REVIEWED + "), 0) AS reviewed"
                         + FROM + "WHERE " + Scope.SPEND + " AND " + Scope.PERIOD + " AND " + Scope.SLICE,
                 slice.args(period.from(), period.toExclusive()));
         BigDecimal total = new BigDecimal(trust.get("total").toString());
@@ -166,7 +167,8 @@ public class InsightService {
                                 .flatMap(g -> g.items().stream()).filter(RecurringOverview.Item::counted).count()),
                 available.stream().map(YearMonth::toString).toList(),
                 months, period.first().toString(), withData,
-                insight(ranked, perMonthDivisor, currency).orElse(null));
+                insight(ranked, perMonthDivisor, currency).orElse(null),
+                ratioPct(new BigDecimal(trust.get("reviewed").toString()), total));
     }
 
     /**

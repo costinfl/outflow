@@ -49,10 +49,15 @@ public record ReviewCard(
         @Schema(description = "Uncategorized merchant: positive minor units received") Long receivedMinor,
         @Schema(description = "Uncategorized merchant: its oldest uncategorized transaction") LocalDate firstDate,
         @Schema(description = "Subscription and alert cards: OUT for a recurring payment, IN for recurring income")
-        Direction direction) {
+        Direction direction,
+        @Schema(description = "Confirm category: the category a keyword gave the merchant") Long categoryId,
+        String categoryName) {
 
     /** UPCOMING_CHARGE: a reminder the user asked for ("remind me before next charge"); its dueDate is the charge. */
-    public enum Kind { SUBSCRIPTION, UNCATEGORIZED_MERCHANT, POSSIBLE_DUPLICATE, PRICE_CHANGE, MISSED_CHARGE, UPCOMING_CHARGE }
+    /** CONFIRM_CATEGORY: "Kaufland → Groceries?" for a merchant only a keyword categorized ("Right" makes it a rule). */
+    public enum Kind {
+        SUBSCRIPTION, UNCATEGORIZED_MERCHANT, POSSIBLE_DUPLICATE, PRICE_CHANGE, MISSED_CHARGE, UPCOMING_CHARGE, CONFIRM_CATEGORY
+    }
 
     /** The inbox: cards to answer, and weaker subscription guesses shown collapsed ("possible"). */
     public record Inbox(

@@ -676,7 +676,7 @@
       "MonthSummary" : {
         "properties" : {
           "accuracyPct" : {
-            "description" : "Share of this month's spending to trust: weighted by category confidence",
+            "description" : "Share of spending weighted by category confidence (before reviewedPct; kept for reference)",
             "format" : "int32",
             "type" : "integer"
           },
@@ -757,6 +757,11 @@
             "$ref" : "#/components/schemas/Rest",
             "description" : "Everything below the top 5, folded"
           },
+          "reviewedPct" : {
+            "description" : "DESIGN's accuracy: share of the period's spending categorized and reviewed (Scope.REVIEWED)",
+            "format" : "int32",
+            "type" : "integer"
+          },
           "spentMinor" : {
             "format" : "int64",
             "type" : "integer"
@@ -771,7 +776,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "accuracyPct", "availableMonths", "baselineMonths", "categories", "categorizedPct", "committed", "currency", "incomeMinor", "month", "months", "monthsWithData", "netMinor", "periodFrom", "rest", "spentMinor", "uncategorizedCount", "uncategorizedMinor" ],
+        "required" : [ "accuracyPct", "availableMonths", "baselineMonths", "categories", "categorizedPct", "committed", "currency", "incomeMinor", "month", "months", "monthsWithData", "netMinor", "periodFrom", "rest", "reviewedPct", "spentMinor", "uncategorizedCount", "uncategorizedMinor" ],
         "type" : "object"
       },
       "NewAccount" : {
@@ -948,6 +953,14 @@
             "enum" : [ "DAILY", "WEEKLY", "MONTHLY", "YEARLY" ],
             "type" : "string"
           },
+          "categoryId" : {
+            "description" : "Confirm category: the category a keyword gave the merchant",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "categoryName" : {
+            "type" : "string"
+          },
           "confidence" : {
             "description" : "Detector confidence, 0–1",
             "type" : "number"
@@ -985,7 +998,7 @@
             "type" : "string"
           },
           "kind" : {
-            "enum" : [ "SUBSCRIPTION", "UNCATEGORIZED_MERCHANT", "POSSIBLE_DUPLICATE", "PRICE_CHANGE", "MISSED_CHARGE", "UPCOMING_CHARGE" ],
+            "enum" : [ "SUBSCRIPTION", "UNCATEGORIZED_MERCHANT", "POSSIBLE_DUPLICATE", "PRICE_CHANGE", "MISSED_CHARGE", "UPCOMING_CHARGE", "CONFIRM_CATEGORY" ],
             "type" : "string"
           },
           "merchantId" : {

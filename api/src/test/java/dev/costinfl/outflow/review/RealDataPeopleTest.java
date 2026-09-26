@@ -117,6 +117,31 @@ class RealDataPeopleTest {
         assertThat(linked).isEqualTo(41);
     }
 
+    /** CP6.10: the reviewed share of all spending, as the home screen counts it (Scope.SPEND, Scope.REVIEWED). */
+    double reviewed() {
+        return jdbc.queryForObject("""
+                SELECT 100.0 * coalesce(sum(-t.amount_minor) FILTER (WHERE""" + " " + dev.costinfl.outflow.txn.Scope.REVIEWED + """
+                ), 0) / sum(-t.amount_minor)
+                FROM transaction t LEFT JOIN category c ON c.id = t.category_id
+                WHERE""" + " " + dev.costinfl.outflow.txn.Scope.SPEND + " AND t.superseded_by IS NULL", Double.class);
+    }
+
+    @Test
+    void fiveRightAnswersMakeMerchantSpendingReviewed() {
+        double before = reviewed();
+        var cards = review.inbox().cards().stream().filter(c -> c.kind() == Kind.CONFIRM_CATEGORY).toList();
+        assertThat(cards).hasSize(5);
+
+        for (ReviewCard c : cards) {
+            categories.setMerchantCategory(c.merchantId(), c.categoryId(), Direction.OUT); // "Right"
+        }
+
+        double after = reviewed();
+        System.out.printf("Real ING export: spending reviewed %.1f%% -> %.1f%% after 5 'Right' answers%n", before, after);
+        assertThat(before).isZero();
+        assertThat(after).isGreaterThanOrEqualTo(10.0);
+    }
+
     @Test
     void aSpendingAnswerForMoneySentNeverTurnsMoneyReceivedIntoRefunds() {
         long spentBefore = spent();

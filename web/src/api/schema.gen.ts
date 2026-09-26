@@ -755,7 +755,7 @@ export interface components {
         MonthSummary: {
             /**
              * Format: int32
-             * @description Share of this month's spending to trust: weighted by category confidence
+             * @description Share of spending weighted by category confidence (before reviewedPct; kept for reference)
              */
             accuracyPct: number;
             /** @description Months with data, oldest first, e.g. 2026-01 */
@@ -811,6 +811,11 @@ export interface components {
             periodFrom: string;
             /** @description Everything below the top 5, folded */
             rest: components["schemas"]["Rest"];
+            /**
+             * Format: int32
+             * @description DESIGN's accuracy: share of the period's spending categorized and reviewed (Scope.REVIEWED)
+             */
+            reviewedPct: number;
             /** Format: int64 */
             spentMinor: number;
             /** Format: int32 */
@@ -914,6 +919,12 @@ export interface components {
             amountKind?: "FIXED" | "VARIABLE";
             /** @enum {string} */
             cadence?: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+            /**
+             * Format: int64
+             * @description Confirm category: the category a keyword gave the merchant
+             */
+            categoryId?: number;
+            categoryName?: string;
             /** @description Detector confidence, 0–1 */
             confidence?: number;
             currency: string;
@@ -945,7 +956,7 @@ export interface components {
              */
             key: string;
             /** @enum {string} */
-            kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT" | "POSSIBLE_DUPLICATE" | "PRICE_CHANGE" | "MISSED_CHARGE" | "UPCOMING_CHARGE";
+            kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT" | "POSSIBLE_DUPLICATE" | "PRICE_CHANGE" | "MISSED_CHARGE" | "UPCOMING_CHARGE" | "CONFIRM_CATEGORY";
             /** Format: int64 */
             merchantId: number;
             /** @description Subscription name or merchant display name */

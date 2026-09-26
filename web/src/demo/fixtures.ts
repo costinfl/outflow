@@ -86,8 +86,13 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
   // Uncategorized cards are the demo ledger's two uncategorized merchants. The subscription cards are illustrative:
   // the ledger holds one March charge per merchant, the cards describe what four months of them would look like.
   // So is the person (rent sent, money paid back): the demo ledger's months are pinned to InsightServiceTest's numbers.
+  // Lidl's card is the ledger's: five purchases, 3,800 RON, categorized by a keyword.
   '/api/review': {
     cards: [
+      {
+        key: 'category:1:RON', kind: 'CONFIRM_CATEGORY', affectedMinor: 380000, currency: 'RON', merchantId: 1,
+        name: 'Lidl', transactionCount: 5, categoryId: 1, categoryName: 'Groceries', direction: 'OUT',
+      },
       {
         key: 'merchant:12:RON', kind: 'UNCATEGORIZED_MERCHANT', affectedMinor: 335000, currency: 'RON', merchantId: 12,
         name: 'Person A', transactionCount: 5, sentCount: 2, sentMinor: 300000, receivedCount: 3, receivedMinor: 35000,
@@ -121,7 +126,7 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
         occurrences: 3, confidence: 0.55, nextExpectedDate: '2026-04-04',
       },
     ],
-    count: 5,
+    count: 6,
   },
   // A calendar file, not JSON: the demo never offers the download (no server), so there is nothing to answer.
   '/api/subscriptions/reminders.ics': () => {
@@ -144,7 +149,7 @@ function noData(month: string): MonthSummary {
     month, currency: 'RON', spentMinor: 0, baselineMonths: 0, incomeMinor: 0, netMinor: 0, accuracyPct: 0,
     categorizedPct: 0, uncategorizedMinor: 0, uncategorizedCount: 0, categories: [],
     rest: { spentMinor: 0, sharePct: 0, categoryCount: 0 }, committed: { monthlyMinor: 0, count: 0, incomeMonthlyMinor: 0, incomeCount: 0 }, availableMonths: [],
-    months: 1, periodFrom: month, monthsWithData: 0,
+    months: 1, periodFrom: month, monthsWithData: 0, reviewedPct: 0,
   }
 }
 
@@ -174,6 +179,7 @@ function groceriesOnly(month: string, spentMinor: number, baseline: number[]): M
     months: 1,
     periodFrom: month,
     monthsWithData: 1,
+    reviewedPct: 0, // keyword categories only
   }
 }
 
@@ -208,12 +214,16 @@ const demoMonths: Record<string, MonthSummary> = {
     months: 1,
     periodFrom: '2026-03',
     monthsWithData: 1,
+    reviewedPct: 20, // Netflix and Enel, confirmed subscriptions: 260 of 1,300
     insight: {
       categoryId: 1, code: 'GROCERIES', name: 'Groceries', deltaPct: -59, differenceMinor: -65000, perMonthMinor: 45000,
       usualMinor: 110000, transactionCount: 3,
     },
   },
 }
+
+/** March's charges of the confirmed demo subscriptions (Netflix 49.99, Enel 210.01): the demo's reviewed spending. */
+const REVIEWED_MARCH = 26000
 
 const shiftMonth = (month: string, by: number) => {
   const [y, m] = month.split('-').map(Number)
@@ -270,6 +280,7 @@ function lastThreeMonths(month: string): MonthSummary {
     months: 3,
     periodFrom: shiftMonth(month, -2),
     monthsWithData: window.length,
+    reviewedPct: spent ? Math.round((REVIEWED_MARCH * 100) / spent) : 0, // only March's confirmed charges
     insight: undefined, // nothing moves more than 25% and 100 RON per month here
   }
 }
