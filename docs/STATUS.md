@@ -5,9 +5,41 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.10** — accuracy as "categorized and reviewed", with "Is this right?" cards |
+| Last completed | **CP6.11** — bi-weekly and quarterly cadences |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.11 — done
+
+420 backend tests green (8 new); typecheck, web tests, build and demo build green. No migration: V6 already allowed
+both cadences.
+
+- **What:** DESIGN's table rows, "Bi-weekly: 14 days ± 2, at least 3" and "Quarterly: calendar months, 3, ± 5 days,
+  at least 3" (spec question 26).
+- **How the anchor works:**
+  - Bi-weekly: a weekday in one of the alternating weeks. `anchorDay` is the ISO weekday; `anchorMonth` is the week
+    (1 or 2, counted from the epoch).
+  - Quarterly: a day of month in one phase of the three-month cycle. `anchorDay` is the day; `anchorMonth` is the
+    cycle's first month (1–3, where 1 = Jan/Apr/Jul/Oct).
+  - Both use the existing columns within their checks.
+- **Guard found by the existing tests:** two weeks or three months apart, purchases on random days often land one
+  step apart by chance. Irregular shopping would have become "bi-weekly".
+  - So these two cadences also need at least two thirds of their steps on time. The other cadences are unchanged.
+  - Two monthly parts (the salary on the 10th and 25th) win over a looser single cadence.
+- **Everywhere else:**
+  - Monthly equivalents: bi-weekly × 26 ÷ 12, quarterly ÷ 3.
+  - Yearly equivalents: × 26 and × 4.
+  - Calendar reminders: `FREQ=WEEKLY;INTERVAL=2` and `FREQ=MONTHLY;INTERVAL=3`.
+  - Confirming with a corrected cadence anchors on the latest charge, for every cadence.
+  - The review Edit form offers both.
+- **Real export:** no bi-weekly or quarterly payments (19 monthly, 7 weekly, 29 yearly suggestions). The salary is
+  still two monthly parts (41 of 42 payments); categorization and accuracy are unchanged.
+- **Tests:**
+  - Detector: every other Friday; two days late is on time; every third month; five days late is on time; random
+    quarterly shopping is not; weekly and monthly stay put.
+  - Equivalents.
+  - Calendar rules.
+  - Confirming as quarterly or bi-weekly.
 
 ## CP6.10 — done
 
@@ -252,7 +284,7 @@ From DESIGN, not built yet:
 2. **Recurring:** ~~the "Standing transfers" group~~ (CP6.6); ~~"remind me before next charge"~~ (CP6.9).
 3. **Subscriptions:** merge / split candidates and "mark this one transaction as a subscription" (manual add, useful
    for yearly items).
-4. **Cadences:** bi-weekly and quarterly (spec question 26).
+4. ~~**Cadences:** bi-weekly and quarterly~~ (CP6.11).
 5. **Category detail:** recurring payments listed first, separately from variable spending.
 6. **Review:** ~~people and money both ways~~ (CP6.4); a card for transfer ties (spec question 20); ~~accuracy as
    "categorized and reviewed"~~ (CP6.10).
@@ -1000,7 +1032,8 @@ Health tests now derive the expected schema version from the migrations instead 
 25. **Two missed charges end a subscription automatically** (DESIGN: "Two missed in a row → propose state ENDED";
     the lifecycle diagram: "user or 2 missed"). It is ENDED by the SYSTEM rather than proposed: it resumes by itself
     when charges return, so nothing the user decided is overwritten.
-26. **Bi-weekly and quarterly** (in DESIGN's table, not in the plan's checkpoints) are not fitted yet. They fit the
+26. **Bi-weekly and quarterly** (in DESIGN's table, not in the plan's checkpoints). Done in CP6.11; they also need
+    two thirds of their steps on time (random purchases fall one step apart by chance at those spacings). They fit the
     same anchor framework (two-week periods; three-month periods ±5 days) when wanted.
 27. **Insurance category** (decided by the user: add it). DESIGN's seed list had none; V12 adds "Insurance" (SPEND,
     Bills on the Recurring screen).

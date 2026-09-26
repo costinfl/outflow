@@ -217,6 +217,10 @@ class ChargeRemindersTest {
                 .isEqualTo("FREQ=MONTHLY;BYMONTHDAY=28,29,30;BYSETPOS=-1");
         assertThat(ReminderService.rule(Cadence.MONTHLY, 28, null, LocalDate.of(2026, 9, 28)))
                 .isEqualTo("FREQ=MONTHLY;BYMONTHDAY=28");
+        assertThat(ReminderService.rule(Cadence.BIWEEKLY, 5, 1, LocalDate.of(2026, 4, 10)))
+                .isEqualTo("FREQ=WEEKLY;INTERVAL=2;BYDAY=FR");
+        assertThat(ReminderService.rule(Cadence.QUARTERLY, 15, 1, LocalDate.of(2026, 10, 15)))
+                .isEqualTo("FREQ=MONTHLY;INTERVAL=3;BYMONTHDAY=15");
         assertThat(ReminderService.escape("A, B; C\\D")).isEqualTo("A\\, B\\; C\\\\D");
     }
 }

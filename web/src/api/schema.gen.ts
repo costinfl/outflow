@@ -540,7 +540,7 @@ export interface components {
         /** @description Corrections made while confirming; omitted fields keep the detected value */
         Confirm: {
             /** @enum {string} */
-            cadence?: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+            cadence?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
             /** Format: int64 */
             expectedAmountMinor?: number;
             name?: string;
@@ -678,7 +678,7 @@ export interface components {
             /** @enum {string} */
             amountKind: "FIXED" | "VARIABLE";
             /** @enum {string} */
-            cadence: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+            cadence: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
             /**
              * Format: int64
              * @description Category of its latest charge
@@ -918,7 +918,7 @@ export interface components {
             /** @enum {string} */
             amountKind?: "FIXED" | "VARIABLE";
             /** @enum {string} */
-            cadence?: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+            cadence?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
             /**
              * Format: int64
              * @description Confirm category: the category a keyword gave the merchant
@@ -1042,7 +1042,7 @@ export interface components {
             /** @enum {string} */
             amountKind: "FIXED" | "VARIABLE";
             /** @enum {string} */
-            cadence: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+            cadence: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
             /** Format: int64 */
             expectedAmountMinor: number;
             /** Format: date */
@@ -1070,12 +1070,12 @@ export interface components {
             amountKind: "FIXED" | "VARIABLE";
             /**
              * Format: int32
-             * @description Day of month the charge is due (clamped in shorter months)
+             * @description Monthly, quarterly, yearly: day of month the charge is due (clamped in shorter months); weekly, bi-weekly: ISO weekday (1 = Monday)
              */
             anchorDay?: number;
             /**
              * Format: int32
-             * @description Month of year, for yearly cadences
+             * @description Yearly: month of year. Quarterly: the cycle's first month, 1–3 (1 = Jan/Apr/Jul/Oct). Bi-weekly: which of the alternating weeks, 1 or 2
              */
             anchorMonth?: number;
             /** Format: int64 */
@@ -1083,7 +1083,7 @@ export interface components {
             /** Format: int64 */
             bandMinMinor: number;
             /** @enum {string} */
-            cadence: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+            cadence: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
             /** @description Detector confidence, 0–1 */
             confidence: number;
             currency: string;

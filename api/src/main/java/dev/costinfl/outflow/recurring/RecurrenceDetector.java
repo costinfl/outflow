@@ -46,10 +46,14 @@ public final class RecurrenceDetector {
         var found = new ArrayList<Candidate>();
         for (List<Occurrence> band : AmountBands.split(group.occurrences())) {
             var best = best(group, band, today);
-            if (best.isPresent()) {
-                found.add(best.get());
+            // Two monthly parts win over one loose cadence (a salary on the 10th and 25th can pass for bi-weekly).
+            var parts = twiceMonthly(group, band, today);
+            boolean split = !parts.isEmpty() && (best.isEmpty()
+                    || parts.stream().mapToDouble(Candidate::confidence).min().orElse(0) > best.get().confidence());
+            if (split) {
+                found.addAll(parts);
             } else {
-                found.addAll(twiceMonthly(group, band, today));
+                best.ifPresent(found::add);
             }
         }
         return found;
@@ -124,7 +128,10 @@ public final class RecurrenceDetector {
         return Optional.ofNullable(best).filter(c -> c.confidence() >= POSSIBLE);
     }
 
-    /** The candidate for one cadence, or null when the charges do not step one period at a time (median gap ≠ 1). */
+    /**
+     * The candidate for one cadence, or null when the charges do not step one period at a time (median gap ≠ 1), or,
+     * for bi-weekly and quarterly, when fewer than two thirds of the steps are on time.
+     */
     Candidate fit(Group group, List<Occurrence> band, Cadence cadence, LocalDate today) {
         int n = band.size();
         var anchor = Anchor.of(cadence, band.stream().map(Occurrence::date).toList());
@@ -146,6 +153,11 @@ public final class RecurrenceDetector {
         if (lowerMedian(gaps) != 1) {
             return null;
         }
+        // Two weeks or three months apart, purchases on random days often fall one step apart by chance: bi-weekly and
+        // quarterly need most steps on time as well.
+        if ((cadence == Cadence.BIWEEKLY || cadence == Cadence.QUARTERLY) && 3 * regular < 2 * (n - 1)) {
+            return null;
+        }
 
         long[] amounts = band.stream().mapToLong(Occurrence::amountMinor).toArray();
         double cv = coefficientOfVariation(amounts);
@@ -157,7 +169,7 @@ public final class RecurrenceDetector {
                 Math.min(1, n / (2.0 * cadence.minCount)),
                 recency(ChronoUnit.DAYS.between(last, today) / cadence.stepDays));
         return new Candidate(group.accountId(), group.merchantId(), group.currency(), cadence,
-                cadence == Cadence.DAILY ? null : anchor.day(), cadence == Cadence.YEARLY ? anchor.month() : null,
+                cadence == Cadence.DAILY ? null : anchor.day(), anchor.hasMonth() ? anchor.month() : null,
                 cv <= FIXED_MAX_CV ? AmountKind.FIXED : AmountKind.VARIABLE,
                 median(lastThree), 2 * medianAbsoluteDeviation(amounts),
                 Arrays.stream(amounts).min().orElseThrow(), Arrays.stream(amounts).max().orElseThrow(),
@@ -201,10 +213,16 @@ public final class RecurrenceDetector {
 
     /**
      * Where a cadence's charges are due: a day of month (monthly), a month and day (yearly), a weekday (weekly, {@code
-     * day} = ISO weekday) or every day (daily). Periods are numbered (months since year 0, the year, weeks or days since
-     * 1970) so that consecutive periods differ by one.
+     * day} = ISO weekday) or every day (daily). Quarterly: a day of month in the months of one phase ({@code month} 1–3:
+     * 1 = Jan/Apr/Jul/Oct). Bi-weekly: a weekday in one of the alternating weeks ({@code month} 1 or 2, counted from
+     * the epoch). Periods are numbered so that consecutive periods differ by one.
      */
     record Anchor(Cadence cadence, int month, int day) {
+
+        /** Whether {@code month} is part of the anchor (stored as the subscription's anchor month). */
+        boolean hasMonth() {
+            return cadence == Cadence.YEARLY || cadence == Cadence.QUARTERLY || cadence == Cadence.BIWEEKLY;
+        }
 
         /** The anchor stored with a subscription, to compute its due dates. */
         static Anchor of(Subscription s) {
@@ -220,7 +238,7 @@ public final class RecurrenceDetector {
             if (cadence == Cadence.DAILY) {
                 return new Anchor(cadence, 0, 0);
             }
-            if (cadence == Cadence.WEEKLY) {
+            if (cadence == Cadence.WEEKLY || cadence == Cadence.BIWEEKLY) {
                 int[] counts = new int[8];
                 dates.forEach(d -> counts[d.getDayOfWeek().getValue()]++);
                 int best = 1;
@@ -229,11 +247,25 @@ public final class RecurrenceDetector {
                         best = d;
                     }
                 }
-                return new Anchor(cadence, 0, best);
+                if (cadence == Cadence.WEEKLY) {
+                    return new Anchor(cadence, 0, best);
+                }
+                // The more frequent of the two alternating weeks (the earlier one on a tie).
+                long weekOffset = Math.floorMod(best - 4, 7);
+                long odd = dates.stream().filter(d -> Math.floorMod(Math.floorDiv(d.toEpochDay() - weekOffset, 7), 2) == 1).count();
+                return new Anchor(cadence, 2 * odd > dates.size() ? 2 : 1, best);
             }
-            if (cadence == Cadence.MONTHLY) {
+            if (cadence == Cadence.MONTHLY || cadence == Cadence.QUARTERLY) {
                 long[] days = dates.stream().mapToLong(LocalDate::getDayOfMonth).toArray();
-                return new Anchor(cadence, 0, (int) lowerMedian(days));
+                int day = (int) lowerMedian(days);
+                if (cadence == Cadence.MONTHLY) {
+                    return new Anchor(cadence, 0, day);
+                }
+                // The most frequent phase of the three-month cycle (the earliest on a tie).
+                int[] phases = new int[3];
+                dates.forEach(d -> phases[Math.floorMod(d.getYear() * 12 + d.getMonthValue() - 1, 3)]++);
+                int phase = phases[1] > phases[0] ? (phases[2] > phases[1] ? 2 : 1) : (phases[2] > phases[0] ? 2 : 0);
+                return new Anchor(cadence, phase + 1, day);
             }
             LocalDate first = dates.getFirst();
             long[] offsets = dates.stream().mapToLong(d -> {
@@ -252,8 +284,12 @@ public final class RecurrenceDetector {
             if (cadence == Cadence.WEEKLY) {
                 return LocalDate.ofEpochDay(7 * period + weekOffset());
             }
-            if (cadence == Cadence.MONTHLY) {
-                var ym = YearMonth.of((int) Math.floorDiv(period, 12), (int) Math.floorMod(period, 12) + 1);
+            if (cadence == Cadence.BIWEEKLY) {
+                return LocalDate.ofEpochDay(7 * (2 * period + month - 1) + weekOffset());
+            }
+            if (cadence == Cadence.MONTHLY || cadence == Cadence.QUARTERLY) {
+                long monthIndex = cadence == Cadence.MONTHLY ? period : 3 * period + month - 1;
+                var ym = YearMonth.of((int) Math.floorDiv(monthIndex, 12), (int) Math.floorMod(monthIndex, 12) + 1);
                 return ym.atDay(Math.min(day, ym.lengthOfMonth()));
             }
             return MonthDay.of(month, day).atYear((int) period);
@@ -264,7 +300,9 @@ public final class RecurrenceDetector {
             long own = switch (cadence) {
                 case DAILY -> date.toEpochDay();
                 case WEEKLY -> Math.floorDiv(date.toEpochDay() - weekOffset(), 7);
+                case BIWEEKLY -> Math.floorDiv(Math.floorDiv(date.toEpochDay() - weekOffset(), 7) - (month - 1), 2);
                 case MONTHLY -> date.getYear() * 12L + date.getMonthValue() - 1;
+                case QUARTERLY -> Math.floorDiv(date.getYear() * 12L + date.getMonthValue() - 1 - (month - 1), 3);
                 case YEARLY -> date.getYear();
             };
             long best = own;

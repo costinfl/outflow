@@ -138,10 +138,12 @@ public class ReminderService {
         return switch (cadence) {
             case DAILY -> "FREQ=DAILY";
             case WEEKLY -> "FREQ=WEEKLY;BYDAY=" + next.getDayOfWeek().name().substring(0, 2);
-            case MONTHLY -> {
+            case BIWEEKLY -> "FREQ=WEEKLY;INTERVAL=2;BYDAY=" + next.getDayOfWeek().name().substring(0, 2);
+            case MONTHLY, QUARTERLY -> {
                 int day = anchorDay != null ? anchorDay : next.getDayOfMonth();
-                yield day <= 28 ? "FREQ=MONTHLY;BYMONTHDAY=" + day
-                        : "FREQ=MONTHLY;BYMONTHDAY=" + java.util.stream.IntStream.rangeClosed(28, Math.min(day, 31))
+                String freq = cadence == Cadence.MONTHLY ? "FREQ=MONTHLY" : "FREQ=MONTHLY;INTERVAL=3";
+                yield day <= 28 ? freq + ";BYMONTHDAY=" + day
+                        : freq + ";BYMONTHDAY=" + java.util.stream.IntStream.rangeClosed(28, Math.min(day, 31))
                                 .mapToObj(Integer::toString).collect(java.util.stream.Collectors.joining(",")) + ";BYSETPOS=-1";
             }
             case YEARLY -> "FREQ=YEARLY;BYMONTH=" + (anchorMonth != null ? anchorMonth : next.getMonthValue())

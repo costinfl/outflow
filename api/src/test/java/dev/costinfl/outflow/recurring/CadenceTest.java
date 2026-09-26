@@ -22,6 +22,17 @@ class CadenceTest {
         assertThat(Cadence.YEARLY.yearlyMinor(5500)).isEqualTo(5500);
     }
 
+    /** CP6.11: bi-weekly × 26 ÷ 12, quarterly ÷ 3, rounded half up. */
+    @Test
+    void biWeeklyAndQuarterlyEquivalents() {
+        assertThat(Cadence.BIWEEKLY.monthlyMinor(1000)).isEqualTo(2167); // 2166.67
+        assertThat(Cadence.BIWEEKLY.yearlyMinor(1000)).isEqualTo(26_000);
+        assertThat(Cadence.QUARTERLY.monthlyMinor(30_000)).isEqualTo(10_000);
+        assertThat(Cadence.QUARTERLY.monthlyMinor(29_999)).isEqualTo(10_000); // 9999.67
+        assertThat(Cadence.QUARTERLY.monthlyMinor(29_998)).isEqualTo(9999); // 9999.33
+        assertThat(Cadence.QUARTERLY.yearlyMinor(30_000)).isEqualTo(120_000);
+    }
+
     @Test
     void weeklyAndDailyEquivalents() {
         assertThat(Cadence.WEEKLY.monthlyMinor(1000)).isEqualTo(4330); // × 4.33

@@ -175,6 +175,22 @@ class SubscriptionServiceTest {
         assertThat(linked(after.id())).isEqualTo(8);
     }
 
+    /** CP6.11: a cadence corrected while confirming is anchored on the latest charge (Netflix, Wed 15 Jul 2026). */
+    @Test
+    void confirmingAsQuarterlyOrBiWeeklyAnchorsOnTheLatestCharge() {
+        var quarterly = subscriptions.confirm(live("NETFLIX").id(), new Edits(null, Cadence.QUARTERLY, null));
+        assertThat(quarterly.cadence()).isEqualTo(Cadence.QUARTERLY);
+        assertThat(quarterly.anchorDay()).isEqualTo(15);
+        assertThat(quarterly.anchorMonth()).isEqualTo(1); // January, April, July, October
+        assertThat(quarterly.nextExpectedDate()).isEqualTo(LocalDate.of(2026, 10, 15));
+
+        var biWeekly = subscriptions.confirm(live("ENEL").id(), new Edits(null, Cadence.BIWEEKLY, null));
+        LocalDate last = biWeekly.lastSeen();
+        assertThat(biWeekly.anchorDay()).isEqualTo(last.getDayOfWeek().getValue());
+        assertThat(biWeekly.anchorMonth()).isIn(1, 2);
+        assertThat(biWeekly.nextExpectedDate()).isEqualTo(last.plusDays(14));
+    }
+
     @Test
     void aConfirmedSubscriptionStaysWhenTheDetectorLosesIt() {
         var gym = subscriptions.confirm(live("WORLD CLASS").id(), Edits.NONE);

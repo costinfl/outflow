@@ -212,7 +212,9 @@ function EditForm({
           <select value={cadence} onChange={(e) => setCadence(e.target.value as Cadence)} className={field}>
             <option value="DAILY">Daily</option>
             <option value="WEEKLY">Weekly</option>
+            <option value="BIWEEKLY">Every two weeks</option>
             <option value="MONTHLY">Monthly</option>
+            <option value="QUARTERLY">Quarterly</option>
             <option value="YEARLY">Yearly</option>
           </select>
         </label>

@@ -34,6 +34,69 @@ class RecurrenceDetectorTest {
         return found.getFirst();
     }
 
+    /** CP6.11: every other Friday (DESIGN: bi-weekly, 14 days ± 2, at least 3). */
+    @Test
+    void everyOtherFridayIsBiWeekly() {
+        var c = only(detect(LocalDate.of(2026, 4, 2), "2026-01-02:4500", "2026-01-16:4500", "2026-01-30:4500",
+                "2026-02-13:4500", "2026-02-27:4500", "2026-03-13:4500", "2026-03-27:4500"));
+
+        assertThat(c.cadence()).isEqualTo(Cadence.BIWEEKLY);
+        assertThat(c.anchorDay()).isEqualTo(5); // Friday
+        assertThat(c.anchorMonth()).isEqualTo(1); // the even weeks since the epoch
+        assertThat(c.nextExpectedDate()).isEqualTo(LocalDate.of(2026, 4, 10));
+        assertThat(c.score()).isEqualTo(new Candidate.Score(1, 1, 1, 1));
+        assertThat(c.transactionIds()).hasSize(7);
+    }
+
+    @Test
+    void aBiWeeklyChargeTwoDaysLateIsOnTime() {
+        var c = only(detect(LocalDate.of(2026, 4, 2), "2026-01-02:4500", "2026-01-16:4500", "2026-02-01:4500",
+                "2026-02-13:4500", "2026-02-27:4500", "2026-03-13:4500", "2026-03-27:4500"));
+
+        assertThat(c.cadence()).isEqualTo(Cadence.BIWEEKLY);
+        assertThat(c.score().interval()).isEqualTo(1); // 1 Feb is a Sunday, 2 days after the 30 Jan Friday
+    }
+
+    /** CP6.11: every third month on the 15th (DESIGN: quarterly, ± 5 days, at least 3). */
+    @Test
+    void everyThirdMonthIsQuarterly() {
+        var c = only(detect(LocalDate.of(2026, 8, 1), "2025-07-15:29999", "2025-10-15:29999", "2026-01-15:29999",
+                "2026-04-15:29999", "2026-07-15:29999"));
+
+        assertThat(c.cadence()).isEqualTo(Cadence.QUARTERLY);
+        assertThat(c.anchorDay()).isEqualTo(15);
+        assertThat(c.anchorMonth()).isEqualTo(1); // January, April, July, October
+        assertThat(c.nextExpectedDate()).isEqualTo(LocalDate.of(2026, 10, 15));
+        assertThat(c.amountKind()).isEqualTo(AmountKind.FIXED);
+        assertThat(c.transactionIds()).hasSize(5);
+    }
+
+    @Test
+    void quarterlyChargesMayMoveFiveDays() {
+        var c = only(detect(LocalDate.of(2026, 8, 10), "2025-11-03:12000", "2026-02-02:12000", "2026-05-08:12000",
+                "2026-08-03:12000"));
+
+        assertThat(c.cadence()).isEqualTo(Cadence.QUARTERLY);
+        assertThat(c.anchorDay()).isEqualTo(3);
+        assertThat(c.anchorMonth()).isEqualTo(2); // February, May, August, November
+        assertThat(c.score().interval()).isEqualTo(1); // 8 May is 5 days after the 3rd
+        assertThat(c.nextExpectedDate()).isEqualTo(LocalDate.of(2026, 11, 3));
+    }
+
+    @Test
+    void aShopVisitedAboutEveryThreeMonthsOnRandomDaysIsNotQuarterly() {
+        assertThat(detect(LocalDate.of(2026, 2, 1), "2025-01-05:20000", "2025-04-20:20000", "2025-07-02:20000",
+                "2025-10-28:20000", "2026-01-11:20000")).isEmpty();
+    }
+
+    @Test
+    void weeklyAndMonthlyStayWhatTheyAre() {
+        assertThat(only(detect(LocalDate.of(2026, 3, 2), "2026-02-02:1000", "2026-02-09:1000", "2026-02-16:1000",
+                "2026-02-23:1000", "2026-03-02:1000")).cadence()).isEqualTo(Cadence.WEEKLY);
+        assertThat(only(detect(LocalDate.of(2026, 6, 20), "2026-01-15:4999", "2026-02-15:4999", "2026-03-15:4999",
+                "2026-04-15:4999", "2026-05-15:4999", "2026-06-15:4999")).cadence()).isEqualTo(Cadence.MONTHLY);
+    }
+
     /** CP6.5: a salary in two parts, around the 25th (advance) and the 10th, is two monthly streams. */
     @Test
     void twoPaymentsAMonthOnTwoDaysAreTwoMonthlyStreams() {
