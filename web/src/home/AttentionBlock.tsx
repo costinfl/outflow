@@ -27,20 +27,20 @@ export function AttentionBlock({ s }: { s: MonthSummary }) {
       )}
       <div className="flex items-baseline justify-between text-sm">
         <span className="text-ink-2">Accuracy</span>
-        <span className="font-medium text-ink tabular-nums">{s.accuracyPct}%</span>
+        <span className="font-medium text-ink tabular-nums">{s.reviewedPct}%</span>
       </div>
       <div
         role="meter"
         aria-label="Accuracy"
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={s.accuracyPct}
+        aria-valuenow={s.reviewedPct}
         className="mt-1.5 h-2 rounded-full bg-bar-track"
       >
-        <div className="h-2 rounded-full bg-bar" style={{ width: `${s.accuracyPct}%` }} />
+        <div className="h-2 rounded-full bg-bar" style={{ width: `${s.reviewedPct}%` }} />
       </div>
       <p className="mt-1 text-xs text-muted">
-        How much of {s.months > 1 ? "these months'" : "this month's"} spending is categorized, weighted by how sure we are ({s.categorizedPct}% has a category).
+        How much of {s.months > 1 ? "these months'" : "this month's"} spending is categorized and reviewed by you ({s.categorizedPct}% has a category). Review questions raise it.
       </p>
       {s.uncategorizedCount > 0 ? (
         <Link

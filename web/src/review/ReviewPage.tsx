@@ -46,6 +46,8 @@ export function ReviewPage() {
       <SubscriptionCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
     ) : card.kind === 'POSSIBLE_DUPLICATE' ? (
       <DuplicateCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
+    ) : card.kind === 'CONFIRM_CATEGORY' ? (
+      <ConfirmCategoryCard key={card.key} card={card} categories={categoryList} answer={answer} skip={() => void skip(card)} />
     ) : card.kind === 'UPCOMING_CHARGE' ? (
       <ReminderCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
     ) : card.kind === 'PRICE_CHANGE' || card.kind === 'MISSED_CHARGE' ? (
@@ -276,6 +278,93 @@ function AlertCard({ card, answer, skip }: { card: ReviewCard; answer: Answer; s
           Skip
         </button>
       </div>
+    </Swipeable>
+  )
+}
+
+/**
+ * "Kaufland → Groceries?": a merchant only a keyword categorized. "Right" makes that category the user's (a rule for
+ * money sent), which is what makes its spending reviewed; "Change" picks another one.
+ */
+function ConfirmCategoryCard({
+  card,
+  categories,
+  answer,
+  skip,
+}: {
+  card: ReviewCard
+  categories: Category[]
+  answer: Answer
+  skip: () => void
+}) {
+  const [changing, setChanging] = useState(false)
+  const [choice, setChoice] = useState('')
+  const count = card.transactionCount ?? 0
+  const set = (categoryId: number, name: string) =>
+    void answer(`${card.name} → ${name}`, () =>
+      api.POST('/api/review/merchants/{merchantId}/category', {
+        params: { path: { merchantId: card.merchantId } },
+        body: { categoryId, direction: 'OUT' },
+      }),
+    )
+  const right = () => set(card.categoryId!, card.categoryName!)
+  const spend = categories.filter((c) => c.kind === 'SPEND' || c.kind === 'TRANSFER')
+  return (
+    <Swipeable onRight={right} onLeft={skip}>
+      <p className="text-xs font-medium tracking-wide text-muted uppercase">Is this right?</p>
+      <p className="mt-1 text-ink">
+        <span className="font-medium">{card.name}</span> → <span className="font-medium">{card.categoryName}</span>
+      </p>
+      <p className="mt-1 text-xs text-muted">
+        {formatMoney(card.affectedMinor, card.currency)} in {count} {count === 1 ? 'payment' : 'payments'}, categorized by a
+        keyword. Your answer applies to all of them, past and future.
+      </p>
+      {changing ? (
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <label className="min-w-40 flex-1 text-xs text-ink-2">
+            Category
+            <select
+              value={choice}
+              onChange={(e) => setChoice(e.target.value)}
+              aria-label={`Category for ${card.name}`}
+              className="mt-1 block w-full rounded-lg bg-page px-2 py-1.5 text-sm text-ink ring-1 ring-hairline"
+            >
+              <option value="">Choose a category</option>
+              {spend.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className={primary}
+            disabled={choice === ''}
+            onClick={() => {
+              const c = spend.find((x) => x.id === Number(choice))
+              if (c) set(c.id, c.name)
+            }}
+          >
+            Apply
+          </button>
+          <button type="button" className={quiet} onClick={() => setChanging(false)}>
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button type="button" className={primary} onClick={right}>
+            Right
+          </button>
+          <button type="button" className={secondary} onClick={() => setChanging(true)}>
+            Change
+          </button>
+          <button type="button" className={quiet} onClick={skip}>
+            Skip
+          </button>
+        </div>
+      )}
     </Swipeable>
   )
 }

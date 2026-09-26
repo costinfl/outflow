@@ -5,9 +5,39 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.9** — "remind me before next charge" |
+| Last completed | **CP6.10** — accuracy as "categorized and reviewed", with "Is this right?" cards |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.10 — done
+
+412 backend tests green (5 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API with the real export, light and dark.
+
+- **Accuracy** is now DESIGN's: the share of the period's spending that is categorized **and reviewed**
+  (`MonthSummary.reviewedPct`, predicate `Scope.REVIEWED`). This closes spec question 12.
+  - Reviewed means the category is the user's own (set by hand, a rule they made in the inbox or with "apply to all",
+    or learned from their edits), or a paired own-account transfer, or the charge belongs to a confirmed or ended
+    subscription.
+  - A keyword's guess is not reviewed.
+  - The old confidence-weighted `accuracyPct` stays in the API for reference; the home screen shows `reviewedPct`,
+    with "(N% has a category)".
+- **"Is this right?" cards** (DESIGN: "5 quick questions would make this 97% accurate"):
+  - For merchants whose spending only a keyword categorized, largest money first (all time, like every card), 5 at a
+    time; answering one brings up the next.
+  - "Right" keeps the category as the user's rule for money sent; "Change" picks another. Both use
+    `POST /api/review/merchants/{id}/category` with `direction: OUT`.
+  - Card kind `CONFIRM_CATEGORY` with `categoryId` / `categoryName`.
+- **Real export:** reviewed spending 0% → **10.1%** after the first five "Right" answers (all 21 months; the rest is
+  mostly transfers to people). In the app, one "Right" (ATM cash withdrawals, 26,637 RON) took August from 0% to 8%.
+- **Tests:**
+  - `ReviewedAccuracyTest` (4): keyword guesses are categorized but not reviewed; five at a time, largest first, the
+    next one after an answer; each kind of answer (right, change, confirmed subscription, by hand) adds its money; the
+    accounts filter.
+  - `RealDataPeopleTest`: the 10.1%.
+- **Demo:**
+  - March shows 20% reviewed (its confirmed Netflix and Enel charges); the other months 0%.
+  - The inbox has a Lidl "Is this right?" card.
 
 ## CP6.9 — done
 
@@ -224,7 +254,8 @@ From DESIGN, not built yet:
    for yearly items).
 4. **Cadences:** bi-weekly and quarterly (spec question 26).
 5. **Category detail:** recurring payments listed first, separately from variable spending.
-6. **Review:** ~~people and money both ways~~ (CP6.4); a card for transfer ties (spec question 20); accuracy as "categorized and reviewed" (spec question 12).
+6. **Review:** ~~people and money both ways~~ (CP6.4); a card for transfer ties (spec question 20); ~~accuracy as
+   "categorized and reviewed"~~ (CP6.10).
 7. **Money:** more than one currency at a time, and cross-currency transfers (spec questions 14, 21).
 8. **Banks:** a second bank or CAMT.053 (DESIGN roadmap step 2); pending rows need a format with a status column
    (spec question 23).
@@ -935,6 +966,8 @@ Health tests now derive the expected schema version from the migrations instead 
     reviewed". Nothing is reviewed until M4, so a literal reading shows 0%. Chosen: spend weighted by category
     confidence (user/rule 1.0, learned 0.95, keyword 0.7, none 0), which answers "how far to trust the totals" from day
     one. The plain categorized share is returned too. Revisit when the review inbox lands.
+    **Revisited in CP6.10:** the home screen now shows DESIGN's "categorized and reviewed" share (`reviewedPct`),
+    raised by the inbox's "Is this right?" cards.
 13. **Uncategorized money in** is neither income nor spending (it may be a refund or an own-account transfer). It
     lowers nothing on the home screen; M4's review inbox will surface it. Uncategorized money *out* counts as spent
     (conservative: better to over- than under-state spending).

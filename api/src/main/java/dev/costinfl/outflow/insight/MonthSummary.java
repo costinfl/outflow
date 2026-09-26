@@ -21,7 +21,7 @@ public record MonthSummary(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Income − spent; negative when spending more")
         long netMinor,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
-                description = "Share of this month's spending to trust: weighted by category confidence")
+                description = "Share of spending weighted by category confidence (before reviewedPct; kept for reference)")
         int accuracyPct,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Share of this month's spending with any category")
         int categorizedPct,
@@ -45,7 +45,10 @@ public record MonthSummary(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "Months of the period that have data: totals ÷ this = per-month averages")
         int monthsWithData,
-        @Schema(description = "The plain-language insight line; absent when nothing moved notably") Insight insight) {
+        @Schema(description = "The plain-language insight line; absent when nothing moved notably") Insight insight,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "DESIGN's accuracy: share of the period's spending categorized and reviewed (Scope.REVIEWED)")
+        int reviewedPct) {
 
     /**
      * "Restaurants are up 40% vs. your usual — 9 visits this month": a category whose per-month spending differs from
