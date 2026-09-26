@@ -2,6 +2,16 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — reviewed accuracy (2026-09-26)
+
+- **Accuracy** is DESIGN's "categorized and reviewed" share of spending (`reviewedPct`, `Scope.REVIEWED`). That is the
+  user's own categories, paired own-account transfers and confirmed subscriptions' charges; keyword guesses don't
+  count.
+- **"Is this right?" cards** for keyword-only merchants, most money first, five at a time. "Right" makes the category
+  the user's rule; "Change" picks another.
+- **Real export:** reviewed spending 0% → 10.1% after five answers.
+- **Tests:** 412 backend (5 new), 17 web.
+
 ## After the plan — charge reminders (2026-09-25)
 
 - **"Remind me before next charge" (V15):** 1, 3 or 7 days before a confirmed payment's next charge. The review inbox
