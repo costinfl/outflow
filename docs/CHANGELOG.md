@@ -2,6 +2,15 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — bi-weekly and quarterly (2026-09-27)
+
+- **Cadences:** bi-weekly (a weekday in alternating weeks, ±2 days) and quarterly (a day of month every third month,
+  ±5 days), from 3 charges. Both need two thirds of their steps on time, so random purchases don't pass.
+- Monthly and yearly equivalents, calendar reminders, re-anchoring when confirming, and the review Edit form cover
+  both.
+- **Real export:** none of either; the other suggestions and the salary's two parts are unchanged.
+- **Tests:** 420 backend (8 new), 17 web.
+
 ## After the plan — reviewed accuracy (2026-09-26)
 
 - **Accuracy** is DESIGN's "categorized and reviewed" share of spending (`reviewedPct`, `Scope.REVIEWED`). That is the
