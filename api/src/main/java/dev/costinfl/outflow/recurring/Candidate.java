@@ -8,9 +8,10 @@ import java.util.List;
  * A recurring payment the detector found in one (account, merchant, currency, amount band) group
  * (DESIGN: Recurrence detection). Not stored yet: CP4.2 turns candidates into {@code subscription} rows.
  *
- * @param anchorDay   monthly and yearly: day of month the charge is due on (clamped to shorter months when used);
- *                    weekly: ISO weekday, 1 = Monday; daily: null
- * @param anchorMonth month of year for yearly cadences, else null
+ * @param anchorDay   monthly, quarterly and yearly: day of month the charge is due on (clamped to shorter months
+ *                    when used); weekly and bi-weekly: ISO weekday, 1 = Monday; daily: null
+ * @param anchorMonth yearly: month of year; quarterly: the cycle's first month, 1–3 (1 = Jan/Apr/Jul/Oct); bi-weekly:
+ *                    which of the alternating weeks, 1 or 2; else null
  * @param toleranceMinor how far a charge may be from {@code expectedAmountMinor} and still match (2 × MAD)
  * @param direction      OUT: a recurring payment; IN: recurring income
  */

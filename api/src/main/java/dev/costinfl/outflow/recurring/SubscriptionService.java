@@ -136,14 +136,10 @@ public class SubscriptionService {
         LocalDate next = s.nextExpectedDate();
         if (cadence != s.cadence()) {
             LocalDate last = s.lastSeen();
-            anchorDay = switch (cadence) {
-                case DAILY -> null;
-                case WEEKLY -> last.getDayOfWeek().getValue();
-                case MONTHLY, YEARLY -> last.getDayOfMonth();
-            };
-            anchorMonth = cadence == Cadence.YEARLY ? last.getMonthValue() : null;
-            next = new RecurrenceDetector.Anchor(cadence, anchorMonth == null ? 0 : anchorMonth,
-                    anchorDay == null ? 0 : anchorDay).nextDue(last);
+            var anchor = RecurrenceDetector.Anchor.of(cadence, List.of(last));
+            anchorDay = cadence == Cadence.DAILY ? null : anchor.day();
+            anchorMonth = anchor.hasMonth() ? anchor.month() : null;
+            next = anchor.nextDue(last);
         } else if (next == null) {
             next = RecurrenceDetector.Anchor.of(s).nextDue(s.lastSeen());
         }

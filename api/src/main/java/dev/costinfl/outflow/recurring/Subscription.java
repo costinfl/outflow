@@ -14,8 +14,10 @@ public record Subscription(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String currency,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Cadence cadence,
-        @Schema(description = "Day of month the charge is due (clamped in shorter months)") Integer anchorDay,
-        @Schema(description = "Month of year, for yearly cadences") Integer anchorMonth,
+        @Schema(description = "Monthly, quarterly, yearly: day of month the charge is due (clamped in shorter months); "
+                + "weekly, bi-weekly: ISO weekday (1 = Monday)") Integer anchorDay,
+        @Schema(description = "Yearly: month of year. Quarterly: the cycle's first month, 1–3 (1 = Jan/Apr/Jul/Oct). "
+                + "Bi-weekly: which of the alternating weeks, 1 or 2") Integer anchorMonth,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) AmountKind amountKind,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long expectedAmountMinor,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "A charge within expected ± tolerance matches")
