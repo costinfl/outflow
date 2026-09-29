@@ -260,6 +260,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/review/transfers/{transactionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["answerTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/subscriptions": {
         parameters: {
             query?: never;
@@ -956,7 +972,7 @@ export interface components {
              */
             key: string;
             /** @enum {string} */
-            kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT" | "POSSIBLE_DUPLICATE" | "PRICE_CHANGE" | "MISSED_CHARGE" | "UPCOMING_CHARGE" | "CONFIRM_CATEGORY";
+            kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT" | "POSSIBLE_DUPLICATE" | "PRICE_CHANGE" | "MISSED_CHARGE" | "UPCOMING_CHARGE" | "CONFIRM_CATEGORY" | "TRANSFER_TIE";
             /** Format: int64 */
             merchantId: number;
             /** @description Subscription name or merchant display name */
@@ -1024,6 +1040,8 @@ export interface components {
              * @description Uncategorized transactions of the merchant
              */
             transactionCount?: number;
+            /** @description Transfer tie: the transaction and the transfers it could be */
+            transferTie?: components["schemas"]["TransferTie"];
         };
         SetCategory: {
             /** @description Answer to 'apply to this merchant from now on?': creates a rule for the merchant */
@@ -1175,6 +1193,38 @@ export interface components {
             transferAccountName?: string;
             /** @description PAIRED: a transfer between own accounts, both sides seen; PROVISIONAL: only this side, recognised by the other account's IBAN; absent: not an own-account transfer */
             transferState?: string;
+        };
+        TransferAnswer: {
+            /**
+             * Format: int64
+             * @description The offered transaction it is a transfer with; absent for "none of these"
+             */
+            pairWith?: number;
+        };
+        TransferOption: {
+            accountName: string;
+            /** Format: date */
+            date: string;
+            description: string;
+            /** Format: int64 */
+            transactionId: number;
+        };
+        TransferTie: {
+            accountName: string;
+            /**
+             * Format: int64
+             * @description Signed minor units
+             */
+            amountMinor: number;
+            /** Format: date */
+            date: string;
+            /** @description Closest first */
+            options: components["schemas"]["TransferOption"][];
+            /**
+             * Format: int64
+             * @description The transaction asked about
+             */
+            transactionId: number;
         };
     };
     responses: never;
@@ -1573,6 +1623,30 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Skip"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    answerTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferAnswer"];
             };
         };
         responses: {

@@ -5,9 +5,37 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.11** — bi-weekly and quarterly cadences |
+| Last completed | **CP6.12** — "Which transfer is this?" review card for transfer ties |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.12 — done
+
+426 backend tests green (6 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (Main, Savings, Card statements with a tie), light and dark; no console errors.
+
+- **What:** DESIGN "ties go to review" (spec question 20). A tie is money that matches the same amount in more than one
+  other own account equally well (same business-day gap, same IBAN evidence). It stays unpaired, and the inbox now asks.
+- **Card `TRANSFER_TIE`** ("Which transfer is this?"): the transaction (account, date, signed amount) and its options
+  (account, date, description), closest first. Money affected: the amount. Key `transfer:<transaction id>`; skippable.
+  - One card per group of tied transactions, asked through the one with the most partners (money out first, then the
+    oldest). Two equal transfers the same day to Savings and Card are one question; answering it settles the other.
+- **Answer:** `POST /api/review/transfers/{transactionId}` with `pairWith` (an offered transaction) or nothing ("None of
+  these"). 404 when there is no open question for it, 400 for a transaction that was not offered. The pipeline reruns.
+- **V16:** `transfer_decision` (out, in, SAME / DIFFERENT), the user's answers, kept for good; `transfer_pair.source`
+  (AUTO / USER).
+- **`TransferService`:** the user's SAME pairs are made first (while both sides are still candidates), DIFFERENT pairs
+  never form, then the automatic matching runs as before. `ties()` lists the open questions; `decide()` stores an
+  answer. A later non-transfer category by the user still wins (the pair dissolves on the next run).
+- **Web:** the card offers one button per option ("Savings, Mar 3"), "None of these" and Skip. The demo inbox has an
+  illustrative tie (1,000 RON out of Main on a Monday, Savings deposits the Friday before and the Tuesday after).
+- **Tests** (`TransferTieTest`):
+  - a tie is one question listing its options, and the money stays unpaired until answered;
+  - picking one pairs them for good (USER), across later uploads and reruns;
+  - "None of these" leaves it ordinary and does not ask again;
+  - answering one settles the rest of the group (the other pair forms automatically);
+  - a later non-transfer category still wins;
+  - only an open question and an offered transfer are accepted; the card is skippable.
 
 ## CP6.11 — done
 
@@ -286,7 +314,7 @@ From DESIGN, not built yet:
    for yearly items).
 4. ~~**Cadences:** bi-weekly and quarterly~~ (CP6.11).
 5. **Category detail:** recurring payments listed first, separately from variable spending.
-6. **Review:** ~~people and money both ways~~ (CP6.4); a card for transfer ties (spec question 20); ~~accuracy as
+6. **Review:** ~~people and money both ways~~ (CP6.4); ~~a card for transfer ties~~ (CP6.12); ~~accuracy as
    "categorized and reviewed"~~ (CP6.10).
 7. **Money:** more than one currency at a time, and cross-currency transfers (spec questions 14, 21).
 8. **Banks:** a second bank or CAMT.053 (DESIGN roadmap step 2); pending rows need a format with a status column
@@ -1018,8 +1046,7 @@ Health tests now derive the expected schema version from the migrations instead 
     recurring payments (yearly ÷ 12), so it cannot be a `txn.Scope` sum. Its drill-through is the Recurring screen for
     the same month, whose rows sum to it exactly (same `RecurringService.overview`).
 20. **Transfer ties.** DESIGN: "ties go to review". Tied transactions stay unpaired (so they count as ordinary money
-    out/in) until a later statement or an IBAN decides. A "which transfer is this?" review card can join the
-    CP5.2 soft-match card if you want one.
+    out/in) until a later statement, an IBAN or the user decides: CP6.12's "Which transfer is this?" card.
 21. **Cross-currency transfers** (FX tolerance) are not paired yet: every account so far is RON. They need a rate
     source that does not leave the machine; proposal: a user-set tolerance per currency pair, when a second currency
     appears.

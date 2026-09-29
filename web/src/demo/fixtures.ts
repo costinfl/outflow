@@ -87,6 +87,8 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
   // the ledger holds one March charge per merchant, the cards describe what four months of them would look like.
   // So is the person (rent sent, money paid back): the demo ledger's months are pinned to InsightServiceTest's numbers.
   // Lidl's card is the ledger's: five purchases, 3,800 RON, categorized by a keyword.
+  // The transfer tie is illustrative too: 1,000 RON left Main on Monday 16 March and Savings received 1,000 RON both the
+  // Friday before and the Tuesday after, one business day either way.
   '/api/review': {
     cards: [
       {
@@ -97,6 +99,17 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
         key: 'merchant:12:RON', kind: 'UNCATEGORIZED_MERCHANT', affectedMinor: 335000, currency: 'RON', merchantId: 12,
         name: 'Person A', transactionCount: 5, sentCount: 2, sentMinor: 300000, receivedCount: 3, receivedMinor: 35000,
         firstDate: '2026-01-02',
+      },
+      {
+        key: 'transfer:90', kind: 'TRANSFER_TIE', affectedMinor: 100000, currency: 'RON', merchantId: 13,
+        name: 'Ordin plata', direction: 'OUT',
+        transferTie: {
+          transactionId: 90, accountName: 'Main', date: '2026-03-16', amountMinor: -100000,
+          options: [
+            { transactionId: 91, accountName: 'Savings', date: '2026-03-13', description: 'Incasare ordin plata' },
+            { transactionId: 92, accountName: 'Savings', date: '2026-03-17', description: 'Incasare ordin plata' },
+          ],
+        },
       },
       {
         key: 'subscription:2', kind: 'SUBSCRIPTION', affectedMinor: 84004, currency: 'RON', merchantId: 7, name: 'Enel',
@@ -126,7 +139,7 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
         occurrences: 3, confidence: 0.55, nextExpectedDate: '2026-04-04',
       },
     ],
-    count: 6,
+    count: 7,
   },
   // A calendar file, not JSON: the demo never offers the download (no server), so there is nothing to answer.
   '/api/subscriptions/reminders.ics': () => {

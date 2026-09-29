@@ -46,6 +46,8 @@ export function ReviewPage() {
       <SubscriptionCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
     ) : card.kind === 'POSSIBLE_DUPLICATE' ? (
       <DuplicateCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
+    ) : card.kind === 'TRANSFER_TIE' ? (
+      <TransferTieCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
     ) : card.kind === 'CONFIRM_CATEGORY' ? (
       <ConfirmCategoryCard key={card.key} card={card} categories={categoryList} answer={answer} skip={() => void skip(card)} />
     ) : card.kind === 'UPCOMING_CHARGE' ? (
@@ -433,6 +435,54 @@ function DuplicateCard({ card, answer, skip }: { card: ReviewCard; answer: Answe
         </button>
         <button type="button" className={secondary} onClick={() => decide(false)}>
           Different
+        </button>
+        <button type="button" className={quiet} onClick={skip}>
+          Skip
+        </button>
+      </div>
+    </Swipeable>
+  )
+}
+
+/**
+ * "Which transfer is this?": money that matches the same amount in more than one of your accounts, equally well. Picking
+ * one pairs them (neither is spending any more); "None of these" leaves it ordinary money and never asks again.
+ */
+function TransferTieCard({ card, answer, skip }: { card: ReviewCard; answer: Answer; skip: () => void }) {
+  const tie = card.transferTie!
+  const out = tie.amountMinor < 0
+  const amount = formatMoney(Math.abs(tie.amountMinor), card.currency)
+  const decide = (pairWith?: number, label = 'Not a transfer between your accounts') =>
+    void answer(label, () =>
+      api.POST('/api/review/transfers/{transactionId}', {
+        params: { path: { transactionId: tie.transactionId } },
+        body: pairWith === undefined ? {} : { pairWith },
+      }),
+    )
+  return (
+    <Swipeable onLeft={skip}>
+      <p className="text-xs font-medium tracking-wide text-muted uppercase">Which transfer is this?</p>
+      <p className="mt-1 text-ink">
+        {amount} {out ? 'left' : 'arrived in'} <span className="font-medium">{tie.accountName}</span> on {formatDay(tie.date)}.
+        The same amount {out ? 'arrived in' : 'left'} your accounts more than once around then. Which one is the other side?
+      </p>
+      <p className="mt-1 text-xs text-muted">
+        A transfer between your own accounts is not spending. Until you answer, this money is not paired with anything.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {tie.options.map((o) => (
+          <button
+            key={o.transactionId}
+            type="button"
+            className={secondary}
+            title={o.description}
+            onClick={() => decide(o.transactionId, `Paired with ${o.accountName} on ${formatDay(o.date)}`)}
+          >
+            {o.accountName}, {formatDay(o.date)}
+          </button>
+        ))}
+        <button type="button" className={secondary} onClick={() => decide()}>
+          None of these
         </button>
         <button type="button" className={quiet} onClick={skip}>
           Skip
