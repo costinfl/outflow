@@ -5,9 +5,28 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.12** — "Which transfer is this?" review card for transfer ties |
+| Last completed | **CP6.13** — category detail: recurring payments first, then variable spending |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.13 — done
+
+429 backend tests green (3 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (Netflix confirmed, Spotify proposed, both in Subscriptions & software), light and dark; no console errors.
+
+- **What:** DESIGN Detail screens, "Recurring payments inside it listed first, separately from variable spending".
+- **`Scope.RECURRING`:** a charge of a recurring payment the user confirmed or ended (proposed ones are still guesses).
+  `Scope.REVIEWED` now reuses it.
+- **`CategoryDetail`:** `recurring` (subscription, name, cadence, state, amount, count; largest first) and
+  `recurringMinor`; `merchants` is now the variable spending only. Recurring plus variable is the category's month.
+- **Drill-through:** `GET /api/transactions` takes `recurring=true|false` and `subscription=<id>`, so every figure on
+  the page opens exactly its transactions (tested: total, recurring, variable, one payment).
+- **Web:** a "Recurring payments" section first (each row opens that payment's charges, plus "All recurring payments"
+  for the month), then "Variable spending in <month>" with its total. Without recurring charges the page is as before.
+  The transactions screen shows "Recurring payments" / "Variable spending" / "<name> (recurring)" filter chips.
+- **Demo:** the ledger's Netflix, Enel and salary charges are the demo's confirmed recurring payments.
+- **Tests** (`CategoryRecurringTest`): the split and its sum; every figure equals its drill-through; an ended
+  payment's charges stay recurring and a rejected one's are variable.
 
 ## CP6.12 — done
 
@@ -313,7 +332,7 @@ From DESIGN, not built yet:
 3. **Subscriptions:** merge / split candidates and "mark this one transaction as a subscription" (manual add, useful
    for yearly items).
 4. ~~**Cadences:** bi-weekly and quarterly~~ (CP6.11).
-5. **Category detail:** recurring payments listed first, separately from variable spending.
+5. ~~**Category detail:** recurring payments listed first, separately from variable spending~~ (CP6.13).
 6. **Review:** ~~people and money both ways~~ (CP6.4); ~~a card for transfer ties~~ (CP6.12); ~~accuracy as
    "categorized and reviewed"~~ (CP6.10).
 7. **Money:** more than one currency at a time, and cross-currency transfers (spec questions 14, 21).

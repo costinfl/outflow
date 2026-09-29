@@ -152,7 +152,7 @@
             "type" : "string"
           },
           "merchants" : {
-            "description" : "This month, largest first",
+            "description" : "This month's variable spending by merchant (recurring charges excluded), largest first",
             "items" : {
               "$ref" : "#/components/schemas/MerchantAmount"
             },
@@ -162,6 +162,18 @@
             "example" : "2026-03",
             "type" : "string"
           },
+          "recurring" : {
+            "description" : "This month's recurring payments, largest first",
+            "items" : {
+              "$ref" : "#/components/schemas/RecurringAmount"
+            },
+            "type" : "array"
+          },
+          "recurringMinor" : {
+            "description" : "This month's recurring charges, total",
+            "format" : "int64",
+            "type" : "integer"
+          },
           "trend" : {
             "description" : "The 12 months ending with `month`, oldest first",
             "items" : {
@@ -170,7 +182,7 @@
             "type" : "array"
           }
         },
-        "required" : [ "amountMinor", "category", "currency", "merchants", "month", "trend" ],
+        "required" : [ "amountMinor", "category", "currency", "merchants", "month", "recurring", "recurringMinor", "trend" ],
         "type" : "object"
       },
       "CategorySpend" : {
@@ -831,6 +843,35 @@
           }
         },
         "required" : [ "name", "parserId", "reason", "score" ],
+        "type" : "object"
+      },
+      "RecurringAmount" : {
+        "properties" : {
+          "amountMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "cadence" : {
+            "enum" : [ "DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY", "QUARTERLY", "YEARLY" ],
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "state" : {
+            "description" : "CONFIRMED or ENDED",
+            "type" : "string"
+          },
+          "subscriptionId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "transactionCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "amountMinor", "cadence", "name", "state", "subscriptionId", "transactionCount" ],
         "type" : "object"
       },
       "RecurringOverview" : {
@@ -2301,6 +2342,23 @@
               "type" : "integer"
             },
             "type" : "array"
+          }
+        }, {
+          "description" : "true: only charges of confirmed or ended recurring payments; false: only the rest",
+          "in" : "query",
+          "name" : "recurring",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Only the charges of this recurring payment",
+          "in" : "query",
+          "name" : "subscription",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
           }
         } ],
         "responses" : {

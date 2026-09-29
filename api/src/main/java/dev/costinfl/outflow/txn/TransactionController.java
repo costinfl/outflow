@@ -53,7 +53,11 @@ public class TransactionController {
             @Parameter(description = "1, or 3 for the 'last 3 months' view ending with the month")
             @RequestParam(defaultValue = "1") int months,
             @Parameter(description = "Account ids to include (accounts filter); absent = all accounts")
-            @RequestParam(required = false) List<Long> accounts) {
+            @RequestParam(required = false) List<Long> accounts,
+            @Parameter(description = "true: only charges of confirmed or ended recurring payments; false: only the rest")
+            @RequestParam(required = false) Boolean recurring,
+            @Parameter(description = "Only the charges of this recurring payment")
+            @RequestParam(required = false) Long subscription) {
         YearMonth ym;
         try {
             ym = YearMonth.parse(month);
@@ -75,6 +79,8 @@ public class TransactionController {
         if (category != null) f = f.inCategory(category);
         if (uncategorized) f = f.uncategorizedOnly();
         if (merchant != null) f = f.atMerchant(merchant);
+        if (recurring != null) f = f.recurringOnly(recurring);
+        if (subscription != null) f = f.ofSubscription(subscription);
         var items = transactions.list(f);
         long sum = items.stream().mapToLong(TransactionView::amountMinor).sum();
         return new TransactionList(ym.toString(), months, currency, scope, scope == Scope.SPEND ? -sum : sum, items.size(), items);

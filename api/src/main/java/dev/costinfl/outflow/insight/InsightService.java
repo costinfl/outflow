@@ -4,6 +4,7 @@ import dev.costinfl.outflow.insight.MonthSummary.CategorySpend;
 import dev.costinfl.outflow.insight.MonthSummary.Committed;
 import dev.costinfl.outflow.insight.MonthSummary.Insight;
 import dev.costinfl.outflow.insight.MonthSummary.Rest;
+import dev.costinfl.outflow.recurring.Cadence;
 import dev.costinfl.outflow.recurring.RecurringOverview;
 import dev.costinfl.outflow.recurring.RecurringService;
 import dev.costinfl.outflow.txn.Period;
@@ -71,13 +72,24 @@ public class InsightService {
         var withData = trend.stream().filter(CategoryDetail.MonthAmount::hasData).toList();
         Long average = withData.isEmpty() ? null
                 : divide(withData.stream().mapToLong(CategoryDetail.MonthAmount::amountMinor).sum(), withData.size());
+        Object[] args = slice.args(categoryId, month.atDay(1), month.plusMonths(1).atDay(1));
+        // Recurring payments first, then variable spending by merchant: the two split the month's total.
+        var recurringPayments = jdbc.query("SELECT s.id, s.name, s.cadence, s.state, sum(" + amount + ") AS v, count(*)"
+                        + FROM + "JOIN subscription s ON s.id = t.subscription_id WHERE t.category_id = ? AND "
+                        + Scope.PERIOD + " AND " + Scope.SLICE + " AND " + Scope.RECURRING
+                        + " GROUP BY s.id, s.name, s.cadence, s.state ORDER BY v DESC, s.name, s.id",
+                (rs, i) -> new CategoryDetail.RecurringAmount(rs.getLong(1), rs.getString(2),
+                        Cadence.valueOf(rs.getString(3)), rs.getString(4), rs.getLong(5), rs.getInt(6)),
+                args);
         var merchants = jdbc.query("SELECT m.id, m.display_name, sum(" + amount + ") AS v, count(*)" + FROM
                         + "JOIN merchant m ON m.id = t.merchant_id WHERE t.category_id = ? AND " + Scope.PERIOD
-                        + " AND " + Scope.SLICE + " GROUP BY m.id, m.display_name ORDER BY v DESC, m.display_name",
+                        + " AND " + Scope.SLICE + " AND NOT " + Scope.RECURRING
+                        + " GROUP BY m.id, m.display_name ORDER BY v DESC, m.display_name",
                 (rs, i) -> new CategoryDetail.MerchantAmount(rs.getLong(1), rs.getString(2), rs.getLong(3), rs.getInt(4)),
-                slice.args(categoryId, month.atDay(1), month.plusMonths(1).atDay(1)));
+                args);
+        long recurringMinor = recurringPayments.stream().mapToLong(CategoryDetail.RecurringAmount::amountMinor).sum();
         return java.util.Optional.of(new CategoryDetail(category.get(), month.toString(), currency,
-                trend.getLast().amountMinor(), trend, average, merchants));
+                trend.getLast().amountMinor(), trend, average, merchants, recurringMinor, recurringPayments));
     }
 
     public List<YearMonth> availableMonths(String currency) {

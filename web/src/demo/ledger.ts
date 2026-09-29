@@ -59,6 +59,14 @@ const LEDGER: TransactionView[] = ROWS.map(([date, merchantId, key, name, amount
   ...({ merchantId } as object),
 }))
 
+// Charges of the demo's confirmed recurring payments (recurring.ts), by merchant id: listed first in a category.
+const RECURRING: Record<number, { subscriptionId: number; name: string; cadence: 'MONTHLY' }> = {
+  5: { subscriptionId: 1, name: 'Netflix', cadence: 'MONTHLY' },
+  7: { subscriptionId: 2, name: 'Enel', cadence: 'MONTHLY' },
+  9: { subscriptionId: 5, name: 'Salariu Acme Srl', cadence: 'MONTHLY' },
+}
+const recurringOf = (t: TransactionView) => RECURRING[(t as unknown as { merchantId: number }).merchantId]
+
 const kindOf = (t: TransactionView) => (t.categoryId != null ? CATEGORIES[t.categoryId]!.kind : undefined)
 const inSpend = (t: TransactionView) => kindOf(t) === 'SPEND' || (t.categoryId == null && t.amountMinor < 0)
 const MONTHS_WITH_DATA = [...new Set(LEDGER.map((t) => t.bookingDate.slice(0, 7)))].sort()
@@ -99,6 +107,8 @@ export function demoTransactions(url: URL): GetResponse<'/api/transactions'> {
     .filter((t) => !p.get('category') || t.categoryId === Number(p.get('category')))
     .filter((t) => p.get('uncategorized') !== 'true' || t.categoryId == null)
     .filter((t) => !p.get('merchant') || (t as unknown as { merchantId: number }).merchantId === Number(p.get('merchant')))
+    .filter((t) => !p.has('recurring') || (recurringOf(t) != null) === (p.get('recurring') === 'true'))
+    .filter((t) => !p.get('subscription') || recurringOf(t)?.subscriptionId === Number(p.get('subscription')))
     .filter((t) =>
       !q ? true
       : amount !== undefined ? Math.abs(t.amountMinor) === amount
@@ -124,7 +134,16 @@ export function demoCategory(url: URL): GetResponse<'/api/insights/categories/{i
   })
   const withData = trend.filter((t) => t.hasData)
   const byMerchant = new Map<string, { merchantId: number; name: string; amountMinor: number; transactionCount: number }>()
+  const recurring = new Map<number, { subscriptionId: number; name: string; cadence: 'MONTHLY'; state: string; amountMinor: number; transactionCount: number }>()
   for (const t of rows.filter((t) => t.categoryId === id && t.bookingDate.startsWith(month))) {
+    const r = recurringOf(t)
+    if (r) {
+      const e = recurring.get(r.subscriptionId) ?? { ...r, state: 'CONFIRMED', amountMinor: 0, transactionCount: 0 }
+      e.amountMinor += sign * t.amountMinor
+      e.transactionCount++
+      recurring.set(r.subscriptionId, e)
+      continue
+    }
     const e = byMerchant.get(t.merchantKey) ?? {
       merchantId: (t as unknown as { merchantId: number }).merchantId,
       name: t.merchantName,
@@ -143,5 +162,7 @@ export function demoCategory(url: URL): GetResponse<'/api/insights/categories/{i
     trend,
     averageMinor: withData.length ? Math.round(withData.reduce((s, t) => s + t.amountMinor, 0) / withData.length) : undefined,
     merchants: [...byMerchant.values()].sort((a, b) => b.amountMinor - a.amountMinor),
+    recurringMinor: [...recurring.values()].reduce((s, r) => s + r.amountMinor, 0),
+    recurring: [...recurring.values()].sort((a, b) => b.amountMinor - a.amountMinor),
   }
 }

@@ -52,6 +52,11 @@ public class TransactionQueries {
             where.append(" AND t.merchant_id = ?");
             args.add(id);
         });
+        f.recurring().ifPresent(r -> where.append(r ? " AND " : " AND NOT ").append(Scope.RECURRING));
+        f.subscription().ifPresent(id -> {
+            where.append(" AND t.subscription_id = ?");
+            args.add(id);
+        });
         f.search().ifPresent(q -> {
             var amount = amountMinor(q);
             if (amount.isPresent()) {

@@ -20,6 +20,8 @@ export function TransactionsPage() {
   const category = params.get('category')
   const uncategorized = params.get('uncategorized') === '1'
   const merchant = params.get('merchant')
+  const recurring = params.get('recurring')
+  const subscription = params.get('subscription')
   const q = params.get('q') ?? ''
   const accountIds = parseAccounts(params.get('accounts'))
   const [search, setSearch] = useState(q)
@@ -38,6 +40,8 @@ export function TransactionsPage() {
           ...(category ? { category: Number(category) } : {}),
           ...(uncategorized ? { uncategorized: true } : {}),
           ...(merchant ? { merchant: Number(merchant) } : {}),
+          ...(recurring === 'true' || recurring === 'false' ? { recurring: recurring === 'true' } : {}),
+          ...(subscription ? { subscription: Number(subscription) } : {}),
           ...(q ? { q } : {}),
           ...(accountIds.length > 0 ? { accounts: accountIds } : {}),
         },
@@ -68,6 +72,12 @@ export function TransactionsPage() {
   if (merchant) {
     const name = state.kind === 'ok' ? state.data.items[0]?.merchantName : undefined
     chips.push({ label: name ?? 'One merchant', keys: ['merchant'] })
+  }
+  if (recurring === 'true') chips.push({ label: 'Recurring payments', keys: ['recurring'] })
+  if (recurring === 'false') chips.push({ label: 'Variable spending', keys: ['recurring'] })
+  if (subscription) {
+    const name = state.kind === 'ok' ? state.data.items[0]?.merchantName : undefined
+    chips.push({ label: name ? `${name} (recurring)` : 'One recurring payment', keys: ['subscription'] })
   }
   if (months === 3) chips.push({ label: '3 months', keys: ['months'] })
   if (q) chips.push({ label: `“${q}”`, keys: ['q'] })

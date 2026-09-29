@@ -500,10 +500,17 @@ export interface components {
             category: components["schemas"]["Category"];
             /** @example RON */
             currency: string;
-            /** @description This month, largest first */
+            /** @description This month's variable spending by merchant (recurring charges excluded), largest first */
             merchants: components["schemas"]["MerchantAmount"][];
             /** @example 2026-03 */
             month: string;
+            /** @description This month's recurring payments, largest first */
+            recurring: components["schemas"]["RecurringAmount"][];
+            /**
+             * Format: int64
+             * @description This month's recurring charges, total
+             */
+            recurringMinor: number;
             /** @description The 12 months ending with `month`, oldest first */
             trend: components["schemas"]["MonthAmount"][];
         };
@@ -865,6 +872,19 @@ export interface components {
              * @description 0..1
              */
             score: number;
+        };
+        RecurringAmount: {
+            /** Format: int64 */
+            amountMinor: number;
+            /** @enum {string} */
+            cadence: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
+            name: string;
+            /** @description CONFIRMED or ENDED */
+            state: string;
+            /** Format: int64 */
+            subscriptionId: number;
+            /** Format: int32 */
+            transactionCount: number;
         };
         RecurringOverview: {
             /** Format: int32 */
@@ -1843,6 +1863,10 @@ export interface operations {
                 months?: number;
                 /** @description Account ids to include (accounts filter); absent = all accounts */
                 accounts?: number[];
+                /** @description true: only charges of confirmed or ended recurring payments; false: only the rest */
+                recurring?: boolean;
+                /** @description Only the charges of this recurring payment */
+                subscription?: number;
             };
             header?: never;
             path?: never;
