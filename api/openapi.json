@@ -67,6 +67,25 @@
         "required" : [ "account", "alreadyImported", "created", "newTransactions" ],
         "type" : "object"
       },
+      "AddManual" : {
+        "description" : "Mark one transaction as a recurring payment (or recurring income)",
+        "properties" : {
+          "cadence" : {
+            "enum" : [ "DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY", "QUARTERLY", "YEARLY" ],
+            "type" : "string"
+          },
+          "name" : {
+            "description" : "Defaults to the merchant's name",
+            "type" : "string"
+          },
+          "transactionId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "cadence", "transactionId" ],
+        "type" : "object"
+      },
       "AlertAnswer" : {
         "properties" : {
           "action" : {
@@ -1400,6 +1419,18 @@
             "description" : "PENDING: not posted yet (e.g. a card reservation); may still change",
             "type" : "string"
           },
+          "subscriptionId" : {
+            "description" : "The recurring payment (or proposal) this is a charge of",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "subscriptionName" : {
+            "type" : "string"
+          },
+          "subscriptionState" : {
+            "description" : "PROPOSED, CONFIRMED or ENDED",
+            "type" : "string"
+          },
           "transferAccountName" : {
             "description" : "The other own account of a transfer",
             "type" : "string"
@@ -2074,6 +2105,32 @@
               }
             },
             "description" : "OK"
+          }
+        },
+        "tags" : [ "subscriptions" ]
+      },
+      "post" : {
+        "operationId" : "addManual",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AddManual"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Subscription"
+                }
+              }
+            },
+            "description" : "Created"
           }
         },
         "tags" : [ "subscriptions" ]

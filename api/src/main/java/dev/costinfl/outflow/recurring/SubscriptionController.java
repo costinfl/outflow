@@ -14,6 +14,7 @@ import java.util.Optional;
 import java.util.function.LongFunction;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -33,6 +35,12 @@ public class SubscriptionController {
 
     @Schema(description = "Corrections made while confirming; omitted fields keep the detected value")
     public record Confirm(String name, Cadence cadence, Long expectedAmountMinor) {}
+
+    @Schema(description = "Mark one transaction as a recurring payment (or recurring income)")
+    public record AddManual(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Long transactionId,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Cadence cadence,
+            @Schema(description = "Defaults to the merchant's name") String name) {}
 
     public record Rename(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name) {}
 
@@ -90,6 +98,32 @@ public class SubscriptionController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "currency must be an ISO code like RON");
         }
         return recurring.overview(ym, new Slice(currency, accounts));
+    }
+
+    /**
+     * "Mark as recurring" on one transaction (DESIGN: Manual add), e.g. a yearly renewal seen once: a confirmed
+     * recurring payment from that charge. Charges already imported after it link at once.
+     */
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public Subscription addManual(@RequestBody AddManual body) {
+        if (body.transactionId() == null || body.cadence() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "transactionId and cadence are required");
+        }
+        if (body.name() != null && body.name().strip().length() > 100) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "name must be at most 100 characters");
+        }
+        Subscription s;
+        try {
+            s = subscriptions.addManual(body.transactionId(), body.cadence(), body.name());
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
+        } catch (SubscriptionService.ManualException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+        }
+        subscriptions.refreshNow();
+        return subscriptions.find(s.id()).orElseThrow();
     }
 
     /** Rename a confirmed or ended subscription. */

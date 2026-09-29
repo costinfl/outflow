@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router'
 import { api, isDemo } from '../api/client'
 import type { Account, Category, TransactionList, TransactionView } from '../api/types'
 import { parseAccounts } from '../lib/accounts'
-import { addMonths, formatMoney, formatMonth, formatMonthRange } from '../lib/format'
+import { addMonths, cadenceWord, formatMoney, formatMonth, formatMonthRange } from '../lib/format'
 import { useApi } from '../lib/useApi'
 
 type Scope = 'SPEND' | 'INCOME' | 'ALL'
@@ -269,8 +269,83 @@ function Row({ t, categories, onChanged }: { t: TransactionView; categories: Cat
             Save
           </button>
           {status && <p className="text-xs text-ink-2">{status}</p>}
+          <Recurring t={t} onChanged={onChanged} />
         </div>
       )}
     </li>
+  )
+}
+
+type Cadence = 'YEARLY' | 'QUARTERLY' | 'MONTHLY' | 'BIWEEKLY' | 'WEEKLY' | 'DAILY'
+const CADENCES: Cadence[] = ['YEARLY', 'QUARTERLY', 'MONTHLY', 'BIWEEKLY', 'WEEKLY', 'DAILY']
+
+/**
+ * The transaction's recurring payment, or "Mark as recurring" (DESIGN: Manual add): one charge becomes a confirmed
+ * recurring payment with a cadence, e.g. a yearly renewal seen only once so far. Later charges then link by themselves.
+ */
+function Recurring({ t, onChanged }: { t: TransactionView; onChanged: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [cadence, setCadence] = useState<Cadence>('YEARLY')
+  const [status, setStatus] = useState<string | null>(null)
+  const income = t.amountMinor > 0
+  if (t.subscriptionId != null) {
+    return (
+      <p className="text-xs text-ink-2">
+        {t.subscriptionState === 'PROPOSED' ? 'Looks like a charge of' : 'A charge of'}{' '}
+        <Link to="/recurring" className="text-bar underline">
+          {t.subscriptionName}
+        </Link>
+        {t.subscriptionState === 'PROPOSED' ? ', a possible recurring payment: confirm it in Review.' : '.'}
+      </p>
+    )
+  }
+  if (t.transferState || t.amountMinor === 0) return null
+  async function mark() {
+    setStatus('Saving…')
+    const { data, response } = await api.POST('/api/subscriptions', { body: { transactionId: t.id, cadence } })
+    if (data) {
+      setStatus(null)
+      setOpen(false)
+      onChanged()
+    } else {
+      setStatus(isDemo ? 'Marking needs the real app (the demo has no server).' : `Could not save (HTTP ${response.status}).`)
+    }
+  }
+  if (!open)
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="block text-xs text-bar underline">
+        {income ? 'Mark as recurring income' : 'Mark as a recurring payment'}
+      </button>
+    )
+  return (
+    <div className="space-y-2 rounded-lg p-2 ring-1 ring-hairline">
+      <label className="block text-xs text-ink-2">
+        {income ? 'Received' : 'Charged'} how often?
+        <select
+          value={cadence}
+          onChange={(e) => setCadence(e.target.value as Cadence)}
+          className="mt-1 block w-full rounded-lg bg-page px-2 py-1.5 text-sm text-ink ring-1 ring-hairline"
+        >
+          {CADENCES.map((c) => (
+            <option key={c} value={c}>
+              {cadenceWord(c).replace(/^./, (x) => x.toUpperCase())}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="text-xs text-muted">
+        {formatMoney(Math.abs(t.amountMinor), t.currency)} from {t.merchantName}, {cadenceWord(cadence)}. Later ones link by
+        themselves, and a different amount asks you first.
+      </p>
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={() => void mark()} className="rounded-lg bg-bar px-3 py-1.5 text-sm font-medium text-white">
+          Mark as recurring
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="px-1 py-1.5 text-sm text-muted hover:underline">
+          Cancel
+        </button>
+      </div>
+      {status && <p className="text-xs text-ink-2">{status}</p>}
+    </div>
   )
 }

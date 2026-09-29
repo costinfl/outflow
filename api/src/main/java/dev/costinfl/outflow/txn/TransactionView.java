@@ -24,4 +24,7 @@ public record TransactionView(
                 + "recognised by the other account's IBAN; absent: not an own-account transfer") String transferState,
         @Schema(description = "The other own account of a transfer") String transferAccountName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
-                description = "PENDING: not posted yet (e.g. a card reservation); may still change") String status) {}
+                description = "PENDING: not posted yet (e.g. a card reservation); may still change") String status,
+        @Schema(description = "The recurring payment (or proposal) this is a charge of") Long subscriptionId,
+        String subscriptionName,
+        @Schema(description = "PROPOSED, CONFIRMED or ENDED") String subscriptionState) {}

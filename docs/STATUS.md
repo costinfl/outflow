@@ -5,9 +5,33 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.13** — category detail: recurring payments first, then variable spending |
+| Last completed | **CP6.14** — "Mark as recurring": one transaction becomes a confirmed recurring payment |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.14 — done
+
+433 backend tests green (4 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (a one-off domain renewal marked yearly), light and dark; no console errors.
+
+- **What:** DESIGN Subscription candidate lifecycle, "Manual add: user marks a single transaction as a subscription
+  with a cadence — useful for yearly items with only one occurrence in history".
+- **`POST /api/subscriptions`** `{transactionId, cadence, name?}` → 201, a CONFIRMED subscription:
+  - amount = the charge (FIXED, tolerance 0, band = the amount); due day (and month) from its date, as the detector's
+    anchor; next expected = the next due date; money in makes recurring income (`direction` IN);
+  - the name defaults to the merchant's; the transaction is linked; confirmed-through = its date, so only later
+    charges are price-checked.
+  - Later charges link like any confirmed payment's (`AlertService`: near a due date, within 50%): a different amount
+    is a price-change question, and no charge by the deadline is a missed-charge question.
+  - Refused: already a charge of a recurring payment or proposal (409: confirm the proposal instead), an own-account
+    transfer (409), unknown transaction (404), no cadence (400).
+- **`TransactionView`** carries `subscriptionId`, `subscriptionName`, `subscriptionState`.
+- **Web:** an expanded transaction says "A charge of <name>" (or "Looks like a charge of <name>…" for a proposal);
+  otherwise "Mark as a recurring payment" / "Mark as recurring income" opens a cadence choice (Yearly first). The demo's
+  Netflix, Enel and salary rows show their recurring payment.
+- **Tests** (`ManualSubscriptionTest`, today fixed at 1 March 2026): a yearly renewal marked once, then linked a year
+  later two days late; a different price asks, and the late charge answers the missed question; charges imported
+  after it link at once, and money in is recurring income; the refusals.
 
 ## CP6.13 — done
 
@@ -329,8 +353,8 @@ light and dark, on the demo.
 From DESIGN, not built yet:
 1. ~~**Home:** insight line and "last 3 months" toggle~~ — done in CP6.3.
 2. **Recurring:** ~~the "Standing transfers" group~~ (CP6.6); ~~"remind me before next charge"~~ (CP6.9).
-3. **Subscriptions:** merge / split candidates and "mark this one transaction as a subscription" (manual add, useful
-   for yearly items).
+3. **Subscriptions:** merge / split candidates; ~~"mark this one transaction as a subscription" (manual add)~~
+   (CP6.14).
 4. ~~**Cadences:** bi-weekly and quarterly~~ (CP6.11).
 5. ~~**Category detail:** recurring payments listed first, separately from variable spending~~ (CP6.13).
 6. **Review:** ~~people and money both ways~~ (CP6.4); ~~a card for transfer ties~~ (CP6.12); ~~accuracy as

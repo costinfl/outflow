@@ -285,7 +285,7 @@ export interface paths {
         };
         get: operations["overview"];
         put?: never;
-        post?: never;
+        post: operations["addManual"];
         delete?: never;
         options?: never;
         head?: never;
@@ -452,6 +452,15 @@ export interface components {
             periodFrom?: string;
             /** Format: date */
             periodTo?: string;
+        };
+        /** @description Mark one transaction as a recurring payment (or recurring income) */
+        AddManual: {
+            /** @enum {string} */
+            cadence: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
+            /** @description Defaults to the merchant's name */
+            name?: string;
+            /** Format: int64 */
+            transactionId: number;
         };
         AlertAnswer: {
             /**
@@ -1209,6 +1218,14 @@ export interface components {
             merchantName: string;
             /** @description PENDING: not posted yet (e.g. a card reservation); may still change */
             status: string;
+            /**
+             * Format: int64
+             * @description The recurring payment (or proposal) this is a charge of
+             */
+            subscriptionId?: number;
+            subscriptionName?: string;
+            /** @description PROPOSED, CONFIRMED or ENDED */
+            subscriptionState?: string;
             /** @description The other own account of a transfer */
             transferAccountName?: string;
             /** @description PAIRED: a transfer between own accounts, both sides seen; PROVISIONAL: only this side, recognised by the other account's IBAN; absent: not an own-account transfer */
@@ -1701,6 +1718,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecurringOverview"];
+                };
+            };
+        };
+    };
+    addManual: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddManual"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
                 };
             };
         };

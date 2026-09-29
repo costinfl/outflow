@@ -59,6 +59,7 @@ const LEDGER: TransactionView[] = ROWS.map(([date, merchantId, key, name, amount
   ...({ merchantId } as object),
 }))
 
+
 // Charges of the demo's confirmed recurring payments (recurring.ts), by merchant id: listed first in a category.
 const RECURRING: Record<number, { subscriptionId: number; name: string; cadence: 'MONTHLY' }> = {
   5: { subscriptionId: 1, name: 'Netflix', cadence: 'MONTHLY' },
@@ -66,6 +67,11 @@ const RECURRING: Record<number, { subscriptionId: number; name: string; cadence:
   9: { subscriptionId: 5, name: 'Salariu Acme Srl', cadence: 'MONTHLY' },
 }
 const recurringOf = (t: TransactionView) => RECURRING[(t as unknown as { merchantId: number }).merchantId]
+// Charges of the demo's confirmed recurring payments show which one they belong to.
+for (const t of LEDGER) {
+  const r = recurringOf(t)
+  if (r) Object.assign(t, { subscriptionId: r.subscriptionId, subscriptionName: r.name, subscriptionState: 'CONFIRMED' })
+}
 
 const kindOf = (t: TransactionView) => (t.categoryId != null ? CATEGORIES[t.categoryId]!.kind : undefined)
 const inSpend = (t: TransactionView) => kindOf(t) === 'SPEND' || (t.categoryId == null && t.amountMinor < 0)
