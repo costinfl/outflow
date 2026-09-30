@@ -18,7 +18,7 @@ the API (a 9.99 plan and 11–12 purchases at one merchant, split at 10.50), lig
   subscription items (merge CP6.15, manual add CP6.14).
 - **When it is needed:** amounts within 25% share a band, so a 9.99 plan and occasional 11–12 purchases at the same
   merchant become one "about 9.99, variable" proposal with a poor rhythm. (Two plans on days at least 5 apart were
-  already two streams, CP6.x twice-monthly split; two plans billed on nearby days are no stream at all.)
+  already two streams: the twice-monthly split of CP6.7; two plans billed on nearby days are no stream at all.)
 - **V17 `subscription_split`:** the user's amount cut per (account, merchant, currency, direction), kept for good.
   - `AmountBands.split(occurrences, cuts)`: amounts below a cut and at or above it never share a band;
     `RecurrenceDetector.Group` carries the cuts, `RecurrenceService.detect` loads them.
