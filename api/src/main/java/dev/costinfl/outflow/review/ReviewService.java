@@ -51,7 +51,8 @@ public class ReviewService {
         jdbc.query("""
                 SELECT s.id, s.merchant_id, s.name, s.currency, s.cadence, s.expected_amount_minor, s.amount_kind,
                        s.first_seen, s.confidence, s.next_expected_date,
-                       count(t.id), coalesce(sum(abs(t.amount_minor)), 0), s.direction
+                       count(t.id), coalesce(sum(abs(t.amount_minor)), 0), s.direction,
+                       min(abs(t.amount_minor)), max(abs(t.amount_minor))
                 FROM subscription s LEFT JOIN transaction t ON t.subscription_id = s.id
                 WHERE s.state = 'PROPOSED'
                 GROUP BY s.id""", rs -> {
@@ -60,7 +61,8 @@ public class ReviewService {
                     rs.getString(4), rs.getLong(2), rs.getString(3), rs.getLong(1), Cadence.valueOf(rs.getString(5)),
                     rs.getLong(6), AmountKind.valueOf(rs.getString(7)), rs.getObject(8, LocalDate.class),
                     rs.getInt(11), confidence, rs.getObject(10, LocalDate.class), null, null, null, null, null, null,
-                    null, null, null, null, null, null, null, null, null, Direction.valueOf(rs.getString(13)), null, null, null);
+                    null, null, null, null, null, null, null, null, null, Direction.valueOf(rs.getString(13)), null, null, null,
+                    (Long) rs.getObject(14), (Long) rs.getObject(15));
             if (!skipped.contains(card.key())) {
                 (confidence.compareTo(PROPOSE) >= 0 ? cards : possible).add(card);
             }
@@ -77,7 +79,7 @@ public class ReviewService {
                     rs.getLong(5), rs.getString(3), rs.getLong(1), rs.getString(2),
                     null, null, null, null, null, null, null, null, rs.getInt(4), null, null, null, null, null,
                     null, null, null, null, rs.getInt(6), rs.getLong(7), rs.getInt(8), rs.getLong(9),
-                    rs.getObject(10, LocalDate.class), null, null, null, null);
+                    rs.getObject(10, LocalDate.class), null, null, null, null, null, null);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }
@@ -95,7 +97,7 @@ public class ReviewService {
             var card = new ReviewCard("duplicate:" + rs.getLong(1), Kind.POSSIBLE_DUPLICATE, Math.abs(rs.getLong(6)),
                     rs.getString(4), rs.getLong(2), rs.getString(3), null, null, null, null, null, null, null, null, null,
                     rs.getLong(1), rs.getObject(5, LocalDate.class), rs.getLong(6), rs.getObject(7, LocalDate.class),
-                    rs.getLong(8), null, null, null, null, null, null, null, null, null, null, null, null, null);
+                    rs.getLong(8), null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }
@@ -115,7 +117,7 @@ public class ReviewService {
                     rs.getLong(6), cadence, rs.getLong(11), AmountKind.valueOf(rs.getString(12)), null, null, null, null,
                     null, null, null, null, null, null, rs.getLong(1), (Long) rs.getObject(3), rs.getLong(4),
                     rs.getObject(5, LocalDate.class), null, null, null, null, null, Direction.valueOf(rs.getString(13)), null,
-                    null, null);
+                    null, null, null, null);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }
@@ -140,7 +142,7 @@ public class ReviewService {
                     ((Number) r.get("spent")).longValue(), (String) r.get("currency"), merchant, (String) r.get("display_name"),
                     null, null, null, null, null, null, null, null, ((Number) r.get("n")).intValue(), null, null, null,
                     null, null, null, null, null, null, null, null, null, null, null, Direction.OUT,
-                    ((Number) r.get("category_id")).longValue(), (String) r.get("category_name"), null);
+                    ((Number) r.get("category_id")).longValue(), (String) r.get("category_name"), null, null, null);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
                 asked++;
@@ -151,7 +153,7 @@ public class ReviewService {
             var card = new ReviewCard("reminder:" + d.subscriptionId() + ":" + d.dueDate(), Kind.UPCOMING_CHARGE,
                     d.expectedAmountMinor(), d.currency(), d.merchantId(), d.name(), d.subscriptionId(), d.cadence(),
                     d.expectedAmountMinor(), AmountKind.valueOf(d.amountKind()), null, null, null, null, null, null,
-                    null, null, null, null, null, null, null, d.dueDate(), null, null, null, null, null, Direction.OUT, null, null, null);
+                    null, null, null, null, null, null, null, d.dueDate(), null, null, null, null, null, Direction.OUT, null, null, null, null, null);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }
@@ -191,7 +193,7 @@ public class ReviewService {
         return new ReviewCard("transfer:" + t.id(), Kind.TRANSFER_TIE, Math.abs(t.amountMinor()), t.currency(),
                 t.merchantId(), t.name(), null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, t.amountMinor() < 0 ? Direction.OUT : Direction.IN,
-                null, null, new ReviewCard.TransferTie(t.id(), t.account(), t.date(), t.amountMinor(), options));
+                null, null, new ReviewCard.TransferTie(t.id(), t.account(), t.date(), t.amountMinor(), options), null, null);
     }
 
     /** Hides a card until the next upload. */

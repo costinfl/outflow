@@ -1063,6 +1063,11 @@
             "format" : "date",
             "type" : "string"
           },
+          "highestMinor" : {
+            "description" : "Subscription: its highest charge (positive minor units)",
+            "format" : "int64",
+            "type" : "integer"
+          },
           "key" : {
             "description" : "Stable id, used to skip the card",
             "example" : "subscription:12",
@@ -1071,6 +1076,11 @@
           "kind" : {
             "enum" : [ "SUBSCRIPTION", "UNCATEGORIZED_MERCHANT", "POSSIBLE_DUPLICATE", "PRICE_CHANGE", "MISSED_CHARGE", "UPCOMING_CHARGE", "CONFIRM_CATEGORY", "TRANSFER_TIE" ],
             "type" : "string"
+          },
+          "lowestMinor" : {
+            "description" : "Subscription: its lowest charge (positive minor units); below the highest one, it can be split",
+            "format" : "int64",
+            "type" : "integer"
           },
           "merchantId" : {
             "format" : "int64",
@@ -1180,6 +1190,17 @@
           }
         },
         "required" : [ "key" ],
+        "type" : "object"
+      },
+      "Split" : {
+        "properties" : {
+          "atMinor" : {
+            "description" : "Charges below this amount (positive minor units) are one plan, the rest the other",
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "atMinor" ],
         "type" : "object"
       },
       "StandingTransfer" : {
@@ -2357,6 +2378,46 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Subscription"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "subscriptions" ]
+      }
+    },
+    "/api/subscriptions/{id}/split" : {
+      "post" : {
+        "operationId" : "split",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Split"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Subscription"
+                  },
+                  "type" : "array"
                 }
               }
             },

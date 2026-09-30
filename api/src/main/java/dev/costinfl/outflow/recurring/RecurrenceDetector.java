@@ -29,7 +29,12 @@ public final class RecurrenceDetector {
 
     /** One merchant's charges (or payments received) on one account in one currency, before banding. */
     public record Group(long accountId, long merchantId, String currency, List<Occurrence> occurrences,
-            Direction direction) {
+            Direction direction, List<Long> cuts) {
+
+        /** No user cuts. */
+        public Group(long accountId, long merchantId, String currency, List<Occurrence> occurrences, Direction direction) {
+            this(accountId, merchantId, currency, occurrences, direction, List.of());
+        }
 
         /** Outgoing charges. */
         public Group(long accountId, long merchantId, String currency, List<Occurrence> occurrences) {
@@ -44,7 +49,7 @@ public final class RecurrenceDetector {
      */
     public List<Candidate> detect(Group group, LocalDate today) {
         var found = new ArrayList<Candidate>();
-        for (List<Occurrence> band : AmountBands.split(group.occurrences())) {
+        for (List<Occurrence> band : AmountBands.split(group.occurrences(), group.cuts())) {
             var best = best(group, band, today);
             // Two monthly parts win over one loose cadence (a salary on the 10th and 25th can pass for bi-weekly).
             var parts = twiceMonthly(group, band, today);

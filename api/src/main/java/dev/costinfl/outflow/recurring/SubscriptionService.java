@@ -242,6 +242,37 @@ public class SubscriptionService {
         jdbc.update("DELETE FROM subscription WHERE id = ?", id);
     }
 
+    /** Thrown when an amount does not split a proposal's charges (all on one side). */
+    public static class SplitException extends IllegalArgumentException {
+        SplitException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Split (DESIGN: Subscription candidate lifecycle, "two plans from one merchant"): the proposal's charges below
+     * {@code atMinor} and those at or above it are two streams. The cut is kept for the merchant on that account; the
+     * proposal goes, and the caller's refresh proposes each side that recurs on its own.
+     */
+    @Transactional
+    public void split(long id, long atMinor) {
+        Subscription s = require(id, State.PROPOSED);
+        var amounts = jdbc.queryForMap("""
+                SELECT count(*) FILTER (WHERE abs(amount_minor) < ?) AS below,
+                       count(*) FILTER (WHERE abs(amount_minor) >= ?) AS above
+                FROM transaction WHERE subscription_id = ?""", atMinor, atMinor, id);
+        if (((Number) amounts.get("below")).longValue() == 0 || ((Number) amounts.get("above")).longValue() == 0) {
+            throw new SplitException("Split at an amount between the lowest and the highest charge");
+        }
+        jdbc.update("""
+                INSERT INTO subscription_split (household_id, account_id, merchant_id, currency, direction, cut_minor)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT ON CONSTRAINT subscription_split_uq DO NOTHING""",
+                HOUSEHOLD, s.accountId(), s.merchantId(), s.currency(), s.direction().name(), atMinor);
+        jdbc.update("UPDATE transaction SET subscription_id = NULL WHERE subscription_id = ?", id);
+        jdbc.update("DELETE FROM subscription WHERE id = ?", id);
+    }
+
     /** PROPOSED → REJECTED: its charges are unlinked and the (merchant, cadence, amount) is never proposed again. */
     @Transactional
     public Subscription reject(long id) {

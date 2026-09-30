@@ -52,7 +52,10 @@ public record ReviewCard(
         Direction direction,
         @Schema(description = "Confirm category: the category a keyword gave the merchant") Long categoryId,
         String categoryName,
-        @Schema(description = "Transfer tie: the transaction and the transfers it could be") TransferTie transferTie) {
+        @Schema(description = "Transfer tie: the transaction and the transfers it could be") TransferTie transferTie,
+        @Schema(description = "Subscription: its lowest charge (positive minor units); below the highest one, it can be split")
+        Long lowestMinor,
+        @Schema(description = "Subscription: its highest charge (positive minor units)") Long highestMinor) {
 
     /**
      * TRANSFER_TIE: "Which transfer is this?" Money out of (or into) one own account matches the same amount in more

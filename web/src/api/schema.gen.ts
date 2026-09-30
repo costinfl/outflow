@@ -404,6 +404,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/subscriptions/{id}/split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["split"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/transactions": {
         parameters: {
             query?: never;
@@ -1019,12 +1035,22 @@ export interface components {
              */
             firstDate?: string;
             /**
+             * Format: int64
+             * @description Subscription: its highest charge (positive minor units)
+             */
+            highestMinor?: number;
+            /**
              * @description Stable id, used to skip the card
              * @example subscription:12
              */
             key: string;
             /** @enum {string} */
             kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT" | "POSSIBLE_DUPLICATE" | "PRICE_CHANGE" | "MISSED_CHARGE" | "UPCOMING_CHARGE" | "CONFIRM_CATEGORY" | "TRANSFER_TIE";
+            /**
+             * Format: int64
+             * @description Subscription: its lowest charge (positive minor units); below the highest one, it can be split
+             */
+            lowestMinor?: number;
             /** Format: int64 */
             merchantId: number;
             /** @description Subscription name or merchant display name */
@@ -1103,6 +1129,13 @@ export interface components {
         };
         Skip: {
             key: string;
+        };
+        Split: {
+            /**
+             * Format: int64
+             * @description Charges below this amount (positive minor units) are one plan, the rest the other
+             */
+            atMinor: number;
         };
         StandingTransfer: {
             /** Format: int64 */
@@ -1933,6 +1966,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Subscription"];
+                };
+            };
+        };
+    };
+    split: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Split"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"][];
                 };
             };
         };

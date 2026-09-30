@@ -48,6 +48,11 @@ public class SubscriptionController {
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The recurring payment it is the same as")
             Long into) {}
 
+    public record Split(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "Charges below this amount (positive minor units) are one plan, the rest the other")
+            Long atMinor) {}
+
     public record Rename(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name) {}
 
     @Schema(description = "Days before the next charge, 1–14; absent or null turns the reminder off")
@@ -183,6 +188,31 @@ public class SubscriptionController {
         categories.categorizeAll();
         subscriptions.refreshNow();
         return subscriptions.find(body.into()).orElseThrow();
+    }
+
+    /**
+     * "Two plans?" on a proposal: its charges below {@code atMinor} and those at or above it are separate streams from
+     * now on (DESIGN: split, "two plans from one merchant"). Returns the proposals of that merchant afterwards.
+     */
+    @PostMapping(path = "/{id}/split", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Transactional
+    public List<Subscription> split(@PathVariable long id, @RequestBody Split body) {
+        if (body.atMinor() == null || body.atMinor() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "atMinor must be a positive amount");
+        }
+        Subscription before = answer(id, i -> subscriptions.find(i).orElseThrow());
+        try {
+            subscriptions.split(id, body.atMinor());
+        } catch (TransitionException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+        } catch (SubscriptionService.SplitException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+        subscriptions.refreshNow();
+        return subscriptions.list().stream()
+                .filter(s -> s.state() == Subscription.State.PROPOSED && s.accountId() == before.accountId()
+                        && s.merchantId() == before.merchantId() && s.currency().equals(before.currency()))
+                .toList();
     }
 
     /** "Not recurring": PROPOSED → REJECTED, never proposed again. */

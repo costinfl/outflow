@@ -5,9 +5,33 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.15** — merge a subscription proposal into another recurring payment ("same as…") |
+| Last completed | **CP6.16** — split a subscription proposal at an amount ("two plans from one merchant") |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.16 — done
+
+441 backend tests green (5 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (a 9.99 plan and 11–12 purchases at one merchant, split at 10.50), light and dark; no console errors.
+
+- **What:** DESIGN Subscription candidate lifecycle, "split one (two plans from one merchant)". This closes the DESIGN
+  subscription items (merge CP6.15, manual add CP6.14).
+- **When it is needed:** amounts within 25% share a band, so a 9.99 plan and occasional 11–12 purchases at the same
+  merchant become one "about 9.99, variable" proposal with a poor rhythm. (Two plans on days at least 5 apart were
+  already two streams, CP6.x twice-monthly split; two plans billed on nearby days are no stream at all.)
+- **V17 `subscription_split`:** the user's amount cut per (account, merchant, currency, direction), kept for good.
+  - `AmountBands.split(occurrences, cuts)`: amounts below a cut and at or above it never share a band;
+    `RecurrenceDetector.Group` carries the cuts, `RecurrenceService.detect` loads them.
+  - `AlertService.linkNewCharges`: a confirmed payment claims only charges on its side of every cut (found by the
+    end-to-end test: without it the July purchase joined the plan).
+- **`POST /api/subscriptions/{id}/split`** `{atMinor}`: only a proposal (409 otherwise), with charges on both sides of
+  the amount (400 otherwise; 404 unknown). The cut is stored, the proposal goes, and the refresh proposes each side
+  that recurs on its own; the response lists the merchant's proposals afterwards.
+- **Review card:** SUBSCRIPTION cards carry `lowestMinor` / `highestMinor` (its charges' range). The Edit form shows
+  "Two different things? … Split at" when they differ, validating the amount in range.
+- **Tests:** detector (`RecurrenceDetectorTest`, 3): the muddled band without a cut, the clean plan with one, cut
+  placement. `SubscriptionSplitTest` (2): the card's range, the split leaving the clean fixed plan (the purchases no
+  stream), the cut holding for a confirmed plan on the next upload; the refusals.
 
 ## CP6.15 — done
 
@@ -375,8 +399,8 @@ light and dark, on the demo.
 From DESIGN, not built yet:
 1. ~~**Home:** insight line and "last 3 months" toggle~~ — done in CP6.3.
 2. **Recurring:** ~~the "Standing transfers" group~~ (CP6.6); ~~"remind me before next charge"~~ (CP6.9).
-3. **Subscriptions:** ~~merge~~ (CP6.15) / split candidates; ~~"mark this one transaction as a subscription"
-   (manual add)~~ (CP6.14).
+3. ~~**Subscriptions:** merge (CP6.15) / split (CP6.16) candidates; "mark this one transaction as a subscription"
+   (manual add, CP6.14)~~.
 4. ~~**Cadences:** bi-weekly and quarterly~~ (CP6.11).
 5. ~~**Category detail:** recurring payments listed first, separately from variable spending~~ (CP6.13).
 6. **Review:** ~~people and money both ways~~ (CP6.4); ~~a card for transfer ties~~ (CP6.12); ~~accuracy as

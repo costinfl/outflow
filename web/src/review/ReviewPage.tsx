@@ -184,6 +184,9 @@ function SubscriptionCard({
       {editing ? (
         <>
           <EditForm card={card} onSave={confirm} onCancel={() => setEditing(false)} />
+          {card.lowestMinor != null && card.highestMinor != null && card.lowestMinor < card.highestMinor && (
+            <SplitForm card={card} answer={answer} />
+          )}
           {targets.length > 0 && <MergeForm card={card} targets={targets} answer={answer} />}
         </>
       ) : (
@@ -266,6 +269,46 @@ function EditForm({
         </button>
       </div>
     </form>
+  )
+}
+
+/**
+ * "Two plans?" (DESIGN: split, "two plans from one merchant"): charges below an amount and those at or above it are
+ * separate from now on, e.g. a 9.99 plan and occasional 11–12 purchases at the same merchant.
+ */
+function SplitForm({ card, answer }: { card: ReviewCard; answer: Answer }) {
+  const low = card.lowestMinor!
+  const high = card.highestMinor!
+  const [at, setAt] = useState(minorToDecimal(Math.round((low + high) / 2), card.currency) as string)
+  const minor = decimalToMinor(at, card.currency)
+  const valid = minor !== null && minor > low && minor <= high
+  const split = () =>
+    valid &&
+    void answer(`${card.name} split at ${formatMoney(minor, card.currency)}`, () =>
+      api.POST('/api/subscriptions/{id}/split', { params: { path: { id: card.subscriptionId! } }, body: { atMinor: minor } }),
+    )
+  return (
+    <div className="mt-3 space-y-2 border-t border-hairline pt-3">
+      <label className="block text-xs text-ink-2">
+        Two different things? Its charges go from {formatMoney(low, card.currency)} to {formatMoney(high, card.currency)}.
+        Split at ({card.currency})
+        <input
+          value={at}
+          onChange={(e) => setAt(e.target.value)}
+          inputMode="decimal"
+          aria-invalid={!valid}
+          className="mt-1 block w-full rounded-lg bg-page px-2 py-1.5 text-sm text-ink ring-1 ring-hairline"
+        />
+      </label>
+      <p className={`text-xs ${valid ? 'text-muted' : 'text-bad'}`}>
+        {valid
+          ? `Below ${formatMoney(minor, card.currency)} is one plan, from it upwards the other; each recurring part is asked about on its own.`
+          : `Type an amount above ${formatMoney(low, card.currency)} and up to ${formatMoney(high, card.currency)}.`}
+      </p>
+      <button type="button" className={secondary} disabled={!valid} onClick={split}>
+        Split
+      </button>
+    </div>
   )
 }
 
