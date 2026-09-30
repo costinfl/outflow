@@ -203,6 +203,45 @@ public class SubscriptionService {
         return find(id).orElseThrow();
     }
 
+    /** Thrown when two recurring payments cannot be one (same one, same merchant, another account or currency). */
+    public static class MergeException extends IllegalArgumentException {
+        MergeException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Merge (DESIGN: Subscription candidate lifecycle, "same service, two merchant keys"): the proposal {@code id} is
+     * the recurring payment {@code into}, under another merchant name. Its merchant becomes {@code into}'s everywhere (a
+     * user alias, as on the merchant debug view) and the proposal goes; the caller recomputes merchants, categories and
+     * subscriptions, after which its charges join {@code into}. What the user set on {@code into} stays.
+     */
+    @Transactional
+    public void mergeInto(long id, long into) {
+        if (id == into) {
+            throw new MergeException("A recurring payment cannot be merged into itself");
+        }
+        Subscription s = require(id, State.PROPOSED);
+        Subscription target = find(into).orElseThrow(() -> new NoSuchElementException("No subscription " + into));
+        if (target.state() == State.REJECTED) {
+            throw new TransitionException("Subscription " + into + " is REJECTED");
+        }
+        if (s.accountId() != target.accountId() || !s.currency().equals(target.currency())
+                || s.direction() != target.direction()) {
+            throw new MergeException("Only recurring payments of one account, currency and direction can be merged");
+        }
+        if (s.merchantId() == target.merchantId()) {
+            throw new MergeException("Both are from the same merchant");
+        }
+        String from = jdbc.queryForObject("SELECT key FROM merchant WHERE id = ?", String.class, s.merchantId());
+        String to = jdbc.queryForObject("SELECT key FROM merchant WHERE id = ?", String.class, target.merchantId());
+        jdbc.update("DELETE FROM merchant_alias WHERE match_type = 'EXACT' AND pattern = ?", from);
+        jdbc.update("INSERT INTO merchant_alias (match_type, pattern, merchant_key, source) VALUES ('EXACT', ?, ?, 'USER')",
+                from, to);
+        jdbc.update("UPDATE transaction SET subscription_id = NULL WHERE subscription_id = ?", id);
+        jdbc.update("DELETE FROM subscription WHERE id = ?", id);
+    }
+
     /** PROPOSED → REJECTED: its charges are unlinked and the (merchant, cadence, amount) is never proposed again. */
     @Transactional
     public Subscription reject(long id) {

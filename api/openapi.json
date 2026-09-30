@@ -686,6 +686,17 @@
         "required" : [ "displayName", "id", "key", "sampleDescriptions", "transactionCount" ],
         "type" : "object"
       },
+      "Merge" : {
+        "properties" : {
+          "into" : {
+            "description" : "The recurring payment it is the same as",
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "into" ],
+        "type" : "object"
+      },
       "MonthAmount" : {
         "properties" : {
           "amountMinor" : {
@@ -2239,6 +2250,43 @@
             "type" : "integer"
           }
         } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Subscription"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "subscriptions" ]
+      }
+    },
+    "/api/subscriptions/{id}/merge" : {
+      "post" : {
+        "operationId" : "merge",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Merge"
+              }
+            }
+          },
+          "required" : true
+        },
         "responses" : {
           "200" : {
             "content" : {

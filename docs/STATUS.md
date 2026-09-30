@@ -5,9 +5,31 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.14** — "Mark as recurring": one transaction becomes a confirmed recurring payment |
+| Last completed | **CP6.15** — merge a subscription proposal into another recurring payment ("same as…") |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.15 — done
+
+436 backend tests green (3 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (a service renamed from ZZSTREAM to ZZ STREAM PLUS: two proposals, merged into one), light and dark; no console
+errors.
+
+- **What:** DESIGN Subscription candidate lifecycle, "Merge: the user can merge two candidates (same service, two
+  merchant keys)". Split (two plans from one merchant) is next, CP6.16.
+- **`POST /api/subscriptions/{id}/merge`** `{into}`: the proposal `id` is the recurring payment `into` under another
+  merchant name.
+  - Its merchant key becomes an EXACT user alias of `into`'s merchant key (the same mechanism as the merchant debug
+    view), so its charges, and future imports, are that merchant's. The proposal is deleted.
+  - Merchants, categories and subscriptions are recomputed: the charges join `into`. A confirmed `into` keeps the
+    user's name, cadence and amount; an `into` the system ended resumes when the merged charges are newer.
+  - Refused: 404 unknown; 409 when `id` is not a proposal or `into` is rejected; 400 for itself, the same merchant,
+    another account, currency or direction.
+- **Web:** the proposal card's Edit form adds "Or is it one you already have, under another name?", listing the
+  confirmed recurring payments and the other proposals of the same direction and another merchant; "Same as <name>"
+  merges.
+- **Tests** (`SubscriptionMergeTest`, today fixed at 20 May 2026): a proposal under the new name joins the confirmed
+  payment (six charges, next due moved on, one merchant, the alias kept); two proposals become one; the refusals.
 
 ## CP6.14 — done
 
@@ -353,8 +375,8 @@ light and dark, on the demo.
 From DESIGN, not built yet:
 1. ~~**Home:** insight line and "last 3 months" toggle~~ — done in CP6.3.
 2. **Recurring:** ~~the "Standing transfers" group~~ (CP6.6); ~~"remind me before next charge"~~ (CP6.9).
-3. **Subscriptions:** merge / split candidates; ~~"mark this one transaction as a subscription" (manual add)~~
-   (CP6.14).
+3. **Subscriptions:** ~~merge~~ (CP6.15) / split candidates; ~~"mark this one transaction as a subscription"
+   (manual add)~~ (CP6.14).
 4. ~~**Cadences:** bi-weekly and quarterly~~ (CP6.11).
 5. ~~**Category detail:** recurring payments listed first, separately from variable spending~~ (CP6.13).
 6. **Review:** ~~people and money both ways~~ (CP6.4); ~~a card for transfer ties~~ (CP6.12); ~~accuracy as

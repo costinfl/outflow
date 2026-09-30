@@ -356,6 +356,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/subscriptions/{id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["merge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/subscriptions/{id}/reject": {
         parameters: {
             query?: never;
@@ -775,6 +791,13 @@ export interface components {
             sampleDescriptions: string[];
             /** Format: int64 */
             transactionCount: number;
+        };
+        Merge: {
+            /**
+             * Format: int64
+             * @description The recurring payment it is the same as
+             */
+            into: number;
         };
         MonthAmount: {
             /** Format: int64 */
@@ -1828,6 +1851,32 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+        };
+    };
+    merge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Merge"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

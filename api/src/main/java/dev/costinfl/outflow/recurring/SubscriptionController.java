@@ -1,5 +1,7 @@
 package dev.costinfl.outflow.recurring;
 
+import dev.costinfl.outflow.category.CategoryService;
+import dev.costinfl.outflow.merchant.MerchantService;
 import dev.costinfl.outflow.recurring.Subscription.Edits;
 import dev.costinfl.outflow.recurring.SubscriptionService.TransitionException;
 import dev.costinfl.outflow.txn.Slice;
@@ -42,6 +44,10 @@ public class SubscriptionController {
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Cadence cadence,
             @Schema(description = "Defaults to the merchant's name") String name) {}
 
+    public record Merge(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The recurring payment it is the same as")
+            Long into) {}
+
     public record Rename(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name) {}
 
     @Schema(description = "Days before the next charge, 1–14; absent or null turns the reminder off")
@@ -50,8 +56,13 @@ public class SubscriptionController {
     private final SubscriptionService subscriptions;
     private final RecurringService recurring;
     private final ReminderService reminders;
+    private final MerchantService merchants;
+    private final CategoryService categories;
 
-    public SubscriptionController(SubscriptionService subscriptions, RecurringService recurring, ReminderService reminders) {
+    public SubscriptionController(SubscriptionService subscriptions, RecurringService recurring, ReminderService reminders,
+            MerchantService merchants, CategoryService categories) {
+        this.merchants = merchants;
+        this.categories = categories;
         this.subscriptions = subscriptions;
         this.recurring = recurring;
         this.reminders = reminders;
@@ -146,6 +157,32 @@ public class SubscriptionController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "expectedAmountMinor must be positive");
         }
         return answer(id, i -> subscriptions.confirm(i, new Edits(edits.name(), edits.cadence(), edits.expectedAmountMinor())));
+    }
+
+    /**
+     * "Same as…" on a proposal: it is {@code into} under another merchant name (DESIGN: merge, "same service, two merchant
+     * keys"). Its merchant becomes {@code into}'s everywhere; merchants, categories and subscriptions are recomputed and
+     * the proposal's charges join {@code into}. Returns {@code into}.
+     */
+    @PostMapping(path = "/{id}/merge", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Transactional
+    public Subscription merge(@PathVariable long id, @RequestBody Merge body) {
+        if (body.into() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "into is required");
+        }
+        try {
+            subscriptions.mergeInto(id, body.into());
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
+        } catch (TransitionException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+        } catch (SubscriptionService.MergeException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+        merchants.reassignAll();
+        categories.categorizeAll();
+        subscriptions.refreshNow();
+        return subscriptions.find(body.into()).orElseThrow();
     }
 
     /** "Not recurring": PROPOSED → REJECTED, never proposed again. */
