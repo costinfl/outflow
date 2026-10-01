@@ -850,6 +850,8 @@ export interface components {
             categorizedPct: number;
             /** @description Block 3: confirmed recurring payments */
             committed: components["schemas"]["Committed"];
+            /** @description Currencies with money in the selected accounts, most used first; more than one = a switch */
+            currencies: string[];
             /** @example RON */
             currency: string;
             /**
@@ -1474,6 +1476,7 @@ export interface operations {
             query: {
                 /** @description YYYY-MM */
                 month: string;
+                /** @description ISO currency; absent = the main currency of the accounts (most transactions) */
                 currency?: string;
                 /** @description Account ids to include (accounts filter); absent = all accounts */
                 accounts?: number[];
@@ -1502,7 +1505,7 @@ export interface operations {
             query?: {
                 /** @description YYYY-MM; defaults to the latest month with data */
                 month?: string;
-                /** @description ISO currency; v1 reports one currency at a time */
+                /** @description ISO currency; absent = the main currency of the accounts (most transactions) */
                 currency?: string;
                 /** @description 1, or 3 for the 'last 3 months' view ending with the month */
                 months?: number;
@@ -1757,6 +1760,7 @@ export interface operations {
             query?: {
                 /** @description YYYY-MM; absent = as of today */
                 month?: string;
+                /** @description ISO currency; absent = the main currency of the accounts (most transactions) */
                 currency?: string;
                 /** @description Account ids to include (accounts filter); absent = all accounts */
                 accounts?: number[];
@@ -2001,6 +2005,7 @@ export interface operations {
             query: {
                 /** @description YYYY-MM */
                 month: string;
+                /** @description ISO currency; absent = the main currency of the accounts (most transactions) */
                 currency?: string;
                 scope?: "SPEND" | "INCOME" | "ALL";
                 category?: number;

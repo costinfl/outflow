@@ -48,7 +48,10 @@ public record MonthSummary(
         @Schema(description = "The plain-language insight line; absent when nothing moved notably") Insight insight,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "DESIGN's accuracy: share of the period's spending categorized and reviewed (Scope.REVIEWED)")
-        int reviewedPct) {
+        int reviewedPct,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Currencies with money in the selected accounts, most used first; more than one = a switch")
+        List<String> currencies) {
 
     /**
      * "Restaurants are up 40% vs. your usual — 9 visits this month": a category whose per-month spending differs from

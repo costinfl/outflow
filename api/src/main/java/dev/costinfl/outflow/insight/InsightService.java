@@ -7,6 +7,7 @@ import dev.costinfl.outflow.insight.MonthSummary.Rest;
 import dev.costinfl.outflow.recurring.Cadence;
 import dev.costinfl.outflow.recurring.RecurringOverview;
 import dev.costinfl.outflow.recurring.RecurringService;
+import dev.costinfl.outflow.txn.Currencies;
 import dev.costinfl.outflow.txn.Period;
 import dev.costinfl.outflow.txn.Scope;
 import dev.costinfl.outflow.txn.Slice;
@@ -35,9 +36,11 @@ public class InsightService {
     private final JdbcTemplate jdbc;
 
     private final RecurringService recurring;
+    private final Currencies currencies;
 
-    public InsightService(JdbcTemplate jdbc, RecurringService recurring) {
+    public InsightService(JdbcTemplate jdbc, RecurringService recurring, Currencies currencies) {
         this.recurring = recurring;
+        this.currencies = currencies;
         this.jdbc = jdbc;
     }
 
@@ -180,7 +183,8 @@ public class InsightService {
                 available.stream().map(YearMonth::toString).toList(),
                 months, period.first().toString(), withData,
                 insight(ranked, perMonthDivisor, currency).orElse(null),
-                ratioPct(new BigDecimal(trust.get("reviewed").toString()), total));
+                ratioPct(new BigDecimal(trust.get("reviewed").toString()), total),
+                currencies.inUse(slice.accounts()));
     }
 
     /**

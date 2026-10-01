@@ -6,6 +6,7 @@ import { useApi } from '../lib/useApi'
 import { useAccountsFilter } from '../lib/accounts'
 import { AccountsFilter } from './AccountsFilter'
 import { AttentionBlock } from './AttentionBlock'
+import { CurrencySwitch } from './CurrencySwitch'
 import { CommittedBlock } from './CommittedBlock'
 import { MonthSwitcher } from './MonthSwitcher'
 import { PeriodToggle } from './PeriodToggle'
@@ -61,6 +62,15 @@ export function HomePage() {
         onChange={(m) => {
           const next = new URLSearchParams(params)
           next.set('month', m)
+          setParams(next)
+        }}
+      />
+      <CurrencySwitch
+        currency={s.currency}
+        currencies={s.currencies}
+        onChange={(c) => {
+          const next = new URLSearchParams(params)
+          next.set('currency', c)
           setParams(next)
         }}
       />

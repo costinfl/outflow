@@ -5,9 +5,30 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.16** — split a subscription proposal at an amount ("two plans from one merchant") |
+| Last completed | **CP6.17** — more than one currency: a currency switch, no conversion |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.17 — done
+
+445 backend tests green (4 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (a RON current account and a EUR card), light and dark; no console errors.
+
+- **What:** "more than one currency at a time" (spec question 14). The user chose a switch over conversion: figures
+  stay in their own currency, nothing is converted or estimated, drill-through stays exact. Cross-currency transfer
+  pairing (spec question 21) is left for when a second-currency account is uploaded.
+- **`txn.Currencies`:** `inUse(accounts)` lists the currencies with transactions in the selected accounts, most used
+  first; `slice(currency, accounts)` uses the given currency or, when absent, the accounts' main one (RON with no
+  data). An unknown code is a 400 (it used to be a 500 in the insight line).
+- **Endpoints:** `/api/insights/month`, `/api/insights/categories/{id}`, `/api/transactions` and `/api/subscriptions`
+  default to the main currency instead of always RON, so a EUR-only account shows its own money.
+  `MonthSummary.currencies` lists the switch's choices.
+- **Web:** `?currency=EUR` joins the URL filters (`useAccountsFilter`: query, cache key, carried by every drill-through
+  link). The home screen shows a RON · EUR switch above the period toggle when there is more than one currency; the
+  transactions screen sends it and shows it as a filter chip, and its Overview link keeps it.
+- **Tests** (`CurrencySwitchTest`): the main currency and the list; EUR figures equal their drill-through, category
+  detail and the recurring screen in EUR; the accounts filter choosing its own main currency; bad codes, and RON with
+  no data.
 
 ## CP6.16 — done
 
@@ -405,7 +426,7 @@ From DESIGN, not built yet:
 5. ~~**Category detail:** recurring payments listed first, separately from variable spending~~ (CP6.13).
 6. **Review:** ~~people and money both ways~~ (CP6.4); ~~a card for transfer ties~~ (CP6.12); ~~accuracy as
    "categorized and reviewed"~~ (CP6.10).
-7. **Money:** more than one currency at a time, and cross-currency transfers (spec questions 14, 21).
+7. **Money:** ~~more than one currency at a time~~ (CP6.17, a switch); cross-currency transfers (spec question 21).
 8. **Banks:** a second bank or CAMT.053 (DESIGN roadmap step 2); pending rows need a format with a status column
    (spec question 23).
 9. **Pipeline:** DESIGN runs stages G–I as an async job; here they run in the upload transaction. That is fine at
@@ -1120,8 +1141,9 @@ Health tests now derive the expected schema version from the migrations instead 
 13. **Uncategorized money in** is neither income nor spending (it may be a refund or an own-account transfer). It
     lowers nothing on the home screen; M4's review inbox will surface it. Uncategorized money *out* counts as spent
     (conservative: better to over- than under-state spending).
-14. **One currency at a time.** Insights take a `currency` parameter (default RON). Transactions in other currencies
-    are not converted; there is no FX in this plan.
+14. **One currency at a time.** Insights take a `currency` parameter; absent, the selected accounts' main currency
+    (CP6.17). Transactions in other currencies are not converted: the home screen switches between currencies (the
+    user's choice over conversion with entered or derived rates).
 15. **Baseline = previous 3 months that have data.** With one month of history the average uses that one month;
     `baselineMonths` tells the UI to show the "upload more history" nudge.
 16. **ENDED → CONFIRMED "when charges resume" vs. "a user decision is never overwritten".** Resolved as
