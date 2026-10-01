@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,10 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Pairs are derived data: every run recomputes them from all transactions and applies only the difference, so the
  * result does not depend on the order statements were uploaded in (a later upload can turn a pair into a tie).
+ *
+ * <p>Ties go to review (CP6.12, "Which transfer is this?"): {@link #ties()} lists them, one question per group of tied
+ * transactions, and {@link #decide} stores the user's answer. A picked pair (SAME) is made before any automatic one and
+ * kept for good; a rejected one (DIFFERENT) never forms. Both survive every rerun.
  */
 @Service
 public class TransferService {
@@ -57,17 +62,54 @@ public class TransferService {
     record Tx(long id, long accountId, LocalDate date, long amountMinor, String currency, Long namedAccount,
             String state, boolean userCategorized) {}
 
-    record Edge(Tx out, Tx in, int businessDays, boolean iban) {}
+    /** A possible pair; {@code user}: the user picked it on a tie card. */
+    record Edge(Tx out, Tx in, int businessDays, boolean iban, boolean user) {}
 
-    @Transactional
-    public Result pairAll() {
+    /** One run's answer: the pairs to have (the user's first), the tied edges left unpaired, and every candidate. */
+    record Plan(List<Tx> txs, List<Edge> wanted, List<Edge> tied, Set<Long> used) {}
+
+    private Plan plan() {
+        List<Tx> txs = load();
+        var byId = new HashMap<Long, Tx>();
+        txs.forEach(t -> byId.put(t.id(), t));
+        var used = new HashSet<Long>();
+        var wanted = new ArrayList<Edge>();
+        // The user's picks come first, while both sides are still candidates (a later non-transfer category wins).
+        jdbc.query("""
+                SELECT out_transaction_id, in_transaction_id FROM transfer_decision
+                WHERE household_id = ? AND decision = 'SAME' ORDER BY id""", rs -> {
+            Tx out = byId.get(rs.getLong(1));
+            Tx in = byId.get(rs.getLong(2));
+            if (out != null && in != null && !used.contains(out.id()) && !used.contains(in.id())) {
+                Edge e = edge(out, in, true);
+                if (e != null) {
+                    wanted.add(e);
+                    used.add(out.id());
+                    used.add(in.id());
+                }
+            }
+        }, HOUSEHOLD);
+        var different = new HashSet<>(jdbc.query("""
+                SELECT out_transaction_id, in_transaction_id FROM transfer_decision
+                WHERE household_id = ? AND decision = 'DIFFERENT'""", (rs, i) -> List.of(rs.getLong(1), rs.getLong(2)),
+                HOUSEHOLD));
+        var edges = candidateEdges(txs).stream()
+                .filter(e -> !used.contains(e.out().id()) && !used.contains(e.in().id())
+                        && !different.contains(List.of(e.out().id(), e.in().id())))
+                .toList();
+        var tied = new ArrayList<Edge>();
+        wanted.addAll(choose(edges, used, tied));
+        return new Plan(txs, wanted, tied, used);
+    }
+
+    private List<Tx> load() {
         var ownAccounts = new HashMap<ByteBuffer, Long>();
         jdbc.query("SELECT id, iban_hash FROM account WHERE household_id = ? AND iban_hash IS NOT NULL", rs -> {
             ownAccounts.put(ByteBuffer.wrap(rs.getBytes(2)), rs.getLong(1));
         }, HOUSEHOLD);
 
         // Candidates: everything not given a non-transfer category by the user (a user decision wins).
-        List<Tx> txs = jdbc.query("""
+        return jdbc.query("""
                 SELECT t.id, t.account_id, t.booking_date, t.amount_minor, t.currency,
                        concat_ws(' ', t.counterparty_raw, t.description_raw) AS text, t.transfer_state,
                        t.category_source = 'USER' AS user_categorized
@@ -86,15 +128,22 @@ public class TransferService {
             return new Tx(rs.getLong(1), account, rs.getObject(3, LocalDate.class), rs.getLong(4), rs.getString(5), named,
                     rs.getString(7), rs.getBoolean(8));
         }, HOUSEHOLD);
+    }
 
-        var used = new HashSet<Long>();
-        List<Edge> wanted = choose(candidateEdges(txs), used);
+    @Transactional
+    public Result pairAll() {
+        Plan plan = plan();
+        Set<Long> used = plan.used();
+        List<Edge> wanted = plan.wanted();
 
         // Existing pairs that are no longer the right answer are dissolved first (e.g. now a tie).
         record Pair(long out, long in) {}
         var existing = new HashMap<Pair, Long>();
-        jdbc.query("SELECT id, out_transaction_id, in_transaction_id FROM transfer_pair WHERE household_id = ?", rs -> {
-            existing.put(new Pair(rs.getLong(2), rs.getLong(3)), rs.getLong(1));
+        var existingSource = new HashMap<Pair, String>();
+        jdbc.query("SELECT id, out_transaction_id, in_transaction_id, source FROM transfer_pair WHERE household_id = ?", rs -> {
+            var key = new Pair(rs.getLong(2), rs.getLong(3));
+            existing.put(key, rs.getLong(1));
+            existingSource.put(key, rs.getString(4));
         }, HOUSEHOLD);
         var keep = new HashSet<Pair>();
         wanted.forEach(e -> keep.add(new Pair(e.out().id(), e.in().id())));
@@ -109,13 +158,16 @@ public class TransferService {
 
         int pairs = 0;
         for (Edge e : wanted) {
-            if (!existing.containsKey(new Pair(e.out().id(), e.in().id()))) {
+            var key = new Pair(e.out().id(), e.in().id());
+            if (!existing.containsKey(key)) {
                 pair(e);
                 pairs++;
+            } else if (!source(e).equals(existingSource.get(key))) {
+                jdbc.update("UPDATE transfer_pair SET source = ? WHERE id = ?", source(e), existing.get(key));
             }
         }
         int provisional = 0;
-        for (Tx t : txs) {
+        for (Tx t : plan.txs()) {
             if (used.contains(t.id())) {
                 continue;
             }
@@ -162,14 +214,9 @@ public class TransferService {
                 continue;
             }
             for (Tx in : ins.getOrDefault(new Key(out.currency(), -out.amountMinor()), List.of())) {
-                if (in.accountId() == out.accountId()
-                        || (out.namedAccount() != null && out.namedAccount() != in.accountId())
-                        || (in.namedAccount() != null && in.namedAccount() != out.accountId())) {
-                    continue;
-                }
-                int gap = businessDays(out.date(), in.date());
-                if (gap <= MAX_BUSINESS_DAYS) {
-                    edges.add(new Edge(out, in, gap, out.namedAccount() != null || in.namedAccount() != null));
+                Edge e = edge(out, in, false);
+                if (e != null) {
+                    edges.add(e);
                 }
             }
         }
@@ -179,10 +226,28 @@ public class TransferService {
     }
 
     /**
-     * Greedy matching, one quality level (gap, IBAN) at a time. Within a level, a transaction with more than one free
-     * partner is a tie: it and its partners at that level stay unpaired for good (DESIGN: "ties go to review").
+     * The pair (out, in) if it is a possible transfer: opposite equal amounts in the same currency, two different
+     * accounts, no IBAN naming a third one, at most {@value #MAX_BUSINESS_DAYS} business days apart. Otherwise null.
      */
-    static List<Edge> choose(List<Edge> edges, Set<Long> used) {
+    static Edge edge(Tx out, Tx in, boolean user) {
+        if (out.amountMinor() >= 0 || in.amountMinor() != -out.amountMinor() || !in.currency().equals(out.currency())
+                || in.accountId() == out.accountId()
+                || (out.namedAccount() != null && out.namedAccount() != in.accountId())
+                || (in.namedAccount() != null && in.namedAccount() != out.accountId())) {
+            return null;
+        }
+        int gap = businessDays(out.date(), in.date());
+        return gap <= MAX_BUSINESS_DAYS
+                ? new Edge(out, in, gap, out.namedAccount() != null || in.namedAccount() != null, user)
+                : null;
+    }
+
+    /**
+     * Greedy matching, one quality level (gap, IBAN) at a time. Within a level, a transaction with more than one free
+     * partner is a tie: it and its partners at that level stay unpaired (DESIGN: "ties go to review"), and the edges
+     * between them go to {@code tied}.
+     */
+    static List<Edge> choose(List<Edge> edges, Set<Long> used, List<Edge> tied) {
         var chosen = new ArrayList<Edge>();
         var blocked = new HashSet<Long>();
         int i = 0;
@@ -207,6 +272,7 @@ public class TransferService {
                 } else {
                     blocked.add(e.out().id());
                     blocked.add(e.in().id());
+                    tied.add(e);
                 }
             }
             i = j;
@@ -236,15 +302,19 @@ public class TransferService {
 
     private void pair(Edge e) {
         long pairId = jdbc.queryForObject("""
-                INSERT INTO transfer_pair (household_id, out_transaction_id, in_transaction_id, method, business_days)
-                VALUES (?, ?, ?, ?, ?) RETURNING id""", Long.class,
-                HOUSEHOLD, e.out().id(), e.in().id(), e.iban() ? "IBAN" : "AMOUNT_DATE", e.businessDays());
+                INSERT INTO transfer_pair (household_id, out_transaction_id, in_transaction_id, method, business_days, source)
+                VALUES (?, ?, ?, ?, ?, ?) RETURNING id""", Long.class,
+                HOUSEHOLD, e.out().id(), e.in().id(), e.iban() ? "IBAN" : "AMOUNT_DATE", e.businessDays(), source(e));
         for (Tx t : List.of(e.out(), e.in())) {
             long other = t == e.out() ? e.in().accountId() : e.out().accountId();
             jdbc.update("UPDATE transaction SET transfer_pair_id = ?, transfer_state = 'PAIRED', transfer_account_id = ? WHERE id = ?",
                     pairId, other, t.id());
             categorizeAsTransfer(t);
         }
+    }
+
+    private static String source(Edge e) {
+        return e.user() ? "USER" : "AUTO";
     }
 
     /** Category TRANSFER, source SYSTEM, unless the user categorized the transaction (then it already is a transfer). */
@@ -254,6 +324,81 @@ public class TransferService {
                     UPDATE transaction SET category_id = (SELECT id FROM category WHERE code = 'TRANSFER'),
                         category_source = 'SYSTEM', category_confidence = 1.00
                     WHERE id = ?""", t.id());
+        }
+    }
+
+    /**
+     * One "Which transfer is this?" question: a transaction and its equally good partners, closest first. A group of
+     * tied transactions is asked about once, through the one with the most partners (then money out, then the oldest
+     * id); answering it can settle the rest of the group.
+     */
+    public record Tie(long transactionId, boolean outgoing, List<Long> options) {}
+
+    /** The open questions, by transaction id. */
+    public List<Tie> ties() {
+        var partners = new HashMap<Long, List<Edge>>();
+        var parent = new HashMap<Long, Long>();
+        for (Edge e : plan().tied()) {
+            partners.computeIfAbsent(e.out().id(), k -> new ArrayList<>()).add(e);
+            partners.computeIfAbsent(e.in().id(), k -> new ArrayList<>()).add(e);
+            parent.put(root(parent, e.out().id()), root(parent, e.in().id()));
+        }
+        Comparator<Long> asked = Comparator.<Long>comparingInt(id -> partners.get(id).size()).reversed()
+                .thenComparing(id -> !outgoing(partners.get(id), id))
+                .thenComparing(Comparator.naturalOrder());
+        var anchors = new HashMap<Long, Long>(); // group → the transaction asked about
+        for (long id : partners.keySet()) {
+            anchors.merge(root(parent, id), id, (a, b) -> asked.compare(a, b) <= 0 ? a : b);
+        }
+        return anchors.values().stream().sorted().map(id -> {
+            boolean outgoing = outgoing(partners.get(id), id);
+            List<Long> options = partners.get(id).stream()
+                    .sorted(Comparator.comparingInt(Edge::businessDays)
+                            .thenComparing(e -> (outgoing ? e.in() : e.out()).date())
+                            .thenComparingLong(e -> (outgoing ? e.in() : e.out()).id()))
+                    .map(e -> (outgoing ? e.in() : e.out()).id())
+                    .toList();
+            return new Tie(id, outgoing, options);
+        }).toList();
+    }
+
+    private static boolean outgoing(List<Edge> edges, long id) {
+        return edges.getFirst().out().id() == id;
+    }
+
+    private static long root(Map<Long, Long> parent, long id) {
+        long r = id;
+        while (parent.containsKey(r) && parent.get(r) != r) {
+            r = parent.get(r);
+        }
+        return r;
+    }
+
+    /** Thrown when an answer names a transaction the question did not offer. */
+    public static class NotAnOptionException extends IllegalArgumentException {
+        NotAnOptionException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * The answer to a tie question: {@code pairWith} is the partner the user picked, or null for "none of these" (none
+     * of the offered pairs ever forms). Kept for good; the caller reruns the pipeline.
+     */
+    @Transactional
+    public void decide(long transactionId, Long pairWith) {
+        Tie tie = ties().stream().filter(t -> t.transactionId() == transactionId).findFirst()
+                .orElseThrow(() -> new NoSuchElementException("No transfer question for transaction " + transactionId));
+        if (pairWith != null && !tie.options().contains(pairWith)) {
+            throw new NotAnOptionException("Transaction " + pairWith + " is not one of the offered transfers");
+        }
+        for (long other : pairWith != null ? List.of(pairWith) : tie.options()) {
+            jdbc.update("""
+                    INSERT INTO transfer_decision (household_id, out_transaction_id, in_transaction_id, decision)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT ON CONSTRAINT transfer_decision_pair_uq DO UPDATE SET decision = EXCLUDED.decision""",
+                    HOUSEHOLD, tie.outgoing() ? transactionId : other, tie.outgoing() ? other : transactionId,
+                    pairWith != null ? "SAME" : "DIFFERENT");
         }
     }
 

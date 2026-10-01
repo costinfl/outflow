@@ -5,9 +5,126 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.11** — bi-weekly and quarterly cadences |
+| Last completed | **CP6.16** — split a subscription proposal at an amount ("two plans from one merchant") |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.16 — done
+
+441 backend tests green (5 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (a 9.99 plan and 11–12 purchases at one merchant, split at 10.50), light and dark; no console errors.
+
+- **What:** DESIGN Subscription candidate lifecycle, "split one (two plans from one merchant)". This closes the DESIGN
+  subscription items (merge CP6.15, manual add CP6.14).
+- **When it is needed:** amounts within 25% share a band, so a 9.99 plan and occasional 11–12 purchases at the same
+  merchant become one "about 9.99, variable" proposal with a poor rhythm. (Two plans on days at least 5 apart were
+  already two streams: the twice-monthly split of CP6.5; two plans billed on nearby days are no stream at all.)
+- **V17 `subscription_split`:** the user's amount cut per (account, merchant, currency, direction), kept for good.
+  - `AmountBands.split(occurrences, cuts)`: amounts below a cut and at or above it never share a band;
+    `RecurrenceDetector.Group` carries the cuts, `RecurrenceService.detect` loads them.
+  - `AlertService.linkNewCharges`: a confirmed payment claims only charges on its side of every cut (found by the
+    end-to-end test: without it the July purchase joined the plan).
+- **`POST /api/subscriptions/{id}/split`** `{atMinor}`: only a proposal (409 otherwise), with charges on both sides of
+  the amount (400 otherwise; 404 unknown). The cut is stored, the proposal goes, and the refresh proposes each side
+  that recurs on its own; the response lists the merchant's proposals afterwards.
+- **Review card:** SUBSCRIPTION cards carry `lowestMinor` / `highestMinor` (its charges' range). The Edit form shows
+  "Two different things? … Split at" when they differ, validating the amount in range.
+- **Tests:** detector (`RecurrenceDetectorTest`, 3): the muddled band without a cut, the clean plan with one, cut
+  placement. `SubscriptionSplitTest` (2): the card's range, the split leaving the clean fixed plan (the purchases no
+  stream), the cut holding for a confirmed plan on the next upload; the refusals.
+
+## CP6.15 — done
+
+436 backend tests green (3 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (a service renamed from ZZSTREAM to ZZ STREAM PLUS: two proposals, merged into one), light and dark; no console
+errors.
+
+- **What:** DESIGN Subscription candidate lifecycle, "Merge: the user can merge two candidates (same service, two
+  merchant keys)". Split (two plans from one merchant) is next, CP6.16.
+- **`POST /api/subscriptions/{id}/merge`** `{into}`: the proposal `id` is the recurring payment `into` under another
+  merchant name.
+  - Its merchant key becomes an EXACT user alias of `into`'s merchant key (the same mechanism as the merchant debug
+    view), so its charges, and future imports, are that merchant's. The proposal is deleted.
+  - Merchants, categories and subscriptions are recomputed: the charges join `into`. A confirmed `into` keeps the
+    user's name, cadence and amount; an `into` the system ended resumes when the merged charges are newer.
+  - Refused: 404 unknown; 409 when `id` is not a proposal or `into` is rejected; 400 for itself, the same merchant,
+    another account, currency or direction.
+- **Web:** the proposal card's Edit form adds "Or is it one you already have, under another name?", listing the
+  confirmed recurring payments and the other proposals of the same direction and another merchant; "Same as <name>"
+  merges.
+- **Tests** (`SubscriptionMergeTest`, today fixed at 20 May 2026): a proposal under the new name joins the confirmed
+  payment (six charges, next due moved on, one merchant, the alias kept); two proposals become one; the refusals.
+
+## CP6.14 — done
+
+433 backend tests green (4 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (a one-off domain renewal marked yearly), light and dark; no console errors.
+
+- **What:** DESIGN Subscription candidate lifecycle, "Manual add: user marks a single transaction as a subscription
+  with a cadence — useful for yearly items with only one occurrence in history".
+- **`POST /api/subscriptions`** `{transactionId, cadence, name?}` → 201, a CONFIRMED subscription:
+  - amount = the charge (FIXED, tolerance 0, band = the amount); due day (and month) from its date, as the detector's
+    anchor; next expected = the next due date; money in makes recurring income (`direction` IN);
+  - the name defaults to the merchant's; the transaction is linked; confirmed-through = its date, so only later
+    charges are price-checked.
+  - Later charges link like any confirmed payment's (`AlertService`: near a due date, within 50%): a different amount
+    is a price-change question, and no charge by the deadline is a missed-charge question.
+  - Refused: already a charge of a recurring payment or proposal (409: confirm the proposal instead), an own-account
+    transfer (409), unknown transaction (404), no cadence (400).
+- **`TransactionView`** carries `subscriptionId`, `subscriptionName`, `subscriptionState`.
+- **Web:** an expanded transaction says "A charge of <name>" (or "Looks like a charge of <name>…" for a proposal);
+  otherwise "Mark as a recurring payment" / "Mark as recurring income" opens a cadence choice (Yearly first). The demo's
+  Netflix, Enel and salary rows show their recurring payment.
+- **Tests** (`ManualSubscriptionTest`, today fixed at 1 March 2026): a yearly renewal marked once, then linked a year
+  later two days late; a different price asks, and the late charge answers the missed question; charges imported
+  after it link at once, and money in is recurring income; the refusals.
+
+## CP6.13 — done
+
+429 backend tests green (3 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (Netflix confirmed, Spotify proposed, both in Subscriptions & software), light and dark; no console errors.
+
+- **What:** DESIGN Detail screens, "Recurring payments inside it listed first, separately from variable spending".
+- **`Scope.RECURRING`:** a charge of a recurring payment the user confirmed or ended (proposed ones are still guesses).
+  `Scope.REVIEWED` now reuses it.
+- **`CategoryDetail`:** `recurring` (subscription, name, cadence, state, amount, count; largest first) and
+  `recurringMinor`; `merchants` is now the variable spending only. Recurring plus variable is the category's month.
+- **Drill-through:** `GET /api/transactions` takes `recurring=true|false` and `subscription=<id>`, so every figure on
+  the page opens exactly its transactions (tested: total, recurring, variable, one payment).
+- **Web:** a "Recurring payments" section first (each row opens that payment's charges, plus "All recurring payments"
+  for the month), then "Variable spending in <month>" with its total. Without recurring charges the page is as before.
+  The transactions screen shows "Recurring payments" / "Variable spending" / "<name> (recurring)" filter chips.
+- **Demo:** the ledger's Netflix, Enel and salary charges are the demo's confirmed recurring payments.
+- **Tests** (`CategoryRecurringTest`): the split and its sum; every figure equals its drill-through; an ended
+  payment's charges stay recurring and a rejected one's are variable.
+
+## CP6.12 — done
+
+426 backend tests green (6 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (Main, Savings, Card statements with a tie), light and dark; no console errors.
+
+- **What:** DESIGN "ties go to review" (spec question 20). A tie is money that matches the same amount in more than one
+  other own account equally well (same business-day gap, same IBAN evidence). It stays unpaired, and the inbox now asks.
+- **Card `TRANSFER_TIE`** ("Which transfer is this?"): the transaction (account, date, signed amount) and its options
+  (account, date, description), closest first. Money affected: the amount. Key `transfer:<transaction id>`; skippable.
+  - One card per group of tied transactions, asked through the one with the most partners (money out first, then the
+    oldest). Two equal transfers the same day to Savings and Card are one question; answering it settles the other.
+- **Answer:** `POST /api/review/transfers/{transactionId}` with `pairWith` (an offered transaction) or nothing ("None of
+  these"). 404 when there is no open question for it, 400 for a transaction that was not offered. The pipeline reruns.
+- **V16:** `transfer_decision` (out, in, SAME / DIFFERENT), the user's answers, kept for good; `transfer_pair.source`
+  (AUTO / USER).
+- **`TransferService`:** the user's SAME pairs are made first (while both sides are still candidates), DIFFERENT pairs
+  never form, then the automatic matching runs as before. `ties()` lists the open questions; `decide()` stores an
+  answer. A later non-transfer category by the user still wins (the pair dissolves on the next run).
+- **Web:** the card offers one button per option ("Savings, Mar 3"), "None of these" and Skip. The demo inbox has an
+  illustrative tie (1,000 RON out of Main on a Monday, Savings deposits the Friday before and the Tuesday after).
+- **Tests** (`TransferTieTest`):
+  - a tie is one question listing its options, and the money stays unpaired until answered;
+  - picking one pairs them for good (USER), across later uploads and reruns;
+  - "None of these" leaves it ordinary and does not ask again;
+  - answering one settles the rest of the group (the other pair forms automatically);
+  - a later non-transfer category still wins;
+  - only an open question and an offered transfer are accepted; the card is skippable.
 
 ## CP6.11 — done
 
@@ -282,11 +399,11 @@ light and dark, on the demo.
 From DESIGN, not built yet:
 1. ~~**Home:** insight line and "last 3 months" toggle~~ — done in CP6.3.
 2. **Recurring:** ~~the "Standing transfers" group~~ (CP6.6); ~~"remind me before next charge"~~ (CP6.9).
-3. **Subscriptions:** merge / split candidates and "mark this one transaction as a subscription" (manual add, useful
-   for yearly items).
+3. ~~**Subscriptions:** merge (CP6.15) / split (CP6.16) candidates; "mark this one transaction as a subscription"
+   (manual add, CP6.14)~~.
 4. ~~**Cadences:** bi-weekly and quarterly~~ (CP6.11).
-5. **Category detail:** recurring payments listed first, separately from variable spending.
-6. **Review:** ~~people and money both ways~~ (CP6.4); a card for transfer ties (spec question 20); ~~accuracy as
+5. ~~**Category detail:** recurring payments listed first, separately from variable spending~~ (CP6.13).
+6. **Review:** ~~people and money both ways~~ (CP6.4); ~~a card for transfer ties~~ (CP6.12); ~~accuracy as
    "categorized and reviewed"~~ (CP6.10).
 7. **Money:** more than one currency at a time, and cross-currency transfers (spec questions 14, 21).
 8. **Banks:** a second bank or CAMT.053 (DESIGN roadmap step 2); pending rows need a format with a status column
@@ -1018,8 +1135,7 @@ Health tests now derive the expected schema version from the migrations instead 
     recurring payments (yearly ÷ 12), so it cannot be a `txn.Scope` sum. Its drill-through is the Recurring screen for
     the same month, whose rows sum to it exactly (same `RecurringService.overview`).
 20. **Transfer ties.** DESIGN: "ties go to review". Tied transactions stay unpaired (so they count as ordinary money
-    out/in) until a later statement or an IBAN decides. A "which transfer is this?" review card can join the
-    CP5.2 soft-match card if you want one.
+    out/in) until a later statement, an IBAN or the user decides: CP6.12's "Which transfer is this?" card.
 21. **Cross-currency transfers** (FX tolerance) are not paired yet: every account so far is RON. They need a rate
     source that does not leave the machine; proposal: a user-set tolerance per currency pair, when a second currency
     appears.

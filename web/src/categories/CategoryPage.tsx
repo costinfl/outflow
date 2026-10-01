@@ -1,11 +1,15 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { api } from '../api/client'
 import type { CategoryDetail } from '../api/types'
-import { formatMoney, formatMonth, formatMonthShort } from '../lib/format'
+import { cadenceWord, formatMoney, formatMonth, formatMonthShort } from '../lib/format'
 import { useAccountsFilter } from '../lib/accounts'
+import { recurringLink } from '../lib/links'
 import { useApi } from '../lib/useApi'
 
-/** "What exactly is in this category?" (DESIGN: Detail screens): 12-month trend with its average, then merchants. */
+/**
+ * "What exactly is in this category?" (DESIGN: Detail screens): 12-month trend with its average, then the month's
+ * recurring payments first, separately from variable spending by merchant. Every figure opens its transactions.
+ */
 export function CategoryPage() {
   const { id } = useParams()
   const [params] = useSearchParams()
@@ -48,17 +52,56 @@ export function CategoryPage() {
         )}
       </header>
       <Trend d={d} />
+      {d.recurring.length > 0 && (
+        <section className="rounded-2xl bg-surface p-4 ring-1 ring-hairline" aria-labelledby="recurring">
+          <h2 id="recurring" className="flex items-baseline justify-between gap-3 text-sm font-medium text-ink-2">
+            <span>Recurring payments</span>
+            <Link to={txLink({ recurring: 'true' })} className="text-ink tabular-nums hover:underline">
+              {money(d.recurringMinor)}
+            </Link>
+          </h2>
+          <ul className="mt-2 divide-y divide-hairline">
+            {d.recurring.map((r) => (
+              <li key={r.subscriptionId}>
+                <Link to={txLink({ subscription: String(r.subscriptionId) })} className="flex items-baseline justify-between gap-3 py-2 hover:underline">
+                  <span className="min-w-0 truncate text-sm text-ink">
+                    {r.name}{' '}
+                    <span className="text-muted">
+                      · {cadenceWord(r.cadence)}
+                      {r.state === 'ENDED' ? ', ended' : ''}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-sm text-ink tabular-nums">{money(r.amountMinor)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <Link to={accounts.withFilters(recurringLink(d.month))} className="mt-3 block text-sm text-bar underline">
+            All recurring payments
+          </Link>
+        </section>
+      )}
       <section className="rounded-2xl bg-surface p-4 ring-1 ring-hairline" aria-labelledby="merchants">
-        <h2 id="merchants" className="text-sm font-medium text-ink-2">
-          Merchants in {formatMonth(d.month)}
+        <h2 id="merchants" className="flex items-baseline justify-between gap-3 text-sm font-medium text-ink-2">
+          <span>{d.recurring.length > 0 ? 'Variable spending' : 'Merchants'} in {formatMonth(d.month)}</span>
+          {d.recurring.length > 0 && (
+            <Link to={txLink({ recurring: 'false' })} className="text-ink tabular-nums hover:underline">
+              {money(d.amountMinor - d.recurringMinor)}
+            </Link>
+          )}
         </h2>
         {d.merchants.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">Nothing in this category this month.</p>
+          <p className="mt-2 text-sm text-muted">
+            {d.recurring.length > 0 ? 'Only recurring payments this month.' : 'Nothing in this category this month.'}
+          </p>
         ) : (
           <ul className="mt-2 divide-y divide-hairline">
             {d.merchants.map((m) => (
               <li key={m.merchantId}>
-                <Link to={txLink({ merchant: String(m.merchantId) })} className="flex items-baseline justify-between gap-3 py-2 hover:underline">
+                <Link
+                  to={txLink({ merchant: String(m.merchantId), ...(d.recurring.length > 0 ? { recurring: 'false' } : {}) })}
+                  className="flex items-baseline justify-between gap-3 py-2 hover:underline"
+                >
                   <span className="min-w-0 truncate text-sm text-ink">
                     {m.name} <span className="text-muted">· {m.transactionCount} {m.transactionCount === 1 ? 'time' : 'times'}</span>
                   </span>
@@ -72,7 +115,6 @@ export function CategoryPage() {
           All {d.category.name} transactions
         </Link>
       </section>
-      <p className="text-xs text-muted">Recurring payments in this category will be listed separately once detection is in place.</p>
     </div>
   )
 }

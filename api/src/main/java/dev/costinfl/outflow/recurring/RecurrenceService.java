@@ -85,9 +85,15 @@ public class RecurrenceService {
             groups.computeIfAbsent(key, k -> new ArrayList<>())
                     .add(new Occurrence(rs.getLong(4), rs.getObject(5, LocalDate.class), rs.getLong(6)));
         });
+        // The user's splits: "two plans from one merchant" (CP6.16).
+        var cuts = new java.util.HashMap<Key, List<Long>>();
+        jdbc.query("SELECT account_id, merchant_id, currency, direction, cut_minor FROM subscription_split", rs -> {
+            cuts.computeIfAbsent(new Key(rs.getLong(1), rs.getLong(2), rs.getString(3), Direction.valueOf(rs.getString(4))),
+                    k -> new ArrayList<>()).add(rs.getLong(5));
+        });
         var candidates = new ArrayList<Candidate>();
-        groups.forEach((key, occurrences) -> candidates.addAll(detector.detect(
-                new Group(key.accountId(), key.merchantId(), key.currency(), occurrences, key.direction()), today)));
+        groups.forEach((key, occurrences) -> candidates.addAll(detector.detect(new Group(key.accountId(), key.merchantId(),
+                key.currency(), occurrences, key.direction(), cuts.getOrDefault(key, List.of())), today)));
         candidates.sort((a, b) -> Double.compare(b.confidence(), a.confidence()));
         return candidates;
     }

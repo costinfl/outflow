@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { api, isDemo } from '../api/client'
-import type { Category, Inbox, ReviewCard } from '../api/types'
+import type { Category, Inbox, RecurringOverview, ReviewCard } from '../api/types'
 import { cadenceWord, decimalToMinor, formatDay, formatMoney, formatSince, minorToDecimal } from '../lib/format'
 import { useApi } from '../lib/useApi'
 
@@ -18,6 +18,7 @@ export function ReviewPage() {
   const [status, setStatus] = useState<string | null>(null)
   const inbox = useApi<Inbox>(`review:${version}`, () => api.GET('/api/review'))
   const categories = useApi<Category[]>('categories', () => api.GET('/api/categories'))
+  const recurring = useApi<RecurringOverview>(`recurring:${version}`, () => api.GET('/api/subscriptions'))
 
   const answer: Answer = async (label, call) => {
     setStatus(`${label}…`)
@@ -40,12 +41,33 @@ export function ReviewPage() {
     )
   const { cards, possible } = inbox.data
   const categoryList = categories.kind === 'ok' ? categories.data : []
+  // "Same as…" targets for a proposal: the confirmed recurring payments and the other proposals.
+  const payments: MergeTarget[] = [
+    ...(recurring.kind === 'ok'
+      ? recurring.data.groups.flatMap((g) =>
+          g.items.map((i) => ({ id: i.id, name: i.name, merchantId: i.merchantId, income: g.kind === 'INCOME' })),
+        )
+      : []),
+    ...[...cards, ...possible]
+      .filter((c) => c.kind === 'SUBSCRIPTION')
+      .map((c) => ({ id: c.subscriptionId!, name: c.name, merchantId: c.merchantId, income: c.direction === 'IN' })),
+  ]
 
   const render = (card: ReviewCard) =>
     card.kind === 'SUBSCRIPTION' ? (
-      <SubscriptionCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
+      <SubscriptionCard
+        key={card.key}
+        card={card}
+        answer={answer}
+        skip={() => void skip(card)}
+        targets={payments.filter(
+          (p) => p.id !== card.subscriptionId && p.merchantId !== card.merchantId && p.income === (card.direction === 'IN'),
+        )}
+      />
     ) : card.kind === 'POSSIBLE_DUPLICATE' ? (
       <DuplicateCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
+    ) : card.kind === 'TRANSFER_TIE' ? (
+      <TransferTieCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
     ) : card.kind === 'CONFIRM_CATEGORY' ? (
       <ConfirmCategoryCard key={card.key} card={card} categories={categoryList} answer={answer} skip={() => void skip(card)} />
     ) : card.kind === 'UPCOMING_CHARGE' ? (
@@ -119,7 +141,19 @@ const primary = 'rounded-lg bg-bar px-3 py-1.5 text-sm font-medium text-white di
 const secondary = 'rounded-lg px-3 py-1.5 text-sm text-ink ring-1 ring-hairline'
 const quiet = 'ml-auto px-1 py-1.5 text-sm text-muted hover:underline'
 
-function SubscriptionCard({ card, answer, skip }: { card: ReviewCard; answer: Answer; skip: () => void }) {
+type MergeTarget = { id: number; name: string; merchantId: number; income: boolean }
+
+function SubscriptionCard({
+  card,
+  answer,
+  skip,
+  targets,
+}: {
+  card: ReviewCard
+  answer: Answer
+  skip: () => void
+  targets: MergeTarget[]
+}) {
   const [editing, setEditing] = useState(false)
   const id = card.subscriptionId!
   const amount = formatMoney(card.expectedAmountMinor!, card.currency)
@@ -148,7 +182,13 @@ function SubscriptionCard({ card, answer, skip }: { card: ReviewCard; answer: An
         {card.nextExpectedDate ? ` · next around ${formatDay(card.nextExpectedDate)}` : ''}
       </p>
       {editing ? (
-        <EditForm card={card} onSave={confirm} onCancel={() => setEditing(false)} />
+        <>
+          <EditForm card={card} onSave={confirm} onCancel={() => setEditing(false)} />
+          {card.lowestMinor != null && card.highestMinor != null && card.lowestMinor < card.highestMinor && (
+            <SplitForm card={card} answer={answer} />
+          )}
+          {targets.length > 0 && <MergeForm card={card} targets={targets} answer={answer} />}
+        </>
       ) : (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button type="button" className={primary} onClick={() => confirm()}>
@@ -229,6 +269,87 @@ function EditForm({
         </button>
       </div>
     </form>
+  )
+}
+
+/**
+ * "Two plans?" (DESIGN: split, "two plans from one merchant"): charges below an amount and those at or above it are
+ * separate from now on, e.g. a 9.99 plan and occasional 11–12 purchases at the same merchant.
+ */
+function SplitForm({ card, answer }: { card: ReviewCard; answer: Answer }) {
+  const low = card.lowestMinor!
+  const high = card.highestMinor!
+  const [at, setAt] = useState(minorToDecimal(Math.round((low + high) / 2), card.currency) as string)
+  const minor = decimalToMinor(at, card.currency)
+  const valid = minor !== null && minor > low && minor <= high
+  const split = () =>
+    valid &&
+    void answer(`${card.name} split at ${formatMoney(minor, card.currency)}`, () =>
+      api.POST('/api/subscriptions/{id}/split', { params: { path: { id: card.subscriptionId! } }, body: { atMinor: minor } }),
+    )
+  return (
+    <div className="mt-3 space-y-2 border-t border-hairline pt-3">
+      <label className="block text-xs text-ink-2">
+        Two different things? Its charges go from {formatMoney(low, card.currency)} to {formatMoney(high, card.currency)}.
+        Split at ({card.currency})
+        <input
+          value={at}
+          onChange={(e) => setAt(e.target.value)}
+          inputMode="decimal"
+          aria-invalid={!valid}
+          className="mt-1 block w-full rounded-lg bg-page px-2 py-1.5 text-sm text-ink ring-1 ring-hairline"
+        />
+      </label>
+      <p className={`text-xs ${valid ? 'text-muted' : 'text-bad'}`}>
+        {valid
+          ? `Below ${formatMoney(minor, card.currency)} is one plan, from it upwards the other; each recurring part is asked about on its own.`
+          : `Type an amount above ${formatMoney(low, card.currency)} and up to ${formatMoney(high, card.currency)}.`}
+      </p>
+      <button type="button" className={secondary} disabled={!valid} onClick={split}>
+        Split
+      </button>
+    </div>
+  )
+}
+
+/**
+ * "Same as…" (DESIGN: merge, "same service, two merchant keys"): the proposal is another recurring payment under a new
+ * merchant name (a renamed service, a second billing entity). Its merchant is treated as that one's from then on.
+ */
+function MergeForm({ card, targets, answer }: { card: ReviewCard; targets: MergeTarget[]; answer: Answer }) {
+  const [into, setInto] = useState('')
+  const target = targets.find((t) => t.id === Number(into))
+  const merge = () =>
+    target &&
+    void answer(`${card.name} merged into ${target.name}`, () =>
+      api.POST('/api/subscriptions/{id}/merge', { params: { path: { id: card.subscriptionId! } }, body: { into: target.id } }),
+    )
+  return (
+    <div className="mt-3 space-y-2 border-t border-hairline pt-3">
+      <label className="block text-xs text-ink-2">
+        Or is it one you already have, under another name?
+        <select
+          value={into}
+          onChange={(e) => setInto(e.target.value)}
+          className="mt-1 block w-full rounded-lg bg-page px-2 py-1.5 text-sm text-ink ring-1 ring-hairline"
+        >
+          <option value="">Choose…</option>
+          {targets.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {target && (
+        <p className="text-xs text-muted">
+          {card.name} will count as {target.name} everywhere, including future imports.
+        </p>
+      )}
+      <button type="button" className={secondary} disabled={!target} onClick={merge}>
+        Same as {target?.name ?? '…'}
+      </button>
+    </div>
   )
 }
 
@@ -433,6 +554,54 @@ function DuplicateCard({ card, answer, skip }: { card: ReviewCard; answer: Answe
         </button>
         <button type="button" className={secondary} onClick={() => decide(false)}>
           Different
+        </button>
+        <button type="button" className={quiet} onClick={skip}>
+          Skip
+        </button>
+      </div>
+    </Swipeable>
+  )
+}
+
+/**
+ * "Which transfer is this?": money that matches the same amount in more than one of your accounts, equally well. Picking
+ * one pairs them (neither is spending any more); "None of these" leaves it ordinary money and never asks again.
+ */
+function TransferTieCard({ card, answer, skip }: { card: ReviewCard; answer: Answer; skip: () => void }) {
+  const tie = card.transferTie!
+  const out = tie.amountMinor < 0
+  const amount = formatMoney(Math.abs(tie.amountMinor), card.currency)
+  const decide = (pairWith?: number, label = 'Not a transfer between your accounts') =>
+    void answer(label, () =>
+      api.POST('/api/review/transfers/{transactionId}', {
+        params: { path: { transactionId: tie.transactionId } },
+        body: pairWith === undefined ? {} : { pairWith },
+      }),
+    )
+  return (
+    <Swipeable onLeft={skip}>
+      <p className="text-xs font-medium tracking-wide text-muted uppercase">Which transfer is this?</p>
+      <p className="mt-1 text-ink">
+        {amount} {out ? 'left' : 'arrived in'} <span className="font-medium">{tie.accountName}</span> on {formatDay(tie.date)}.
+        The same amount {out ? 'arrived in' : 'left'} your accounts more than once around then. Which one is the other side?
+      </p>
+      <p className="mt-1 text-xs text-muted">
+        A transfer between your own accounts is not spending. Until you answer, this money is not paired with anything.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {tie.options.map((o) => (
+          <button
+            key={o.transactionId}
+            type="button"
+            className={secondary}
+            title={o.description}
+            onClick={() => decide(o.transactionId, `Paired with ${o.accountName} on ${formatDay(o.date)}`)}
+          >
+            {o.accountName}, {formatDay(o.date)}
+          </button>
+        ))}
+        <button type="button" className={secondary} onClick={() => decide()}>
+          None of these
         </button>
         <button type="button" className={quiet} onClick={skip}>
           Skip

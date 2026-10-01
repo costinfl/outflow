@@ -260,6 +260,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/review/transfers/{transactionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["answerTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/subscriptions": {
         parameters: {
             query?: never;
@@ -269,7 +285,7 @@ export interface paths {
         };
         get: operations["overview"];
         put?: never;
-        post?: never;
+        post: operations["addManual"];
         delete?: never;
         options?: never;
         head?: never;
@@ -340,6 +356,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/subscriptions/{id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["merge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/subscriptions/{id}/reject": {
         parameters: {
             query?: never;
@@ -366,6 +398,22 @@ export interface paths {
         get?: never;
         put: operations["reminder"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subscriptions/{id}/split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["split"];
         delete?: never;
         options?: never;
         head?: never;
@@ -437,6 +485,15 @@ export interface components {
             /** Format: date */
             periodTo?: string;
         };
+        /** @description Mark one transaction as a recurring payment (or recurring income) */
+        AddManual: {
+            /** @enum {string} */
+            cadence: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
+            /** @description Defaults to the merchant's name */
+            name?: string;
+            /** Format: int64 */
+            transactionId: number;
+        };
         AlertAnswer: {
             /**
              * @description Price change: GOT_IT or END. Missed charge: STILL_ACTIVE or CANCELLED
@@ -484,10 +541,17 @@ export interface components {
             category: components["schemas"]["Category"];
             /** @example RON */
             currency: string;
-            /** @description This month, largest first */
+            /** @description This month's variable spending by merchant (recurring charges excluded), largest first */
             merchants: components["schemas"]["MerchantAmount"][];
             /** @example 2026-03 */
             month: string;
+            /** @description This month's recurring payments, largest first */
+            recurring: components["schemas"]["RecurringAmount"][];
+            /**
+             * Format: int64
+             * @description This month's recurring charges, total
+             */
+            recurringMinor: number;
             /** @description The 12 months ending with `month`, oldest first */
             trend: components["schemas"]["MonthAmount"][];
         };
@@ -744,6 +808,13 @@ export interface components {
             /** Format: int64 */
             transactionCount: number;
         };
+        Merge: {
+            /**
+             * Format: int64
+             * @description The recurring payment it is the same as
+             */
+            into: number;
+        };
         MonthAmount: {
             /** Format: int64 */
             amountMinor: number;
@@ -850,6 +921,19 @@ export interface components {
              */
             score: number;
         };
+        RecurringAmount: {
+            /** Format: int64 */
+            amountMinor: number;
+            /** @enum {string} */
+            cadence: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
+            name: string;
+            /** @description CONFIRMED or ENDED */
+            state: string;
+            /** Format: int64 */
+            subscriptionId: number;
+            /** Format: int32 */
+            transactionCount: number;
+        };
         RecurringOverview: {
             /** Format: int32 */
             countedCount: number;
@@ -951,12 +1035,22 @@ export interface components {
              */
             firstDate?: string;
             /**
+             * Format: int64
+             * @description Subscription: its highest charge (positive minor units)
+             */
+            highestMinor?: number;
+            /**
              * @description Stable id, used to skip the card
              * @example subscription:12
              */
             key: string;
             /** @enum {string} */
-            kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT" | "POSSIBLE_DUPLICATE" | "PRICE_CHANGE" | "MISSED_CHARGE" | "UPCOMING_CHARGE" | "CONFIRM_CATEGORY";
+            kind: "SUBSCRIPTION" | "UNCATEGORIZED_MERCHANT" | "POSSIBLE_DUPLICATE" | "PRICE_CHANGE" | "MISSED_CHARGE" | "UPCOMING_CHARGE" | "CONFIRM_CATEGORY" | "TRANSFER_TIE";
+            /**
+             * Format: int64
+             * @description Subscription: its lowest charge (positive minor units); below the highest one, it can be split
+             */
+            lowestMinor?: number;
             /** Format: int64 */
             merchantId: number;
             /** @description Subscription name or merchant display name */
@@ -1024,6 +1118,8 @@ export interface components {
              * @description Uncategorized transactions of the merchant
              */
             transactionCount?: number;
+            /** @description Transfer tie: the transaction and the transfers it could be */
+            transferTie?: components["schemas"]["TransferTie"];
         };
         SetCategory: {
             /** @description Answer to 'apply to this merchant from now on?': creates a rule for the merchant */
@@ -1033,6 +1129,13 @@ export interface components {
         };
         Skip: {
             key: string;
+        };
+        Split: {
+            /**
+             * Format: int64
+             * @description Charges below this amount (positive minor units) are one plan, the rest the other
+             */
+            atMinor: number;
         };
         StandingTransfer: {
             /** Format: int64 */
@@ -1171,10 +1274,50 @@ export interface components {
             merchantName: string;
             /** @description PENDING: not posted yet (e.g. a card reservation); may still change */
             status: string;
+            /**
+             * Format: int64
+             * @description The recurring payment (or proposal) this is a charge of
+             */
+            subscriptionId?: number;
+            subscriptionName?: string;
+            /** @description PROPOSED, CONFIRMED or ENDED */
+            subscriptionState?: string;
             /** @description The other own account of a transfer */
             transferAccountName?: string;
             /** @description PAIRED: a transfer between own accounts, both sides seen; PROVISIONAL: only this side, recognised by the other account's IBAN; absent: not an own-account transfer */
             transferState?: string;
+        };
+        TransferAnswer: {
+            /**
+             * Format: int64
+             * @description The offered transaction it is a transfer with; absent for "none of these"
+             */
+            pairWith?: number;
+        };
+        TransferOption: {
+            accountName: string;
+            /** Format: date */
+            date: string;
+            description: string;
+            /** Format: int64 */
+            transactionId: number;
+        };
+        TransferTie: {
+            accountName: string;
+            /**
+             * Format: int64
+             * @description Signed minor units
+             */
+            amountMinor: number;
+            /** Format: date */
+            date: string;
+            /** @description Closest first */
+            options: components["schemas"]["TransferOption"][];
+            /**
+             * Format: int64
+             * @description The transaction asked about
+             */
+            transactionId: number;
         };
     };
     responses: never;
@@ -1585,6 +1728,30 @@ export interface operations {
             };
         };
     };
+    answerTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferAnswer"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     overview: {
         parameters: {
             query?: {
@@ -1607,6 +1774,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecurringOverview"];
+                };
+            };
+        };
+    };
+    addManual: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddManual"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
                 };
             };
         };
@@ -1705,6 +1896,32 @@ export interface operations {
             };
         };
     };
+    merge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Merge"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+        };
+    };
     reject: {
         parameters: {
             query?: never;
@@ -1753,6 +1970,32 @@ export interface operations {
             };
         };
     };
+    split: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Split"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"][];
+                };
+            };
+        };
+    };
     list_1: {
         parameters: {
             query: {
@@ -1769,6 +2012,10 @@ export interface operations {
                 months?: number;
                 /** @description Account ids to include (accounts filter); absent = all accounts */
                 accounts?: number[];
+                /** @description true: only charges of confirmed or ended recurring payments; false: only the rest */
+                recurring?: boolean;
+                /** @description Only the charges of this recurring payment */
+                subscription?: number;
             };
             header?: never;
             path?: never;

@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * One question for the user (DESIGN: Review inbox). One card = one merchant, never one transaction (a possible duplicate
  * is about two). Subscription fields are set on SUBSCRIPTION cards, {@code transactionCount} and the sent / received
- * split on UNCATEGORIZED_MERCHANT cards (a person can be both paid and paying back), the pending/posted fields on POSSIBLE_DUPLICATE cards, the alert fields on PRICE_CHANGE and MISSED_CHARGE
+ * split on UNCATEGORIZED_MERCHANT cards (a person can be both paid and paying back), the pending/posted fields on POSSIBLE_DUPLICATE cards, {@code transferTie} on TRANSFER_TIE cards, the alert fields on PRICE_CHANGE and MISSED_CHARGE
  * cards (which also carry the subscription's id, cadence and expected amount).
  */
 public record ReviewCard(
@@ -51,12 +51,36 @@ public record ReviewCard(
         @Schema(description = "Subscription and alert cards: OUT for a recurring payment, IN for recurring income")
         Direction direction,
         @Schema(description = "Confirm category: the category a keyword gave the merchant") Long categoryId,
-        String categoryName) {
+        String categoryName,
+        @Schema(description = "Transfer tie: the transaction and the transfers it could be") TransferTie transferTie,
+        @Schema(description = "Subscription: its lowest charge (positive minor units); below the highest one, it can be split")
+        Long lowestMinor,
+        @Schema(description = "Subscription: its highest charge (positive minor units)") Long highestMinor) {
+
+    /**
+     * TRANSFER_TIE: "Which transfer is this?" Money out of (or into) one own account matches the same amount in more
+     * than one other own account, equally well; picking one pairs them, "none of these" pairs neither.
+     */
+    public record TransferTie(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The transaction asked about")
+            long transactionId,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String accountName,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) LocalDate date,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Signed minor units") long amountMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Closest first") List<TransferOption> options) {}
+
+    /** One transfer the tied transaction could be: the other side, in another own account. */
+    public record TransferOption(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long transactionId,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String accountName,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) LocalDate date,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String description) {}
 
     /** UPCOMING_CHARGE: a reminder the user asked for ("remind me before next charge"); its dueDate is the charge. */
     /** CONFIRM_CATEGORY: "Kaufland → Groceries?" for a merchant only a keyword categorized ("Right" makes it a rule). */
     public enum Kind {
-        SUBSCRIPTION, UNCATEGORIZED_MERCHANT, POSSIBLE_DUPLICATE, PRICE_CHANGE, MISSED_CHARGE, UPCOMING_CHARGE, CONFIRM_CATEGORY
+        SUBSCRIPTION, UNCATEGORIZED_MERCHANT, POSSIBLE_DUPLICATE, PRICE_CHANGE, MISSED_CHARGE, UPCOMING_CHARGE, CONFIRM_CATEGORY,
+        TRANSFER_TIE
     }
 
     /** The inbox: cards to answer, and weaker subscription guesses shown collapsed ("possible"). */

@@ -17,12 +17,19 @@ public final class Scope {
     public static final String INCOME = "(c.kind = 'INCOME')";
 
     /**
+     * A charge of a recurring payment the user confirmed or ended (DESIGN: Detail screens, "recurring payments inside
+     * it listed first, separately from variable spending"). Proposed ones are still guesses.
+     */
+    public static final String RECURRING =
+            "(t.subscription_id IS NOT NULL AND t.subscription_id IN (SELECT s.id FROM subscription s WHERE s.state IN ('CONFIRMED', 'ENDED')))";
+
+    /**
      * Reviewed (DESIGN: accuracy = share of spend "categorized and reviewed"): the category is the user's own (set by
      * hand, a rule they made, or learned from their edits), a paired own-account transfer, or the charge belongs to a
      * subscription the user confirmed or ended. A category guessed from a keyword is not reviewed.
      */
     public static final String REVIEWED = "(t.category_id IS NOT NULL AND (t.category_source IN ('USER', 'RULE', 'LEARNED', 'SYSTEM')"
-            + " OR t.subscription_id IN (SELECT s.id FROM subscription s WHERE s.state IN ('CONFIRMED', 'ENDED'))))";
+            + " OR " + RECURRING + "))";
 
     /**
      * A {@link Period} by booking date: {@code ?} = its first day, then the day after its last. Superseded pending rows

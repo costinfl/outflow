@@ -86,7 +86,8 @@ public class AlertService {
 
     /**
      * Unlinked charges from the same account and merchant after the last one seen, each close to a due date
-     * (± tolerance + grace) and within 50% of the expected amount, join the subscription in date order.
+     * (± tolerance + grace), within 50% of the expected amount and on its side of the user's amount cuts, join the
+     * subscription in date order.
      */
     int linkNewCharges(Sub s) {
         var anchor = s.anchor();
@@ -95,6 +96,11 @@ public class AlertService {
                 WHERE account_id = ? AND merchant_id = ? AND currency = ? AND ? * amount_minor > 0 AND booking_date > ?
                   AND subscription_id IS NULL AND transfer_state IS NULL AND superseded_by IS NULL
                 ORDER BY booking_date, id""", s.sign(), s.accountId(), s.merchantId(), s.currency(), s.sign(), s.lastSeen());
+        // The user's splits (CP6.16): a charge on the other side of a cut is another plan, never this one's.
+        List<Long> cuts = jdbc.queryForList("""
+                SELECT cut_minor FROM subscription_split
+                WHERE account_id = ? AND merchant_id = ? AND currency = ? AND direction = ?""",
+                Long.class, s.accountId(), s.merchantId(), s.currency(), s.direction());
         long lastPeriod = anchor.nearestPeriod(s.lastSeen());
         LocalDate lastSeen = s.lastSeen();
         int linked = 0;
@@ -103,7 +109,8 @@ public class AlertService {
             long amount = ((Number) c.get("amount")).longValue();
             long period = anchor.nearestPeriod(date);
             boolean onTime = anchor.distance(date, period) <= s.cadence().toleranceDays + GRACE_DAYS;
-            if (period > lastPeriod && onTime && 2 * Math.abs(amount - s.expected()) <= s.expected()) {
+            boolean samePlan = cuts.stream().allMatch(cut -> (amount < cut) == (s.expected() < cut));
+            if (period > lastPeriod && onTime && samePlan && 2 * Math.abs(amount - s.expected()) <= s.expected()) {
                 jdbc.update("UPDATE transaction SET subscription_id = ? WHERE id = ?", s.id(), c.get("id"));
                 lastPeriod = period;
                 lastSeen = date;

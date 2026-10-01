@@ -6,6 +6,7 @@ import dev.costinfl.outflow.ingest.UploadService;
 import dev.costinfl.outflow.recurring.AlertService;
 import dev.costinfl.outflow.recurring.ReminderService;
 import dev.costinfl.outflow.txn.SoftMatchService;
+import dev.costinfl.outflow.txn.TransferService;
 import java.util.NoSuchElementException;
 import org.springframework.transaction.annotation.Transactional;
 import dev.costinfl.outflow.recurring.SubscriptionService;
@@ -41,6 +42,10 @@ public class ReviewController {
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "true: the same payment, pending then posted")
             Boolean same) {}
 
+    public record TransferAnswer(
+            @Schema(description = "The offered transaction it is a transfer with; absent for \"none of these\"")
+            Long pairWith) {}
+
     public record AlertAnswer(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                     description = "Price change: GOT_IT or END. Missed charge: STILL_ACTIVE or CANCELLED")
@@ -58,10 +63,12 @@ public class ReviewController {
     private final SubscriptionService subscriptions;
     private final JdbcTemplate jdbc;
     private final ReminderService reminders;
+    private final TransferService transfers;
 
     public ReviewController(ReviewService review, CategoryService categories, SubscriptionService subscriptions,
             JdbcTemplate jdbc, SoftMatchService softMatches, UploadService pipeline, AlertService alerts,
-            ReminderService reminders) {
+            ReminderService reminders, TransferService transfers) {
+        this.transfers = transfers;
         this.reminders = reminders;
         this.alerts = alerts;
         this.review = review;
@@ -104,6 +111,24 @@ public class ReviewController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No question " + id);
         } catch (SoftMatchService.AnsweredException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+        }
+        pipeline.derive();
+    }
+
+    /**
+     * "Which transfer is this?": the picked transaction is its other side for good, or with no pick none of the offered
+     * ones ever is. Spending, categories and subscriptions follow.
+     */
+    @PostMapping(path = "/transfers/{transactionId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void answerTransfer(@PathVariable long transactionId, @RequestBody TransferAnswer body) {
+        try {
+            transfers.decide(transactionId, body.pairWith());
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
+        } catch (TransferService.NotAnOptionException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
         pipeline.derive();
     }

@@ -155,6 +155,124 @@ public class SubscriptionService {
         return find(id).orElseThrow();
     }
 
+    /** Thrown when a transaction cannot become a recurring payment of its own (already one's charge, or a transfer). */
+    public static class ManualException extends IllegalStateException {
+        ManualException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Manual add (DESIGN: Subscription candidate lifecycle): the user marks one transaction as a recurring payment with
+     * a cadence, e.g. a yearly renewal seen once so far. It is CONFIRMED at once: its amount is the charge's, its due
+     * day the charge's date, and later charges link like any confirmed one's (near the due date, within 50%). Money in
+     * becomes recurring income.
+     */
+    @Transactional
+    public Subscription addManual(long transactionId, Cadence cadence, String name) {
+        var t = jdbc.queryForList("""
+                SELECT t.account_id, t.merchant_id, m.display_name, t.currency, t.booking_date, t.amount_minor,
+                       t.subscription_id, t.transfer_state, t.superseded_by
+                FROM transaction t LEFT JOIN merchant m ON m.id = t.merchant_id WHERE t.id = ?""", transactionId)
+                .stream().findFirst().orElseThrow(() -> new NoSuchElementException("No transaction " + transactionId));
+        if (t.get("subscription_id") != null) {
+            throw new ManualException("Transaction " + transactionId + " is already a charge of recurring payment "
+                    + t.get("subscription_id"));
+        }
+        if (t.get("transfer_state") != null) {
+            throw new ManualException("Transaction " + transactionId + " is a transfer between your own accounts");
+        }
+        long amount = ((Number) t.get("amount_minor")).longValue();
+        if (t.get("superseded_by") != null || t.get("merchant_id") == null || amount == 0) {
+            throw new ManualException("Transaction " + transactionId + " cannot be a recurring payment");
+        }
+        LocalDate date = ((java.sql.Date) t.get("booking_date")).toLocalDate();
+        var anchor = RecurrenceDetector.Anchor.of(cadence, List.of(date));
+        long expected = Math.abs(amount);
+        long id = jdbc.queryForObject("""
+                INSERT INTO subscription (household_id, account_id, merchant_id, name, currency, cadence, anchor_day,
+                    anchor_month, amount_kind, expected_amount_minor, tolerance_minor, band_min_minor, band_max_minor,
+                    confidence, first_seen, last_seen, next_expected_date, state, direction, confirmed_through, decided_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'FIXED', ?, 0, ?, ?, 1.000, ?, ?, ?, 'CONFIRMED', ?, ?, now())
+                RETURNING id""", Long.class,
+                HOUSEHOLD, t.get("account_id"), t.get("merchant_id"),
+                name != null && !name.isBlank() ? name.strip() : t.get("display_name"), t.get("currency"), cadence.name(),
+                cadence == Cadence.DAILY ? null : anchor.day(), anchor.hasMonth() ? anchor.month() : null, expected,
+                expected, expected, date, date, anchor.nextDue(date), amount > 0 ? "IN" : "OUT", date);
+        jdbc.update("UPDATE transaction SET subscription_id = ? WHERE id = ?", id, transactionId);
+        return find(id).orElseThrow();
+    }
+
+    /** Thrown when two recurring payments cannot be one (same one, same merchant, another account or currency). */
+    public static class MergeException extends IllegalArgumentException {
+        MergeException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Merge (DESIGN: Subscription candidate lifecycle, "same service, two merchant keys"): the proposal {@code id} is
+     * the recurring payment {@code into}, under another merchant name. Its merchant becomes {@code into}'s everywhere (a
+     * user alias, as on the merchant debug view) and the proposal goes; the caller recomputes merchants, categories and
+     * subscriptions, after which its charges join {@code into}. What the user set on {@code into} stays.
+     */
+    @Transactional
+    public void mergeInto(long id, long into) {
+        if (id == into) {
+            throw new MergeException("A recurring payment cannot be merged into itself");
+        }
+        Subscription s = require(id, State.PROPOSED);
+        Subscription target = find(into).orElseThrow(() -> new NoSuchElementException("No subscription " + into));
+        if (target.state() == State.REJECTED) {
+            throw new TransitionException("Subscription " + into + " is REJECTED");
+        }
+        if (s.accountId() != target.accountId() || !s.currency().equals(target.currency())
+                || s.direction() != target.direction()) {
+            throw new MergeException("Only recurring payments of one account, currency and direction can be merged");
+        }
+        if (s.merchantId() == target.merchantId()) {
+            throw new MergeException("Both are from the same merchant");
+        }
+        String from = jdbc.queryForObject("SELECT key FROM merchant WHERE id = ?", String.class, s.merchantId());
+        String to = jdbc.queryForObject("SELECT key FROM merchant WHERE id = ?", String.class, target.merchantId());
+        jdbc.update("DELETE FROM merchant_alias WHERE match_type = 'EXACT' AND pattern = ?", from);
+        jdbc.update("INSERT INTO merchant_alias (match_type, pattern, merchant_key, source) VALUES ('EXACT', ?, ?, 'USER')",
+                from, to);
+        jdbc.update("UPDATE transaction SET subscription_id = NULL WHERE subscription_id = ?", id);
+        jdbc.update("DELETE FROM subscription WHERE id = ?", id);
+    }
+
+    /** Thrown when an amount does not split a proposal's charges (all on one side). */
+    public static class SplitException extends IllegalArgumentException {
+        SplitException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Split (DESIGN: Subscription candidate lifecycle, "two plans from one merchant"): the proposal's charges below
+     * {@code atMinor} and those at or above it are two streams. The cut is kept for the merchant on that account; the
+     * proposal goes, and the caller's refresh proposes each side that recurs on its own.
+     */
+    @Transactional
+    public void split(long id, long atMinor) {
+        Subscription s = require(id, State.PROPOSED);
+        var amounts = jdbc.queryForMap("""
+                SELECT count(*) FILTER (WHERE abs(amount_minor) < ?) AS below,
+                       count(*) FILTER (WHERE abs(amount_minor) >= ?) AS above
+                FROM transaction WHERE subscription_id = ?""", atMinor, atMinor, id);
+        if (((Number) amounts.get("below")).longValue() == 0 || ((Number) amounts.get("above")).longValue() == 0) {
+            throw new SplitException("Split at an amount between the lowest and the highest charge");
+        }
+        jdbc.update("""
+                INSERT INTO subscription_split (household_id, account_id, merchant_id, currency, direction, cut_minor)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT ON CONSTRAINT subscription_split_uq DO NOTHING""",
+                HOUSEHOLD, s.accountId(), s.merchantId(), s.currency(), s.direction().name(), atMinor);
+        jdbc.update("UPDATE transaction SET subscription_id = NULL WHERE subscription_id = ?", id);
+        jdbc.update("DELETE FROM subscription WHERE id = ?", id);
+    }
+
     /** PROPOSED → REJECTED: its charges are unlinked and the (merchant, cadence, amount) is never proposed again. */
     @Transactional
     public Subscription reject(long id) {

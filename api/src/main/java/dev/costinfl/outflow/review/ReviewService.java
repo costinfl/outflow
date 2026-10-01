@@ -8,10 +8,12 @@ import dev.costinfl.outflow.recurring.ReminderService;
 import dev.costinfl.outflow.review.ReviewCard.Inbox;
 import dev.costinfl.outflow.review.ReviewCard.Kind;
 import dev.costinfl.outflow.txn.Scope;
+import dev.costinfl.outflow.txn.TransferService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,7 +22,7 @@ import org.springframework.stereotype.Service;
 /**
  * Builds the review inbox (DESIGN: Review inbox): every decision the system needs, one card per merchant, largest money
  * impact first: subscription suggestions, uncategorized merchants, possible pending/posted duplicates, price changes,
- * missed charges and the reminders the user asked for.
+ * missed charges, the reminders the user asked for and transfers that could go to more than one own account.
  */
 @Service
 public class ReviewService {
@@ -32,10 +34,12 @@ public class ReviewService {
 
     private final JdbcTemplate jdbc;
     private final ReminderService reminders;
+    private final TransferService transfers;
 
-    public ReviewService(JdbcTemplate jdbc, ReminderService reminders) {
+    public ReviewService(JdbcTemplate jdbc, ReminderService reminders, TransferService transfers) {
         this.jdbc = jdbc;
         this.reminders = reminders;
+        this.transfers = transfers;
     }
 
     public Inbox inbox() {
@@ -47,7 +51,8 @@ public class ReviewService {
         jdbc.query("""
                 SELECT s.id, s.merchant_id, s.name, s.currency, s.cadence, s.expected_amount_minor, s.amount_kind,
                        s.first_seen, s.confidence, s.next_expected_date,
-                       count(t.id), coalesce(sum(abs(t.amount_minor)), 0), s.direction
+                       count(t.id), coalesce(sum(abs(t.amount_minor)), 0), s.direction,
+                       min(abs(t.amount_minor)), max(abs(t.amount_minor))
                 FROM subscription s LEFT JOIN transaction t ON t.subscription_id = s.id
                 WHERE s.state = 'PROPOSED'
                 GROUP BY s.id""", rs -> {
@@ -56,7 +61,8 @@ public class ReviewService {
                     rs.getString(4), rs.getLong(2), rs.getString(3), rs.getLong(1), Cadence.valueOf(rs.getString(5)),
                     rs.getLong(6), AmountKind.valueOf(rs.getString(7)), rs.getObject(8, LocalDate.class),
                     rs.getInt(11), confidence, rs.getObject(10, LocalDate.class), null, null, null, null, null, null,
-                    null, null, null, null, null, null, null, null, null, Direction.valueOf(rs.getString(13)), null, null);
+                    null, null, null, null, null, null, null, null, null, Direction.valueOf(rs.getString(13)), null, null, null,
+                    (Long) rs.getObject(14), (Long) rs.getObject(15));
             if (!skipped.contains(card.key())) {
                 (confidence.compareTo(PROPOSE) >= 0 ? cards : possible).add(card);
             }
@@ -73,7 +79,7 @@ public class ReviewService {
                     rs.getLong(5), rs.getString(3), rs.getLong(1), rs.getString(2),
                     null, null, null, null, null, null, null, null, rs.getInt(4), null, null, null, null, null,
                     null, null, null, null, rs.getInt(6), rs.getLong(7), rs.getInt(8), rs.getLong(9),
-                    rs.getObject(10, LocalDate.class), null, null, null);
+                    rs.getObject(10, LocalDate.class), null, null, null, null, null, null);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }
@@ -91,7 +97,7 @@ public class ReviewService {
             var card = new ReviewCard("duplicate:" + rs.getLong(1), Kind.POSSIBLE_DUPLICATE, Math.abs(rs.getLong(6)),
                     rs.getString(4), rs.getLong(2), rs.getString(3), null, null, null, null, null, null, null, null, null,
                     rs.getLong(1), rs.getObject(5, LocalDate.class), rs.getLong(6), rs.getObject(7, LocalDate.class),
-                    rs.getLong(8), null, null, null, null, null, null, null, null, null, null, null, null);
+                    rs.getLong(8), null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }
@@ -111,7 +117,7 @@ public class ReviewService {
                     rs.getLong(6), cadence, rs.getLong(11), AmountKind.valueOf(rs.getString(12)), null, null, null, null,
                     null, null, null, null, null, null, rs.getLong(1), (Long) rs.getObject(3), rs.getLong(4),
                     rs.getObject(5, LocalDate.class), null, null, null, null, null, Direction.valueOf(rs.getString(13)), null,
-                    null);
+                    null, null, null, null);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }
@@ -136,7 +142,7 @@ public class ReviewService {
                     ((Number) r.get("spent")).longValue(), (String) r.get("currency"), merchant, (String) r.get("display_name"),
                     null, null, null, null, null, null, null, null, ((Number) r.get("n")).intValue(), null, null, null,
                     null, null, null, null, null, null, null, null, null, null, null, Direction.OUT,
-                    ((Number) r.get("category_id")).longValue(), (String) r.get("category_name"));
+                    ((Number) r.get("category_id")).longValue(), (String) r.get("category_name"), null, null, null);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
                 asked++;
@@ -147,7 +153,15 @@ public class ReviewService {
             var card = new ReviewCard("reminder:" + d.subscriptionId() + ":" + d.dueDate(), Kind.UPCOMING_CHARGE,
                     d.expectedAmountMinor(), d.currency(), d.merchantId(), d.name(), d.subscriptionId(), d.cadence(),
                     d.expectedAmountMinor(), AmountKind.valueOf(d.amountKind()), null, null, null, null, null, null,
-                    null, null, null, null, null, null, null, d.dueDate(), null, null, null, null, null, Direction.OUT, null, null);
+                    null, null, null, null, null, null, null, d.dueDate(), null, null, null, null, null, Direction.OUT, null, null, null, null, null);
+            if (!skipped.contains(card.key())) {
+                cards.add(card);
+            }
+        }
+        // "Which transfer is this?" (DESIGN: "ties go to review"): money that is a transfer to one of several own
+        // accounts, equally well. Until answered it counts as ordinary money out and in.
+        for (TransferService.Tie tie : transfers.ties()) {
+            var card = tieCard(tie);
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }
@@ -157,6 +171,29 @@ public class ReviewService {
         cards.sort(byImpact);
         possible.sort(byImpact);
         return new Inbox(cards, possible, cards.size());
+    }
+
+    private ReviewCard tieCard(TransferService.Tie tie) {
+        record Row(long id, String account, LocalDate date, long amountMinor, String currency, long merchantId,
+                String name) {}
+        var ids = new ArrayList<Long>(tie.options());
+        ids.add(tie.transactionId());
+        var rows = new HashMap<Long, Row>();
+        jdbc.query("""
+                SELECT t.id, a.name, t.booking_date, t.amount_minor, t.currency, coalesce(t.merchant_id, 0),
+                       coalesce(m.display_name, t.description_raw, '')
+                FROM transaction t JOIN account a ON a.id = t.account_id LEFT JOIN merchant m ON m.id = t.merchant_id
+                WHERE t.id = ANY (?)""", rs -> {
+            rows.put(rs.getLong(1), new Row(rs.getLong(1), rs.getString(2), rs.getObject(3, LocalDate.class),
+                    rs.getLong(4), rs.getString(5), rs.getLong(6), rs.getString(7)));
+        }, (Object) ids.toArray(Long[]::new));
+        Row t = rows.get(tie.transactionId());
+        var options = tie.options().stream().map(rows::get)
+                .map(o -> new ReviewCard.TransferOption(o.id(), o.account(), o.date(), o.name())).toList();
+        return new ReviewCard("transfer:" + t.id(), Kind.TRANSFER_TIE, Math.abs(t.amountMinor()), t.currency(),
+                t.merchantId(), t.name(), null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, t.amountMinor() < 0 ? Direction.OUT : Direction.IN,
+                null, null, new ReviewCard.TransferTie(t.id(), t.account(), t.date(), t.amountMinor(), options), null, null);
     }
 
     /** Hides a card until the next upload. */

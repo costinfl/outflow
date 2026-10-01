@@ -15,11 +15,13 @@ public class TransactionQueries {
     static final String SELECT = """
             SELECT t.id, t.account_id, t.booking_date, t.amount_minor, t.currency, t.description_raw,
                    m.key AS merchant_key, m.display_name, t.category_id, c.code AS category_code,
-                   t.category_source, t.category_confidence, t.transfer_state, ta.name AS transfer_account_name, t.status
+                   t.category_source, t.category_confidence, t.transfer_state, ta.name AS transfer_account_name, t.status,
+                   t.subscription_id, s.name AS subscription_name, s.state AS subscription_state
             FROM transaction t
             JOIN merchant m ON m.id = t.merchant_id
             LEFT JOIN category c ON c.id = t.category_id
             LEFT JOIN account ta ON ta.id = t.transfer_account_id
+            LEFT JOIN subscription s ON s.id = t.subscription_id
             """;
 
     static final RowMapper<TransactionView> ROW = (rs, i) -> new TransactionView(
@@ -28,7 +30,8 @@ public class TransactionQueries {
             rs.getString("merchant_key"), Iban.maskAll(rs.getString("description_raw")),
             (Long) rs.getObject("category_id"), rs.getString("category_code"), rs.getString("category_source"),
             rs.getBigDecimal("category_confidence"), rs.getString("transfer_state"),
-            rs.getString("transfer_account_name"), rs.getString("status"));
+            rs.getString("transfer_account_name"), rs.getString("status"), (Long) rs.getObject("subscription_id"),
+            rs.getString("subscription_name"), rs.getString("subscription_state"));
 
     private final JdbcTemplate jdbc;
 
@@ -50,6 +53,11 @@ public class TransactionQueries {
         }
         f.merchant().ifPresent(id -> {
             where.append(" AND t.merchant_id = ?");
+            args.add(id);
+        });
+        f.recurring().ifPresent(r -> where.append(r ? " AND " : " AND NOT ").append(Scope.RECURRING));
+        f.subscription().ifPresent(id -> {
+            where.append(" AND t.subscription_id = ?");
             args.add(id);
         });
         f.search().ifPresent(q -> {

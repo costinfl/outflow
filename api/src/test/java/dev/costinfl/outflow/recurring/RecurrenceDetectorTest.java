@@ -321,4 +321,48 @@ class RecurrenceDetectorTest {
         assertThat(c.cadence()).isEqualTo(Cadence.DAILY);
         assertThat(c.score().interval()).isCloseTo(8 / 9.0, within(1e-9)); // Tue 10 → Thu 12 skips a weekday
     }
+
+    /** A 9.99 plan on the 5th and occasional purchases of 11–12 at the same merchant: within 25%, one band. */
+    static final String[] PLAN_AND_PURCHASES = {"2026-01-05:999", "2026-02-05:999", "2026-03-05:999", "2026-04-05:999",
+            "2026-05-05:999", "2026-06-05:999", "2026-02-20:1150", "2026-04-18:1100", "2026-06-11:1200"};
+
+    /** CP6.16: without a cut, the purchases muddle the plan into one variable stream with a poor rhythm. */
+    @Test
+    void aPlanMixedWithPurchasesIsOneMuddledStream() {
+        var c = only(detect(LocalDate.of(2026, 7, 1), PLAN_AND_PURCHASES));
+
+        assertThat(c.amountKind()).isEqualTo(AmountKind.VARIABLE);
+        assertThat(c.transactionIds()).hasSize(9);
+        assertThat(c.bandMaxMinor()).isEqualTo(1200);
+    }
+
+    /** CP6.16: cut at 10.50, the plan is a clean fixed monthly stream and the purchases are no stream at all. */
+    @Test
+    void aUserCutSeparatesThePlanFromThePurchases() {
+        var occurrences = new ArrayList<Occurrence>();
+        for (String c : PLAN_AND_PURCHASES) {
+            String[] parts = c.split(":");
+            occurrences.add(new Occurrence(nextId++, LocalDate.parse(parts[0]), Long.parseLong(parts[1])));
+        }
+        var found = detector.detect(new Group(1, 2, "RON", occurrences,
+                dev.costinfl.outflow.category.CategoryRule.Direction.OUT, List.of(1050L)), LocalDate.of(2026, 7, 1));
+
+        var c = only(found);
+        assertThat(c.cadence()).isEqualTo(Cadence.MONTHLY);
+        assertThat(c.amountKind()).isEqualTo(AmountKind.FIXED);
+        assertThat(c.expectedAmountMinor()).isEqualTo(999);
+        assertThat(c.transactionIds()).hasSize(6);
+        assertThat(c.anchorDay()).isEqualTo(5);
+    }
+
+    /** A cut splits bands between amounts, never inside equal ones; below the cut and at-or-above it are apart. */
+    @Test
+    void cutsSplitBandsAtTheirAmount() {
+        var o = List.of(new Occurrence(1, LocalDate.of(2026, 1, 1), 999), new Occurrence(2, LocalDate.of(2026, 1, 2), 1050),
+                new Occurrence(3, LocalDate.of(2026, 1, 3), 1199));
+        assertThat(AmountBands.split(o)).hasSize(1);
+        assertThat(AmountBands.split(o, List.of(1050L))).extracting(List::size).containsExactly(1, 2);
+        assertThat(AmountBands.split(o, List.of(1051L))).extracting(List::size).containsExactly(2, 1);
+        assertThat(AmountBands.split(o, List.of(500L, 5000L))).hasSize(1);
+    }
 }
