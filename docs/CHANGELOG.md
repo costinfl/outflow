@@ -2,6 +2,21 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — transfer ties, category split, manual add, merge and split (2026-10-01)
+
+- **"Which transfer is this?" (V16):** money that matches more than one own account equally well gets a review card.
+  Picking the other side pairs them for good; "None of these" never pairs them. Answering one settles the rest of its
+  group.
+- **Category detail:** a month's recurring payments come first, then variable spending by merchant; the two add up to
+  the total. `/api/transactions` takes `recurring` and `subscription`, so each figure drills to exactly its rows.
+- **Mark as recurring:** one transaction becomes a confirmed recurring payment (or income) with a cadence, e.g. a
+  yearly renewal seen once. Later charges link by themselves.
+- **Merge:** a proposal under another merchant name joins an existing recurring payment ("Same as…"). Its merchant
+  becomes that one's everywhere, as a user alias.
+- **Split (V17):** a proposal mixing a plan with purchases at one merchant splits at an amount; the detector and charge
+  linking keep the cut.
+- **Tests:** 441 backend (21 new), 17 web.
+
 ## After the plan — bi-weekly and quarterly (2026-09-27)
 
 - **Cadences:** bi-weekly (a weekday in alternating weeks, ±2 days) and quarterly (a day of month every third month,
