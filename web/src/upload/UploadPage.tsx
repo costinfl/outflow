@@ -64,8 +64,8 @@ export function UploadPage() {
         }}
       >
         <span className="font-medium text-ink">{files.length ? `${files.length} ${files.length === 1 ? 'file' : 'files'}` : 'Choose statement files'}</span>
-        <span className="mt-1 text-sm text-muted">or drop them here (CSV exports)</span>
-        <input type="file" multiple accept=".csv,.txt,text/csv" className="sr-only" onChange={(e) => choose(e.target.files)} />
+        <span className="mt-1 text-sm text-muted">or drop them here (CSV exports or CAMT.053 XML)</span>
+        <input type="file" multiple accept=".csv,.txt,.xml,text/csv,text/xml,application/xml" className="sr-only" onChange={(e) => choose(e.target.files)} />
       </label>
 
       {busy && <p className="text-sm text-muted">Importing…</p>}

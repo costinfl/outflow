@@ -9,6 +9,7 @@ example `RO49AAAA1B31007593840000`. Real anonymized exports go in `samples/` (on
 | `generic-2026-02-to-04.csv` | `generic-csv-v1` | 63 | 953449 | 2026-02-01 – 2026-04-26 |
 | `ing-ro-2026-q1.csv` | `ing-ro-csv-v1` | 193 | debit 2335532, credit 2553247 | 2026-01-02 – 2026-03-31 |
 | `ro-style-2026-02.csv` | `ro-style-csv-v1` (test profile) | 21 | 306308 (debit 543692, credit 850000) | 2026-02-01 – 2026-02-26 |
+| `camt053-2026-03.xml` | `camt053-v1` | 8 (of 9 entries; 1 INFO skipped, 1 pending) | 494791 (debit 305209, credit 800000) | 2026-03-02 – 2026-03-14 |
 
 Both generic files come from one Jan–Apr history, so Feb–Mar rows are identical in both (overlap tests, CP1.3).
 Each month contains two identical Starbucks rows on the 12th (legitimate duplicates). The history covers monthly rent,
@@ -18,6 +19,13 @@ Spotify, Netflix, salary, a savings transfer, variable utility bills and weekly 
 `1.234,56`, separate debit/credit columns, IBAN in the preamble, diacritics (`Plată`, `BUCUREŞTI`).
 
 The counts and sums above were computed by the generator script, independently of the Java parser.
+
+`camt053-2026-03.xml` is a hand-written ISO 20022 CAMT.053 (001.02 namespace) statement for the documented example
+IBAN, with counterparty IBANs from the anonymizer's fake bank (`ANON`). It mixes the 001.02 and 001.08 shapes
+(`Sts` as text and as `Sts/Cd`, `Cdtr/Nm` and `Cdtr/Pty/Nm`), two identical Starbucks rows with their own references,
+a pending card payment, an INFO entry (not money) and a cash withdrawal described only by `AddtlNtryInf` with a
+`DtTm` booking date. Sums by hand: debits 45.10 + 2500.00 + 49.99 + 18.50 + 18.50 + 120.00 + 300.00 = 3052.09,
+credit 8000.00, net 4947.91.
 
 `ing-ro-2026-q1.csv` is fabricated data in the exact layout of an ING Bank Romania Home'Bank export: multi-line
 records, page chrome (also inside a record), a wrapped detail line, a monthly standing order that reuses one reference,

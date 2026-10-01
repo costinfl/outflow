@@ -40,3 +40,11 @@ Rules the parser enforces:
 - Pending rows (a `status` cell in `pendingValues`) are imported as PENDING. When the bank later exports the same row
   as posted, an identical row turns it POSTED; a changed one (date, final amount) is matched by the soft-match pass
   and the pending row is superseded, never deleted.
+
+## CAMT.053 (XML)
+
+ISO 20022 bank-to-customer statements need no profile: the built-in `camt053-v1` parser reads versions 001.02 to
+001.13 (elements matched by local name). The account comes from the statement's IBAN; each `Ntry` is a row (`BOOK`
+posted, `PDNG` pending, `INFO` skipped); the counterparty is the creditor of money out and the debtor of money in,
+and its IBAN joins the description so own-account transfers are recognised; `AcctSvcrRef` is the identity of booked
+entries. DTDs and external entities are refused.

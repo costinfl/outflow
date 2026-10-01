@@ -2,6 +2,7 @@ package dev.costinfl.outflow.ingest.parse;
 
 import dev.costinfl.outflow.ingest.parse.csv.ConfigurableCsvParser;
 import dev.costinfl.outflow.ingest.parse.csv.CsvProfileLoader;
+import dev.costinfl.outflow.ingest.parse.camt.Camt053Parser;
 import dev.costinfl.outflow.ingest.parse.ing.IngRoCsvParser;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -25,7 +26,7 @@ public class ParserConfig {
             @Value("${outflow.parsers.locations:classpath:parsers/*.yml}") String[] locations) throws IOException {
         var resolver = new PathMatchingResourcePatternResolver();
         // Bank formats that a column mapping cannot express get a parser class; the rest are YAML profiles.
-        var parsers = new ArrayList<StatementParser>(List.of(new IngRoCsvParser()));
+        var parsers = new ArrayList<StatementParser>(List.of(new IngRoCsvParser(), new Camt053Parser()));
         for (String location : locations) {
             for (Resource yaml : resolver.getResources(location.strip())) {
                 try (var in = yaml.getInputStream()) {
