@@ -1,5 +1,6 @@
 package dev.costinfl.outflow.insight;
 
+import dev.costinfl.outflow.txn.Currencies;
 import dev.costinfl.outflow.txn.Slice;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,9 +21,11 @@ import org.springframework.web.server.ResponseStatusException;
 public class InsightController {
 
     private final InsightService insights;
+    private final Currencies currencies;
 
-    public InsightController(InsightService insights) {
+    public InsightController(InsightService insights, Currencies currencies) {
         this.insights = insights;
+        this.currencies = currencies;
     }
 
     /** Category detail: the month, a 12-month trend with its average, and the month's merchants. */
@@ -30,19 +33,17 @@ public class InsightController {
     public CategoryDetail category(
             @org.springframework.web.bind.annotation.PathVariable long id,
             @Parameter(description = "YYYY-MM") @RequestParam String month,
-            @RequestParam(defaultValue = "RON") String currency,
+            @Parameter(description = "ISO currency; absent = the main currency of the accounts (most transactions)") @RequestParam(required = false) String currency,
             @Parameter(description = "Account ids to include (accounts filter); absent = all accounts")
             @RequestParam(required = false) List<Long> accounts) {
-        if (!currency.matches("[A-Z]{3}")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "currency must be an ISO code like RON");
-        }
+        Slice slice = slice(currency, accounts);
         YearMonth ym;
         try {
             ym = YearMonth.parse(month);
         } catch (DateTimeParseException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "month must be YYYY-MM");
         }
-        return insights.category(id, ym, new Slice(currency, accounts))
+        return insights.category(id, ym, slice)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No category " + id));
     }
 
@@ -50,17 +51,15 @@ public class InsightController {
     @GetMapping("/month")
     public MonthSummary month(
             @Parameter(description = "YYYY-MM; defaults to the latest month with data") @RequestParam(required = false) String month,
-            @Parameter(description = "ISO currency; v1 reports one currency at a time") @RequestParam(defaultValue = "RON") String currency,
+            @Parameter(description = "ISO currency; absent = the main currency of the accounts (most transactions)") @RequestParam(required = false) String currency,
             @Parameter(description = "1, or 3 for the 'last 3 months' view ending with the month")
             @RequestParam(defaultValue = "1") int months,
             @Parameter(description = "Account ids to include (accounts filter); absent = all accounts")
             @RequestParam(required = false) List<Long> accounts) {
-        if (!currency.matches("[A-Z]{3}")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "currency must be an ISO code like RON");
-        }
+        Slice slice = slice(currency, accounts);
         YearMonth ym;
         if (month == null) {
-            var available = insights.availableMonths(new Slice(currency, accounts));
+            var available = insights.availableMonths(slice);
             ym = available.isEmpty() ? YearMonth.now() : available.getLast();
         } else {
             try {
@@ -72,6 +71,14 @@ public class InsightController {
         if (months != 1 && months != 3) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "months must be 1 or 3");
         }
-        return insights.month(ym, new Slice(currency, accounts), months);
+        return insights.month(ym, slice, months);
+    }
+
+    private Slice slice(String currency, List<Long> accounts) {
+        try {
+            return currencies.slice(currency, accounts);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
     }
 }

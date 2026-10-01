@@ -5,9 +5,56 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.16** — split a subscription proposal at an amount ("two plans from one merchant") |
+| Last completed | **CP6.18** — CAMT.053 (ISO 20022 XML) statements |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.18 — done
+
+452 backend tests green (7 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (the golden file uploaded through the Upload screen, then again), light and dark; no console errors.
+
+- **What:** DESIGN roadmap step 2, "Second bank or CAMT.053", and Statement parsing, "Preferred formats: CAMT.053".
+- **`ingest.parse.camt.Camt053Parser`** (`camt053-v1`, built in, registered in `ParserConfig`):
+  - versions 001.02 to 001.13, elements matched by local name; detection by the CAMT.053 namespace (0.95) or a
+    `BkToCstmrStmt` element (0.85);
+  - account hint from `Stmt/Acct` (IBAN, currency); statements of two accounts in one file are refused;
+  - one row per `Ntry`: booking date (`Dt` or the date of `DtTm`), value date, exact minor units of the entry's
+    currency (more decimals than the currency has, a sign or an unknown code fail the file), negative for `DBIT`;
+  - `BOOK` posted, `PDNG` pending (no identity reference, so it can still be superseded by its booked version),
+    `INFO` skipped (not money);
+  - counterparty: the creditor of money out, the debtor of money in (`Nm` or `Pty/Nm`); description = its name, its
+    IBAN (for own-account transfer detection) and the remittance text (`Ustrd`, else `AddtlNtryInf`);
+  - `AcctSvcrRef` is the identity reference of booked entries; the raw payload keeps the entry's fields;
+  - parsed with DTDs, external entities and XInclude off.
+- **Golden file** `samples/synthetic/camt053-2026-03.xml` (hand-written, documented example IBAN, `ANON` counterparties):
+  8 rows of 9 entries, net 494791, debits 305209, credit 800000; values in its README, computed by hand.
+- **Web:** the upload input accepts `.xml` and says "CSV exports or CAMT.053 XML". `docs/parsers.md` describes it.
+- **Tests:** `Camt053ParserTest` (6): detection; the golden file's rows, sums, account and fields; amounts in exact
+  minor units; hostile (DTD/entity) and inconsistent files refused; an empty statement. `Camt053ImportTest`: detected
+  without choosing a parser, the account created from the IBAN, the same file a duplicate, the same statement in
+  another file adding nothing. `ImportControllerTest` lists the new parser among the candidates for an unknown file.
+
+## CP6.17 — done
+
+445 backend tests green (4 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (a RON current account and a EUR card), light and dark; no console errors.
+
+- **What:** "more than one currency at a time" (spec question 14). The user chose a switch over conversion: figures
+  stay in their own currency, nothing is converted or estimated, drill-through stays exact. Cross-currency transfer
+  pairing (spec question 21) is left for when a second-currency account is uploaded.
+- **`txn.Currencies`:** `inUse(accounts)` lists the currencies with transactions in the selected accounts, most used
+  first; `slice(currency, accounts)` uses the given currency or, when absent, the accounts' main one (RON with no
+  data). An unknown code is a 400 (it used to be a 500 in the insight line).
+- **Endpoints:** `/api/insights/month`, `/api/insights/categories/{id}`, `/api/transactions` and `/api/subscriptions`
+  default to the main currency instead of always RON, so a EUR-only account shows its own money.
+  `MonthSummary.currencies` lists the switch's choices.
+- **Web:** `?currency=EUR` joins the URL filters (`useAccountsFilter`: query, cache key, carried by every drill-through
+  link). The home screen shows a RON · EUR switch above the period toggle when there is more than one currency; the
+  transactions screen sends it and shows it as a filter chip, and its Overview link keeps it.
+- **Tests** (`CurrencySwitchTest`): the main currency and the list; EUR figures equal their drill-through, category
+  detail and the recurring screen in EUR; the accounts filter choosing its own main currency; bad codes, and RON with
+  no data.
 
 ## CP6.16 — done
 
@@ -405,9 +452,9 @@ From DESIGN, not built yet:
 5. ~~**Category detail:** recurring payments listed first, separately from variable spending~~ (CP6.13).
 6. **Review:** ~~people and money both ways~~ (CP6.4); ~~a card for transfer ties~~ (CP6.12); ~~accuracy as
    "categorized and reviewed"~~ (CP6.10).
-7. **Money:** more than one currency at a time, and cross-currency transfers (spec questions 14, 21).
-8. **Banks:** a second bank or CAMT.053 (DESIGN roadmap step 2); pending rows need a format with a status column
-   (spec question 23).
+7. **Money:** ~~more than one currency at a time~~ (CP6.17, a switch); cross-currency transfers (spec question 21).
+8. **Banks:** ~~CAMT.053~~ (CP6.18, which also marks pending rows: spec question 23); a second bank's CSV when a sample
+   arrives (Revolut).
 9. **Pipeline:** DESIGN runs stages G–I as an async job; here they run in the upload transaction. That is fine at
    personal scale.
 10. **Later (outside the plan):** household sharing, LLM classification, PDF statements.
@@ -1120,8 +1167,9 @@ Health tests now derive the expected schema version from the migrations instead 
 13. **Uncategorized money in** is neither income nor spending (it may be a refund or an own-account transfer). It
     lowers nothing on the home screen; M4's review inbox will surface it. Uncategorized money *out* counts as spent
     (conservative: better to over- than under-state spending).
-14. **One currency at a time.** Insights take a `currency` parameter (default RON). Transactions in other currencies
-    are not converted; there is no FX in this plan.
+14. **One currency at a time.** Insights take a `currency` parameter; absent, the selected accounts' main currency
+    (CP6.17). Transactions in other currencies are not converted: the home screen switches between currencies (the
+    user's choice over conversion with entered or derived rates).
 15. **Baseline = previous 3 months that have data.** With one month of history the average uses that one month;
     `baselineMonths` tells the UI to show the "upload more history" nudge.
 16. **ENDED → CONFIRMED "when charges resume" vs. "a user decision is never overwritten".** Resolved as
@@ -1141,8 +1189,8 @@ Health tests now derive the expected schema version from the migrations instead 
     appears.
 22. **Transfers without an IBAN on one side only** (the other account not uploaded, no IBAN in the text) are still
     caught by the TRANSFER keyword seeds (ECONOMII, CONT PROPRIU, …), as before.
-23. **Pending rows need a bank format that marks them.** None of the current formats does (ING Home'Bank exports only
-    booked rows, as far as the purged sample showed). The mechanism is in place for when one does.
+23. **Pending rows need a bank format that marks them.** ING Home'Bank exports only booked rows, as far as the purged
+    sample showed. CAMT.053 does (`Sts` PDNG, CP6.18), so the mechanism is now fed by it.
 24. **A duplicate card is about two transactions,** not one merchant (DESIGN: "one card = one merchant"). A pending row
     with two posted candidates gets two cards, one per pair; answering one settles the other.
 25. **Two missed charges end a subscription automatically** (DESIGN: "Two missed in a row → propose state ENDED";

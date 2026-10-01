@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic CAMT.053 statement: made-up entries, the documented example IBAN for the account, ANON fakes for the
+     other parties. Expected values in README.md (computed by hand). -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>SYNTH-2026-03</MsgId>
+      <CreDtTm>2026-03-31T23:00:00</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>SYNTH-2026-03-1</Id>
+      <CreDtTm>2026-03-31T23:00:00</CreDtTm>
+      <FrToDt>
+        <FrDtTm>2026-03-01T00:00:00</FrDtTm>
+        <ToDtTm>2026-03-31T23:59:59</ToDtTm>
+      </FrToDt>
+      <Acct>
+        <Id><IBAN>RO49AAAA1B31007593840000</IBAN></Id>
+        <Ccy>RON</Ccy>
+      </Acct>
+      <Ntry>
+        <Amt Ccy="RON">45.10</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-03-02</Dt></BookgDt>
+        <ValDt><Dt>2026-03-02</Dt></ValDt>
+        <AcctSvcrRef>SYN-0001</AcctSvcrRef>
+        <NtryDtls><TxDtls>
+          <RltdPties><Cdtr><Nm>LIDL ROMANIA</Nm></Cdtr></RltdPties>
+          <RmtInf><Ustrd>CUMPARARE POS LIDL 1234 BUCURESTI</Ustrd></RmtInf>
+        </TxDtls></NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="RON">2500.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-03-03</Dt></BookgDt>
+        <ValDt><Dt>2026-03-03</Dt></ValDt>
+        <AcctSvcrRef>SYN-0002</AcctSvcrRef>
+        <NtryDtls><TxDtls>
+          <RltdPties>
+            <Cdtr><Nm>PROPRIETAR APARTAMENT</Nm></Cdtr>
+            <CdtrAcct><Id><IBAN>RO22ANON0000000000000101</IBAN></Id></CdtrAcct>
+          </RltdPties>
+          <RmtInf><Ustrd>CHIRIE MARTIE</Ustrd></RmtInf>
+        </TxDtls></NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="RON">8000.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-03-05</Dt></BookgDt>
+        <ValDt><Dt>2026-03-05</Dt></ValDt>
+        <AcctSvcrRef>SYN-0003</AcctSvcrRef>
+        <NtryDtls><TxDtls>
+          <RltdPties>
+            <Dbtr><Nm>ACME SRL</Nm></Dbtr>
+            <DbtrAcct><Id><IBAN>RO92ANON0000000000000102</IBAN></Id></DbtrAcct>
+          </RltdPties>
+          <RmtInf><Ustrd>SALARIU FEBRUARIE</Ustrd></RmtInf>
+        </TxDtls></NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="RON">49.99</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><Dt>2026-03-06</Dt></BookgDt>
+        <ValDt><Dt>2026-03-06</Dt></ValDt>
+        <AcctSvcrRef>SYN-0004</AcctSvcrRef>
+        <NtryDtls><TxDtls>
+          <RltdPties><Cdtr><Pty><Nm>NETFLIX.COM</Nm></Pty></Cdtr></RltdPties>
+          <RmtInf><Ustrd>NETFLIX</Ustrd><Ustrd>ABONAMENT</Ustrd></RmtInf>
+        </TxDtls></NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="RON">18.50</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-03-09</Dt></BookgDt>
+        <AcctSvcrRef>SYN-0005</AcctSvcrRef>
+        <NtryDtls><TxDtls>
+          <RltdPties><Cdtr><Nm>STARBUCKS</Nm></Cdtr></RltdPties>
+          <RmtInf><Ustrd>CUMPARARE POS STARBUCKS</Ustrd></RmtInf>
+        </TxDtls></NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="RON">18.50</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-03-09</Dt></BookgDt>
+        <AcctSvcrRef>SYN-0006</AcctSvcrRef>
+        <NtryDtls><TxDtls>
+          <RltdPties><Cdtr><Nm>STARBUCKS</Nm></Cdtr></RltdPties>
+          <RmtInf><Ustrd>CUMPARARE POS STARBUCKS</Ustrd></RmtInf>
+        </TxDtls></NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="RON">120.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>PDNG</Sts>
+        <BookgDt><Dt>2026-03-12</Dt></BookgDt>
+        <AcctSvcrRef>SYN-0007</AcctSvcrRef>
+        <NtryDtls><TxDtls>
+          <RltdPties><Cdtr><Nm>EMAG</Nm></Cdtr></RltdPties>
+          <RmtInf><Ustrd>PLATA CARD EMAG.RO</Ustrd></RmtInf>
+        </TxDtls></NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="RON">1.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>INFO</Sts>
+        <BookgDt><Dt>2026-03-13</Dt></BookgDt>
+        <AddtlNtryInf>INFORMATION ONLY</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="RON">300.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><DtTm>2026-03-14T10:15:00</DtTm></BookgDt>
+        <AcctSvcrRef>SYN-0009</AcctSvcrRef>
+        <AddtlNtryInf>RETRAGERE NUMERAR ATM</AddtlNtryInf>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

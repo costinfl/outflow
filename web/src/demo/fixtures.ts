@@ -162,7 +162,7 @@ function noData(month: string): MonthSummary {
     month, currency: 'RON', spentMinor: 0, baselineMonths: 0, incomeMinor: 0, netMinor: 0, accuracyPct: 0,
     categorizedPct: 0, uncategorizedMinor: 0, uncategorizedCount: 0, categories: [],
     rest: { spentMinor: 0, sharePct: 0, categoryCount: 0 }, committed: { monthlyMinor: 0, count: 0, incomeMonthlyMinor: 0, incomeCount: 0 }, availableMonths: [],
-    months: 1, periodFrom: month, monthsWithData: 0, reviewedPct: 0,
+    months: 1, periodFrom: month, monthsWithData: 0, reviewedPct: 0, currencies: [],
   }
 }
 
@@ -193,6 +193,7 @@ function groceriesOnly(month: string, spentMinor: number, baseline: number[]): M
     periodFrom: month,
     monthsWithData: 1,
     reviewedPct: 0, // keyword categories only
+    currencies: ['RON'],
   }
 }
 
@@ -228,6 +229,7 @@ const demoMonths: Record<string, MonthSummary> = {
     periodFrom: '2026-03',
     monthsWithData: 1,
     reviewedPct: 20, // Netflix and Enel, confirmed subscriptions: 260 of 1,300
+    currencies: ['RON'],
     insight: {
       categoryId: 1, code: 'GROCERIES', name: 'Groceries', deltaPct: -59, differenceMinor: -65000, perMonthMinor: 45000,
       usualMinor: 110000, transactionCount: 3,
@@ -294,6 +296,7 @@ function lastThreeMonths(month: string): MonthSummary {
     periodFrom: shiftMonth(month, -2),
     monthsWithData: window.length,
     reviewedPct: spent ? Math.round((REVIEWED_MARCH * 100) / spent) : 0, // only March's confirmed charges
+    currencies: ['RON'],
     insight: undefined, // nothing moves more than 25% and 100 RON per month here
   }
 }

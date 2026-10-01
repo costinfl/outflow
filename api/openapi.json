@@ -755,6 +755,13 @@
             "$ref" : "#/components/schemas/Committed",
             "description" : "Block 3: confirmed recurring payments"
           },
+          "currencies" : {
+            "description" : "Currencies with money in the selected accounts, most used first; more than one = a switch",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "currency" : {
             "example" : "RON",
             "type" : "string"
@@ -818,7 +825,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "accuracyPct", "availableMonths", "baselineMonths", "categories", "categorizedPct", "committed", "currency", "incomeMinor", "month", "months", "monthsWithData", "netMinor", "periodFrom", "rest", "reviewedPct", "spentMinor", "uncategorizedCount", "uncategorizedMinor" ],
+        "required" : [ "accuracyPct", "availableMonths", "baselineMonths", "categories", "categorizedPct", "committed", "currencies", "currency", "incomeMinor", "month", "months", "monthsWithData", "netMinor", "periodFrom", "rest", "reviewedPct", "spentMinor", "uncategorizedCount", "uncategorizedMinor" ],
         "type" : "object"
       },
       "NewAccount" : {
@@ -1741,11 +1748,11 @@
             "type" : "string"
           }
         }, {
+          "description" : "ISO currency; absent = the main currency of the accounts (most transactions)",
           "in" : "query",
           "name" : "currency",
           "required" : false,
           "schema" : {
-            "default" : "RON",
             "type" : "string"
           }
         }, {
@@ -1788,12 +1795,11 @@
             "type" : "string"
           }
         }, {
-          "description" : "ISO currency; v1 reports one currency at a time",
+          "description" : "ISO currency; absent = the main currency of the accounts (most transactions)",
           "in" : "query",
           "name" : "currency",
           "required" : false,
           "schema" : {
-            "default" : "RON",
             "type" : "string"
           }
         }, {
@@ -2107,11 +2113,11 @@
             "type" : "string"
           }
         }, {
+          "description" : "ISO currency; absent = the main currency of the accounts (most transactions)",
           "in" : "query",
           "name" : "currency",
           "required" : false,
           "schema" : {
-            "default" : "RON",
             "type" : "string"
           }
         }, {
@@ -2439,11 +2445,11 @@
             "type" : "string"
           }
         }, {
+          "description" : "ISO currency; absent = the main currency of the accounts (most transactions)",
           "in" : "query",
           "name" : "currency",
           "required" : false,
           "schema" : {
-            "default" : "RON",
             "type" : "string"
           }
         }, {

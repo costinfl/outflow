@@ -2,6 +2,16 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — currency switch and CAMT.053 (2026-10-01)
+
+- **More than one currency, one at a time:** without a choice, figures are in the selected accounts' main currency
+  (most transactions), so a EUR-only account shows its own money. The home screen switches between currencies when
+  there is more than one; `?currency=` travels with every drill-through. Nothing is converted.
+- **CAMT.053 (ISO 20022 XML):** a built-in parser for versions 001.02–001.13. The account comes from the statement's
+  IBAN; entries are booked, pending or skipped (INFO); the bank reference identifies booked entries; counterparty
+  IBANs feed transfer pairing; hostile XML is refused. Golden file `samples/synthetic/camt053-2026-03.xml`.
+- **Tests:** 452 backend (11 new), 17 web.
+
 ## After the plan — transfer ties, category split, manual add, merge and split (2026-10-01)
 
 - **"Which transfer is this?" (V16):** money that matches more than one own account equally well gets a review card.

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { api, isDemo } from '../api/client'
 import type { Account, Category, TransactionList, TransactionView } from '../api/types'
-import { parseAccounts } from '../lib/accounts'
+import { parseAccounts, parseCurrency } from '../lib/accounts'
 import { addMonths, cadenceWord, formatMoney, formatMonth, formatMonthRange } from '../lib/format'
 import { useApi } from '../lib/useApi'
 
@@ -24,6 +24,7 @@ export function TransactionsPage() {
   const subscription = params.get('subscription')
   const q = params.get('q') ?? ''
   const accountIds = parseAccounts(params.get('accounts'))
+  const currency = parseCurrency(params.get('currency'))
   const [search, setSearch] = useState(q)
   const [version, setVersion] = useState(0)
 
@@ -44,6 +45,7 @@ export function TransactionsPage() {
           ...(subscription ? { subscription: Number(subscription) } : {}),
           ...(q ? { q } : {}),
           ...(accountIds.length > 0 ? { accounts: accountIds } : {}),
+          ...(currency ? { currency } : {}),
         },
       },
     }),
@@ -79,6 +81,7 @@ export function TransactionsPage() {
     const name = state.kind === 'ok' ? state.data.items[0]?.merchantName : undefined
     chips.push({ label: name ? `${name} (recurring)` : 'One recurring payment', keys: ['subscription'] })
   }
+  if (currency) chips.push({ label: currency, keys: ['currency'] })
   if (months === 3) chips.push({ label: '3 months', keys: ['months'] })
   if (q) chips.push({ label: `“${q}”`, keys: ['q'] })
   if (accountIds.length > 0) {
@@ -93,7 +96,7 @@ export function TransactionsPage() {
           {months === 3 ? formatMonthRange(addMonths(month, -2), month) : formatMonth(month)}
         </h1>
         <Link
-          to={`/?month=${month}${accountIds.length > 0 ? `&accounts=${accountIds.join(',')}` : ''}${months === 3 ? '&months=3' : ''}`}
+          to={`/?month=${month}${accountIds.length > 0 ? `&accounts=${accountIds.join(',')}` : ''}${currency ? `&currency=${currency}` : ''}${months === 3 ? '&months=3' : ''}`}
           className="text-sm text-bar underline"
         >
           Overview

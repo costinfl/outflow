@@ -4,7 +4,7 @@ import dev.costinfl.outflow.category.CategoryService;
 import dev.costinfl.outflow.merchant.MerchantService;
 import dev.costinfl.outflow.recurring.Subscription.Edits;
 import dev.costinfl.outflow.recurring.SubscriptionService.TransitionException;
-import dev.costinfl.outflow.txn.Slice;
+import dev.costinfl.outflow.txn.Currencies;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -63,9 +63,11 @@ public class SubscriptionController {
     private final ReminderService reminders;
     private final MerchantService merchants;
     private final CategoryService categories;
+    private final Currencies currencies;
 
     public SubscriptionController(SubscriptionService subscriptions, RecurringService recurring, ReminderService reminders,
-            MerchantService merchants, CategoryService categories) {
+            MerchantService merchants, CategoryService categories, Currencies currencies) {
+        this.currencies = currencies;
         this.merchants = merchants;
         this.categories = categories;
         this.subscriptions = subscriptions;
@@ -101,7 +103,7 @@ public class SubscriptionController {
     @GetMapping
     public RecurringOverview overview(
             @Parameter(description = "YYYY-MM; absent = as of today") @RequestParam(required = false) String month,
-            @RequestParam(defaultValue = "RON") String currency,
+            @Parameter(description = "ISO currency; absent = the main currency of the accounts (most transactions)") @RequestParam(required = false) String currency,
             @Parameter(description = "Account ids to include (accounts filter); absent = all accounts")
             @RequestParam(required = false) List<Long> accounts) {
         Optional<YearMonth> ym;
@@ -110,10 +112,11 @@ public class SubscriptionController {
         } catch (DateTimeParseException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "month must be YYYY-MM");
         }
-        if (!currency.matches("[A-Z]{3}")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "currency must be an ISO code like RON");
+        try {
+            return recurring.overview(ym, currencies.slice(currency, accounts));
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
-        return recurring.overview(ym, new Slice(currency, accounts));
     }
 
     /**

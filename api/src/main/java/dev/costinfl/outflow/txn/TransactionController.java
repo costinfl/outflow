@@ -36,15 +36,17 @@ public class TransactionController {
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Newest first") List<TransactionView> items) {}
 
     private final TransactionQueries transactions;
+    private final Currencies currencies;
 
-    public TransactionController(TransactionQueries transactions) {
+    public TransactionController(TransactionQueries transactions, Currencies currencies) {
         this.transactions = transactions;
+        this.currencies = currencies;
     }
 
     @GetMapping
     public TransactionList list(
             @Parameter(description = "YYYY-MM") @RequestParam String month,
-            @RequestParam(defaultValue = "RON") String currency,
+            @Parameter(description = "ISO currency; absent = the main currency of the accounts (most transactions)") @RequestParam(required = false) String currency,
             @RequestParam(defaultValue = "ALL") Scope scope,
             @RequestParam(required = false) Long category,
             @RequestParam(defaultValue = "false") boolean uncategorized,
@@ -64,13 +66,16 @@ public class TransactionController {
         } catch (DateTimeParseException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "month must be YYYY-MM");
         }
-        if (!currency.matches("[A-Z]{3}")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "currency must be an ISO code like RON");
+        Slice slice;
+        try {
+            slice = currencies.slice(currency, accounts);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
         if (months != 1 && months != 3) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "months must be 1 or 3");
         }
-        var f = TransactionFilter.month(ym, new Slice(currency, accounts)).lastMonths(months).matching(q);
+        var f = TransactionFilter.month(ym, slice).lastMonths(months).matching(q);
         f = switch (scope) {
             case SPEND -> f.spend();
             case INCOME -> f.income();
@@ -83,6 +88,6 @@ public class TransactionController {
         if (subscription != null) f = f.ofSubscription(subscription);
         var items = transactions.list(f);
         long sum = items.stream().mapToLong(TransactionView::amountMinor).sum();
-        return new TransactionList(ym.toString(), months, currency, scope, scope == Scope.SPEND ? -sum : sum, items.size(), items);
+        return new TransactionList(ym.toString(), months, slice.currency(), scope, scope == Scope.SPEND ? -sum : sum, items.size(), items);
     }
 }
