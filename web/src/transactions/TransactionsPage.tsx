@@ -238,6 +238,9 @@ function Row({ t, categories, onChanged }: { t: TransactionView; categories: Cat
           {t.transferState && (
             <p className="text-xs text-ink-2">
               {t.amountMinor < 0 ? 'Transfer to' : 'Transfer from'} your {t.transferAccountName ?? 'other'} account
+              {t.transferState === 'PAIRED' && t.transferCurrency && t.transferCurrency !== t.currency && t.transferAmountMinor != null
+                ? ` (${formatMoney(Math.abs(t.transferAmountMinor), t.transferCurrency)} ${t.amountMinor < 0 ? 'arrived' : 'left'} there)`
+                : ''}
               {t.transferState === 'PAIRED'
                 ? ': both sides found, not counted as spending.'
                 : ` (recognised by its IBAN; upload the ${t.transferAccountName ?? 'other'} statement to confirm). Not counted as spending.`}

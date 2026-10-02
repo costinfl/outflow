@@ -412,6 +412,53 @@
         "required" : [ "alreadyImported", "candidates", "fileName", "newTransactions", "rows", "status", "transfers" ],
         "type" : "object"
       },
+      "FxPair" : {
+        "properties" : {
+          "base" : {
+            "example" : "EUR",
+            "type" : "string"
+          },
+          "lastSeenOn" : {
+            "description" : "The date of that transfer",
+            "format" : "date",
+            "type" : "string"
+          },
+          "lastSeenRate" : {
+            "description" : "The rate of the latest paired transfer between the two currencies, as a hint",
+            "type" : "number"
+          },
+          "quote" : {
+            "example" : "RON",
+            "type" : "string"
+          },
+          "rate" : {
+            "description" : "The user's rate: 1 base = rate quote; absent when not set (then only an IBAN pairs transfers between the two currencies)",
+            "example" : 4.97,
+            "type" : "number"
+          },
+          "tolerancePercent" : {
+            "description" : "How far a transfer's amounts may be from the rate, in percent; absent when not set",
+            "type" : "number"
+          }
+        },
+        "required" : [ "base", "quote" ],
+        "type" : "object"
+      },
+      "FxRateInput" : {
+        "properties" : {
+          "rate" : {
+            "description" : "1 base = rate quote",
+            "example" : 4.97,
+            "type" : "number"
+          },
+          "tolerancePercent" : {
+            "description" : "0–10 percent; default 3",
+            "type" : "number"
+          }
+        },
+        "required" : [ "rate" ],
+        "type" : "object"
+      },
       "Group" : {
         "properties" : {
           "items" : {
@@ -1474,6 +1521,15 @@
             "description" : "The other own account of a transfer",
             "type" : "string"
           },
+          "transferAmountMinor" : {
+            "description" : "A paired transfer's other side, signed minor units in its own currency (another currency for a transfer between currencies)",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "transferCurrency" : {
+            "description" : "The currency of the other side",
+            "type" : "string"
+          },
           "transferState" : {
             "description" : "PAIRED: a transfer between own accounts, both sides seen; PROVISIONAL: only this side, recognised by the other account's IBAN; absent: not an own-account transfer",
             "type" : "string"
@@ -1497,6 +1553,15 @@
           "accountName" : {
             "type" : "string"
           },
+          "amountMinor" : {
+            "description" : "Signed minor units; another currency than the card's for a transfer between currencies",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "currency" : {
+            "example" : "EUR",
+            "type" : "string"
+          },
           "date" : {
             "format" : "date",
             "type" : "string"
@@ -1509,7 +1574,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "accountName", "date", "description", "transactionId" ],
+        "required" : [ "accountName", "amountMinor", "currency", "date", "description", "transactionId" ],
         "type" : "object"
       },
       "TransferTie" : {
@@ -1636,7 +1701,7 @@
     },
     "/api/categories" : {
       "get" : {
-        "operationId" : "list_3",
+        "operationId" : "list_4",
         "responses" : {
           "200" : {
             "content" : {
@@ -1653,6 +1718,97 @@
           }
         },
         "tags" : [ "categories" ]
+      }
+    },
+    "/api/fx-rates" : {
+      "get" : {
+        "operationId" : "list_3",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/FxPair"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "transactions" ]
+      }
+    },
+    "/api/fx-rates/{base}/{quote}" : {
+      "delete" : {
+        "operationId" : "delete",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "base",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "quote",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "transactions" ]
+      },
+      "put" : {
+        "operationId" : "set_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "base",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "quote",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/FxRateInput"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/FxPair"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "transactions" ]
       }
     },
     "/api/health" : {

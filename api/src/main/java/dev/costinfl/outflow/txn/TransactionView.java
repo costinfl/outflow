@@ -23,6 +23,9 @@ public record TransactionView(
         @Schema(description = "PAIRED: a transfer between own accounts, both sides seen; PROVISIONAL: only this side, "
                 + "recognised by the other account's IBAN; absent: not an own-account transfer") String transferState,
         @Schema(description = "The other own account of a transfer") String transferAccountName,
+        @Schema(description = "A paired transfer's other side, signed minor units in its own currency (another "
+                + "currency for a transfer between currencies)") Long transferAmountMinor,
+        @Schema(description = "The currency of the other side") String transferCurrency,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "PENDING: not posted yet (e.g. a card reservation); may still change") String status,
         @Schema(description = "The recurring payment (or proposal) this is a charge of") Long subscriptionId,

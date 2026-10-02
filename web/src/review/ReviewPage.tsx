@@ -571,6 +571,8 @@ function TransferTieCard({ card, answer, skip }: { card: ReviewCard; answer: Ans
   const tie = card.transferTie!
   const out = tie.amountMinor < 0
   const amount = formatMoney(Math.abs(tie.amountMinor), card.currency)
+  // Between currencies the other side is another amount: show it (CP6.19).
+  const converted = tie.options.some((o) => o.currency !== card.currency)
   const decide = (pairWith?: number, label = 'Not a transfer between your accounts') =>
     void answer(label, () =>
       api.POST('/api/review/transfers/{transactionId}', {
@@ -583,7 +585,8 @@ function TransferTieCard({ card, answer, skip }: { card: ReviewCard; answer: Ans
       <p className="text-xs font-medium tracking-wide text-muted uppercase">Which transfer is this?</p>
       <p className="mt-1 text-ink">
         {amount} {out ? 'left' : 'arrived in'} <span className="font-medium">{tie.accountName}</span> on {formatDay(tie.date)}.
-        The same amount {out ? 'arrived in' : 'left'} your accounts more than once around then. Which one is the other side?
+        {converted ? 'Money that fits your exchange rate' : 'The same amount'} {out ? 'arrived in' : 'left'} your accounts more
+        than once around then. Which one is the other side?
       </p>
       <p className="mt-1 text-xs text-muted">
         A transfer between your own accounts is not spending. Until you answer, this money is not paired with anything.
@@ -598,6 +601,7 @@ function TransferTieCard({ card, answer, skip }: { card: ReviewCard; answer: Ans
             onClick={() => decide(o.transactionId, `Paired with ${o.accountName} on ${formatDay(o.date)}`)}
           >
             {o.accountName}, {formatDay(o.date)}
+            {o.currency !== card.currency && `, ${formatMoney(Math.abs(o.amountMinor), o.currency)}`}
           </button>
         ))}
         <button type="button" className={secondary} onClick={() => decide()}>

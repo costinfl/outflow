@@ -18,6 +18,8 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
     { id: 1, name: 'Main', ibanMasked: 'RO49 •••• 0000', currency: 'RON', kind: 'CURRENT' },
     { id: 2, name: 'Savings', currency: 'RON', kind: 'SAVINGS' },
   ],
+  // The demo is all RON: no currency pairs, so the upload screen shows no exchange rates.
+  '/api/fx-rates': [],
   // Mirrors the seeded tree in V4__categories.sql.
   '/api/categories': [
     { id: 1, code: 'GROCERIES', name: 'Groceries', kind: 'SPEND' },
@@ -106,8 +108,8 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
         transferTie: {
           transactionId: 90, accountName: 'Main', date: '2026-03-16', amountMinor: -100000,
           options: [
-            { transactionId: 91, accountName: 'Savings', date: '2026-03-13', description: 'Incasare ordin plata' },
-            { transactionId: 92, accountName: 'Savings', date: '2026-03-17', description: 'Incasare ordin plata' },
+            { transactionId: 91, accountName: 'Savings', date: '2026-03-13', description: 'Incasare ordin plata', amountMinor: 100000, currency: 'RON' },
+            { transactionId: 92, accountName: 'Savings', date: '2026-03-17', description: 'Incasare ordin plata', amountMinor: 100000, currency: 'RON' },
           ],
         },
       },

@@ -74,7 +74,11 @@ public record ReviewCard(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long transactionId,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String accountName,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) LocalDate date,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String description) {}
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String description,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "Signed minor units; another currency than the card's for a transfer between currencies")
+            long amountMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "EUR") String currency) {}
 
     /** UPCOMING_CHARGE: a reminder the user asked for ("remind me before next charge"); its dueDate is the charge. */
     /** CONFIRM_CATEGORY: "Kaufland → Groceries?" for a merchant only a keyword categorized ("Right" makes it a rule). */

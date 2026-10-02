@@ -189,7 +189,8 @@ public class ReviewService {
         }, (Object) ids.toArray(Long[]::new));
         Row t = rows.get(tie.transactionId());
         var options = tie.options().stream().map(rows::get)
-                .map(o -> new ReviewCard.TransferOption(o.id(), o.account(), o.date(), o.name())).toList();
+                .map(o -> new ReviewCard.TransferOption(o.id(), o.account(), o.date(), o.name(), o.amountMinor(),
+                        o.currency())).toList();
         return new ReviewCard("transfer:" + t.id(), Kind.TRANSFER_TIE, Math.abs(t.amountMinor()), t.currency(),
                 t.merchantId(), t.name(), null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, t.amountMinor() < 0 ? Direction.OUT : Direction.IN,

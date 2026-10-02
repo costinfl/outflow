@@ -43,10 +43,42 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        get: operations["list_4"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fx-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         get: operations["list_3"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fx-rates/{base}/{quote}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set_1"];
+        post?: never;
+        delete: operations["delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -668,6 +700,35 @@ export interface components {
              */
             transfers: number;
         };
+        FxPair: {
+            /** @example EUR */
+            base: string;
+            /**
+             * Format: date
+             * @description The date of that transfer
+             */
+            lastSeenOn?: string;
+            /** @description The rate of the latest paired transfer between the two currencies, as a hint */
+            lastSeenRate?: number;
+            /** @example RON */
+            quote: string;
+            /**
+             * @description The user's rate: 1 base = rate quote; absent when not set (then only an IBAN pairs transfers between the two currencies)
+             * @example 4.97
+             */
+            rate?: number;
+            /** @description How far a transfer's amounts may be from the rate, in percent; absent when not set */
+            tolerancePercent?: number;
+        };
+        FxRateInput: {
+            /**
+             * @description 1 base = rate quote
+             * @example 4.97
+             */
+            rate: number;
+            /** @description 0–10 percent; default 3 */
+            tolerancePercent?: number;
+        };
         Group: {
             /** @description Highest monthly equivalent first */
             items: components["schemas"]["Item"][];
@@ -1286,6 +1347,13 @@ export interface components {
             subscriptionState?: string;
             /** @description The other own account of a transfer */
             transferAccountName?: string;
+            /**
+             * Format: int64
+             * @description A paired transfer's other side, signed minor units in its own currency (another currency for a transfer between currencies)
+             */
+            transferAmountMinor?: number;
+            /** @description The currency of the other side */
+            transferCurrency?: string;
             /** @description PAIRED: a transfer between own accounts, both sides seen; PROVISIONAL: only this side, recognised by the other account's IBAN; absent: not an own-account transfer */
             transferState?: string;
         };
@@ -1298,6 +1366,13 @@ export interface components {
         };
         TransferOption: {
             accountName: string;
+            /**
+             * Format: int64
+             * @description Signed minor units; another currency than the card's for a transfer between currencies
+             */
+            amountMinor: number;
+            /** @example EUR */
+            currency: string;
             /** Format: date */
             date: string;
             description: string;
@@ -1400,7 +1475,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -1417,6 +1492,74 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Category"][];
                 };
+            };
+        };
+    };
+    list_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FxPair"][];
+                };
+            };
+        };
+    };
+    set_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                base: string;
+                quote: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FxRateInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FxPair"][];
+                };
+            };
+        };
+    };
+    delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                base: string;
+                quote: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

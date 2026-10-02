@@ -5,9 +5,40 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.18** — CAMT.053 (ISO 20022 XML) statements |
+| Last completed | **CP6.19** — transfers between own accounts in two currencies |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.19 — done
+
+461 backend tests green (9 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (a RON account and a EUR account, a rate set on the Upload screen), light and dark; no console errors.
+
+- **What:** DESIGN Internal transfer detection, "within FX tolerance for cross-currency" (spec question 21; the user
+  had deferred it at CP6.17 and asked for it now). No rate source: it would send data off the machine.
+- **`txn.FxRates`** (V18 `fx_rate`): the user's approximate rate per currency pair, stored alphabetically (`EUR/RON` =
+  "1 EUR = rate RON"; a rate given the other way round is inverted), with a tolerance of 0–10% (default 3%, for bank
+  spreads and the rate moving). Used only for pairing; figures are never converted (CP6.17 stays one currency at a time).
+- **`TransferService`:** a pair across currencies needs the amounts within the pair's rate and tolerance (method
+  `FX_RATE`, or `IBAN` when an IBAN also names the other account). Without a rate, only an IBAN naming the other
+  account pairs them (any amounts: different amounts prove nothing alone). With a rate, an IBAN still needs plausible
+  amounts (a refund into the other account is not the transfer; the IBAN side stays PROVISIONAL). Equal amounts in one
+  currency come before a conversion at the same gap; two conversions that fit equally well are a tie card. Changing or
+  removing a rate reruns the derived stages, so pairs form or dissolve at once.
+- **API:** `GET /api/fx-rates` (every pair of the currencies in use, plus pairs with a rate: the rate, the tolerance,
+  and the rate of the latest paired transfer between them as a hint), `PUT /api/fx-rates/{base}/{quote}`
+  `{rate, tolerancePercent}`, `DELETE` (204, 404 when none). Bad codes, equal currencies, a rate ≤ 0 or a tolerance
+  outside 0–10 are 400. `TransactionView.transferAmountMinor`/`transferCurrency`: a paired transfer's other side.
+  `TransferOption.amountMinor`/`currency` on tie cards.
+- **Web:** the Upload screen shows "Transfers between currencies" when the money is in more than one currency:
+  `1 EUR = [4.97] RON, ± [3] %`, Save / Remove, and "Your latest transfer between them: 1 EUR = 4.9751 RON. Use it".
+  A paired transfer's row says how much arrived (or left) in the other currency; tie options show the other amount.
+  The demo is RON only, so it has no pairs (empty fixture).
+- **Tests** (`FxTransferTest`, 9): no rate and no IBAN never pairs; an IBAN pairs without a rate (both sides TRANSFER,
+  spending 0, the other side's amount, the hint); the user's rate and tolerance decide, a rate change dissolves, a wider
+  tolerance pairs again, removal dissolves, 404; a rate given the other way round; with a rate an IBAN still needs
+  plausible amounts; equal amounts first; a tie between two conversions, answered; bad rates refused; amounts compared
+  by their own decimals (JPY).
 
 ## CP6.18 — done
 
@@ -452,7 +483,8 @@ From DESIGN, not built yet:
 5. ~~**Category detail:** recurring payments listed first, separately from variable spending~~ (CP6.13).
 6. **Review:** ~~people and money both ways~~ (CP6.4); ~~a card for transfer ties~~ (CP6.12); ~~accuracy as
    "categorized and reviewed"~~ (CP6.10).
-7. **Money:** ~~more than one currency at a time~~ (CP6.17, a switch); cross-currency transfers (spec question 21).
+7. **Money:** ~~more than one currency at a time~~ (CP6.17, a switch); ~~cross-currency transfers~~ (CP6.19, the
+   user's rate).
 8. **Banks:** ~~CAMT.053~~ (CP6.18, which also marks pending rows: spec question 23); a second bank's CSV when a sample
    arrives (Revolut).
 9. **Pipeline:** DESIGN runs stages G–I as an async job; here they run in the upload transaction. That is fine at
@@ -1184,9 +1216,9 @@ Health tests now derive the expected schema version from the migrations instead 
     the same month, whose rows sum to it exactly (same `RecurringService.overview`).
 20. **Transfer ties.** DESIGN: "ties go to review". Tied transactions stay unpaired (so they count as ordinary money
     out/in) until a later statement, an IBAN or the user decides: CP6.12's "Which transfer is this?" card.
-21. **Cross-currency transfers** (FX tolerance) are not paired yet: every account so far is RON. They need a rate
-    source that does not leave the machine; proposal: a user-set tolerance per currency pair, when a second currency
-    appears.
+21. **Cross-currency transfers** (FX tolerance): answered in CP6.19. No rate source leaves the machine, so the user
+    sets an approximate rate and a tolerance (default 3%) per currency pair; without one, only an IBAN naming the other
+    account pairs a transfer between currencies.
 22. **Transfers without an IBAN on one side only** (the other account not uploaded, no IBAN in the text) are still
     caught by the TRANSFER keyword seeds (ECONOMII, CONT PROPRIU, …), as before.
 23. **Pending rows need a bank format that marks them.** ING Home'Bank exports only booked rows, as far as the purged
