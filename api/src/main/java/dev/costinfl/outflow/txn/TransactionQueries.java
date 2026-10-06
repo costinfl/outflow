@@ -16,11 +16,15 @@ public class TransactionQueries {
             SELECT t.id, t.account_id, t.booking_date, t.amount_minor, t.currency, t.description_raw,
                    m.key AS merchant_key, m.display_name, t.category_id, c.code AS category_code,
                    t.category_source, t.category_confidence, t.transfer_state, ta.name AS transfer_account_name, t.status,
+                   tt.amount_minor AS transfer_amount_minor, tt.currency AS transfer_currency,
                    t.subscription_id, s.name AS subscription_name, s.state AS subscription_state
             FROM transaction t
             JOIN merchant m ON m.id = t.merchant_id
             LEFT JOIN category c ON c.id = t.category_id
             LEFT JOIN account ta ON ta.id = t.transfer_account_id
+            LEFT JOIN transfer_pair tp ON tp.id = t.transfer_pair_id
+            LEFT JOIN transaction tt ON tt.id = CASE WHEN tp.out_transaction_id = t.id
+                                                     THEN tp.in_transaction_id ELSE tp.out_transaction_id END
             LEFT JOIN subscription s ON s.id = t.subscription_id
             """;
 
@@ -30,7 +34,8 @@ public class TransactionQueries {
             rs.getString("merchant_key"), Iban.maskAll(rs.getString("description_raw")),
             (Long) rs.getObject("category_id"), rs.getString("category_code"), rs.getString("category_source"),
             rs.getBigDecimal("category_confidence"), rs.getString("transfer_state"),
-            rs.getString("transfer_account_name"), rs.getString("status"), (Long) rs.getObject("subscription_id"),
+            rs.getString("transfer_account_name"), (Long) rs.getObject("transfer_amount_minor"),
+            rs.getString("transfer_currency"), rs.getString("status"), (Long) rs.getObject("subscription_id"),
             rs.getString("subscription_name"), rs.getString("subscription_state"));
 
     private final JdbcTemplate jdbc;

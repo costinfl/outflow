@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.TreeMap;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,8 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Pairs transfers between the household's own accounts (DESIGN: Internal transfer detection), so they are never
  * spending and never a subscription. A pair is money out of one account and the same amount into another, same
- * currency, within {@value #MAX_BUSINESS_DAYS} business days. A counterparty IBAN that names another own account confirms
- * a pair, rules out pairs with any other account, and on its own marks a one-sided transfer as PROVISIONAL.
+ * currency, within {@value #MAX_BUSINESS_DAYS} business days. Across currencies (CP6.19) the amounts must be within the
+ * user's approximate rate ({@link FxRates}); without a rate for the pair, only an IBAN naming the other account pairs
+ * them. A counterparty IBAN that names another own account confirms a pair, rules out pairs with any other account,
+ * and on its own marks a one-sided transfer as PROVISIONAL.
  *
  * <p>Matching is greedy by smallest business-day gap (IBAN-confirmed first within a gap). When one transaction has two
  * equally good partners the tie is left unpaired: a wrong pair would silently hide real spending.
@@ -43,11 +46,13 @@ public class TransferService {
     private final JdbcTemplate jdbc;
     private final IbanHasher hasher;
     private final CategoryService categories;
+    private final FxRates fxRates;
 
-    public TransferService(JdbcTemplate jdbc, IbanHasher hasher, CategoryService categories) {
+    public TransferService(JdbcTemplate jdbc, IbanHasher hasher, CategoryService categories, FxRates fxRates) {
         this.jdbc = jdbc;
         this.hasher = hasher;
         this.categories = categories;
+        this.fxRates = fxRates;
     }
 
     /** New pairs and newly provisional transactions from one run (dissolved ones are not counted). */
@@ -62,14 +67,30 @@ public class TransferService {
     record Tx(long id, long accountId, LocalDate date, long amountMinor, String currency, Long namedAccount,
             String state, boolean userCategorized) {}
 
-    /** A possible pair; {@code user}: the user picked it on a tie card. */
-    record Edge(Tx out, Tx in, int businessDays, boolean iban, boolean user) {}
+    /**
+     * A possible pair; {@code fx}: two currencies (the amounts are not equal); {@code user}: the user picked it on a tie
+     * card.
+     */
+    record Edge(Tx out, Tx in, int businessDays, boolean iban, boolean fx, boolean user) {}
+
+    /** The user's rates by pair ({@link FxRates#key}); a cross-currency pair without one needs an IBAN. */
+    record Rates(Map<String, FxRates.Rate> byPair) {
+
+        static final Rates NONE = new Rates(Map.of());
+
+        /** Null: no rate for these currencies; otherwise whether the amounts are within its tolerance. */
+        Boolean close(Tx out, Tx in) {
+            FxRates.Rate rate = byPair.get(FxRates.key(out.currency(), in.currency()));
+            return rate == null ? null : rate.matches(out.amountMinor(), out.currency(), in.amountMinor(), in.currency());
+        }
+    }
 
     /** One run's answer: the pairs to have (the user's first), the tied edges left unpaired, and every candidate. */
     record Plan(List<Tx> txs, List<Edge> wanted, List<Edge> tied, Set<Long> used) {}
 
     private Plan plan() {
         List<Tx> txs = load();
+        var rates = new Rates(fxRates.all());
         var byId = new HashMap<Long, Tx>();
         txs.forEach(t -> byId.put(t.id(), t));
         var used = new HashSet<Long>();
@@ -81,7 +102,7 @@ public class TransferService {
             Tx out = byId.get(rs.getLong(1));
             Tx in = byId.get(rs.getLong(2));
             if (out != null && in != null && !used.contains(out.id()) && !used.contains(in.id())) {
-                Edge e = edge(out, in, true);
+                Edge e = edge(out, in, true, rates);
                 if (e != null) {
                     wanted.add(e);
                     used.add(out.id());
@@ -93,7 +114,7 @@ public class TransferService {
                 SELECT out_transaction_id, in_transaction_id FROM transfer_decision
                 WHERE household_id = ? AND decision = 'DIFFERENT'""", (rs, i) -> List.of(rs.getLong(1), rs.getLong(2)),
                 HOUSEHOLD));
-        var edges = candidateEdges(txs).stream()
+        var edges = candidateEdges(txs, rates).stream()
                 .filter(e -> !used.contains(e.out().id()) && !used.contains(e.in().id())
                         && !different.contains(List.of(e.out().id(), e.in().id())))
                 .toList();
@@ -199,13 +220,17 @@ public class TransferService {
                 WHERE """ + " " + where, arg);
     }
 
-    /** Every plausible (out, in) pair, best first: smallest gap, then IBAN-confirmed. */
-    static List<Edge> candidateEdges(List<Tx> txs) {
+    /** Every plausible (out, in) pair, best first: smallest gap, then IBAN-confirmed, then equal amounts. */
+    static List<Edge> candidateEdges(List<Tx> txs, Rates rates) {
         record Key(String currency, long amount) {}
         var ins = new HashMap<Key, List<Tx>>();
+        var insByDate = new TreeMap<LocalDate, List<Tx>>(); // for the other currencies, where amounts differ
+        var currencies = new HashSet<String>();
         for (Tx t : txs) {
+            currencies.add(t.currency());
             if (t.amountMinor() > 0) {
                 ins.computeIfAbsent(new Key(t.currency(), t.amountMinor()), k -> new ArrayList<>()).add(t);
+                insByDate.computeIfAbsent(t.date(), k -> new ArrayList<>()).add(t);
             }
         }
         var edges = new ArrayList<Edge>();
@@ -213,37 +238,56 @@ public class TransferService {
             if (out.amountMinor() >= 0) {
                 continue;
             }
-            for (Tx in : ins.getOrDefault(new Key(out.currency(), -out.amountMinor()), List.of())) {
-                Edge e = edge(out, in, false);
+            var partners = new ArrayList<>(ins.getOrDefault(new Key(out.currency(), -out.amountMinor()), List.of()));
+            if (currencies.size() > 1) { // 3 business days are at most 7 calendar days
+                insByDate.subMap(out.date().minusDays(7), true, out.date().plusDays(7), true).values()
+                        .forEach(day -> day.stream().filter(in -> !in.currency().equals(out.currency()))
+                                .forEach(partners::add));
+            }
+            for (Tx in : partners) {
+                Edge e = edge(out, in, false, rates);
                 if (e != null) {
                     edges.add(e);
                 }
             }
         }
         edges.sort(Comparator.comparingInt(Edge::businessDays).thenComparing(Edge::iban, Comparator.reverseOrder())
-                .thenComparingLong(e -> e.out().id()).thenComparingLong(e -> e.in().id()));
+                .thenComparing(Edge::fx).thenComparingLong(e -> e.out().id()).thenComparingLong(e -> e.in().id()));
         return edges;
     }
 
     /**
-     * The pair (out, in) if it is a possible transfer: opposite equal amounts in the same currency, two different
-     * accounts, no IBAN naming a third one, at most {@value #MAX_BUSINESS_DAYS} business days apart. Otherwise null.
+     * The pair (out, in) if it is a possible transfer, otherwise null: two different accounts, no IBAN naming a third
+     * one, at most {@value #MAX_BUSINESS_DAYS} business days apart, and
+     * <ul>
+     *   <li>one currency: opposite equal amounts;</li>
+     *   <li>two currencies (CP6.19): the amounts within the user's rate for the pair, when there is one; without a rate,
+     *       only an IBAN naming the other account makes it a transfer (amounts that differ prove nothing alone).</li>
+     * </ul>
      */
-    static Edge edge(Tx out, Tx in, boolean user) {
-        if (out.amountMinor() >= 0 || in.amountMinor() != -out.amountMinor() || !in.currency().equals(out.currency())
-                || in.accountId() == out.accountId()
+    static Edge edge(Tx out, Tx in, boolean user, Rates rates) {
+        if (out.amountMinor() >= 0 || in.amountMinor() <= 0 || in.accountId() == out.accountId()
                 || (out.namedAccount() != null && out.namedAccount() != in.accountId())
                 || (in.namedAccount() != null && in.namedAccount() != out.accountId())) {
             return null;
         }
+        boolean iban = out.namedAccount() != null || in.namedAccount() != null;
+        boolean fx = !in.currency().equals(out.currency());
+        if (!fx && in.amountMinor() != -out.amountMinor()) {
+            return null;
+        }
+        if (fx) {
+            Boolean close = rates.close(out, in);
+            if (close == null ? !iban : !close) {
+                return null;
+            }
+        }
         int gap = businessDays(out.date(), in.date());
-        return gap <= MAX_BUSINESS_DAYS
-                ? new Edge(out, in, gap, out.namedAccount() != null || in.namedAccount() != null, user)
-                : null;
+        return gap <= MAX_BUSINESS_DAYS ? new Edge(out, in, gap, iban, fx, user) : null;
     }
 
     /**
-     * Greedy matching, one quality level (gap, IBAN) at a time. Within a level, a transaction with more than one free
+     * Greedy matching, one quality level (gap, IBAN, equal amounts) at a time. Within a level, a transaction with more than one free
      * partner is a tie: it and its partners at that level stay unpaired (DESIGN: "ties go to review"), and the edges
      * between them go to {@code tied}.
      */
@@ -254,7 +298,7 @@ public class TransferService {
         while (i < edges.size()) {
             int j = i;
             while (j < edges.size() && edges.get(j).businessDays() == edges.get(i).businessDays()
-                    && edges.get(j).iban() == edges.get(i).iban()) {
+                    && edges.get(j).iban() == edges.get(i).iban() && edges.get(j).fx() == edges.get(i).fx()) {
                 j++;
             }
             var level = edges.subList(i, j).stream()
@@ -304,13 +348,17 @@ public class TransferService {
         long pairId = jdbc.queryForObject("""
                 INSERT INTO transfer_pair (household_id, out_transaction_id, in_transaction_id, method, business_days, source)
                 VALUES (?, ?, ?, ?, ?, ?) RETURNING id""", Long.class,
-                HOUSEHOLD, e.out().id(), e.in().id(), e.iban() ? "IBAN" : "AMOUNT_DATE", e.businessDays(), source(e));
+                HOUSEHOLD, e.out().id(), e.in().id(), method(e), e.businessDays(), source(e));
         for (Tx t : List.of(e.out(), e.in())) {
             long other = t == e.out() ? e.in().accountId() : e.out().accountId();
             jdbc.update("UPDATE transaction SET transfer_pair_id = ?, transfer_state = 'PAIRED', transfer_account_id = ? WHERE id = ?",
                     pairId, other, t.id());
             categorizeAsTransfer(t);
         }
+    }
+
+    private static String method(Edge e) {
+        return e.iban() ? "IBAN" : e.fx() ? "FX_RATE" : "AMOUNT_DATE";
     }
 
     private static String source(Edge e) {

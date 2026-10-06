@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { api, isDemo } from '../api/client'
 import type { Account, AccountImport, FileOutcome, ImportSummary } from '../api/types'
 import { useApi } from '../lib/useApi'
+import { ExchangeRates } from './ExchangeRates'
 import { mergeSummaries, uploadFiles } from './importApi'
 
 /**
@@ -99,6 +100,8 @@ export function UploadPage() {
       ))}
 
       {summary && <Summary summary={summary} onRenamed={() => setAccountsVersion((v) => v + 1)} />}
+
+      <ExchangeRates version={accountsVersion} />
     </div>
   )
 }
