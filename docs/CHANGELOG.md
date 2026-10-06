@@ -2,6 +2,14 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — transfers between currencies (2026-10-06)
+
+- **Own-account transfers across currencies (V18):** a RON → EUR transfer pairs when its amounts fit the user's
+  approximate rate for the pair (default tolerance 3%), or, without a rate, when an IBAN names the other account.
+  Rates are set on the Upload screen, with the latest transfer's rate as a hint; they only pair transfers, figures are
+  never converted and nothing is looked up online. Paired rows and tie cards show the other side's amount.
+- **Tests:** 461 backend (9 new), 17 web.
+
 ## After the plan — currency switch and CAMT.053 (2026-10-01)
 
 - **More than one currency, one at a time:** without a choice, figures are in the selected accounts' main currency
