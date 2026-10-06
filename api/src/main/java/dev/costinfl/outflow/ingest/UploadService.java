@@ -80,6 +80,8 @@ public class UploadService {
         }
 
         ParsedStatement parsed = parser.get().parse(new ByteArrayInputStream(content));
+        String currency = parsed.rows().stream().map(ParsedRow::currency).findFirst()
+                .or(() -> parsed.accountHint().flatMap(h -> h.currency())).orElse(null);
 
         Account account;
         boolean created = false;
@@ -92,7 +94,7 @@ public class UploadService {
             if (accountId.isPresent()) {
                 account = accounts.find(accountId.get()).orElseThrow();
             } else {
-                var resolved = accounts.resolve(hint, parsed.rows().stream().map(ParsedRow::currency).findFirst().orElse("RON"));
+                var resolved = accounts.resolve(hint, currency != null ? currency : "RON");
                 account = resolved.account();
                 created = resolved.created();
             }
@@ -100,14 +102,14 @@ public class UploadService {
             account = accounts.find(accountId.get()).orElseThrow();
         } else {
             return Upload.skipped(FileOutcome.notImported(fileName, Status.NEEDS_ACCOUNT,
-                    "This file does not say which account it is from; pick the account", List.of()));
+                    "This file does not say which account it is from; pick the account", List.of()).withCurrency(currency));
         }
 
         ImportResult r = imports.importParsed(account.id(), fileName, content, parser.get().id(), parsed);
         var derived = derive();
         var outcome = new FileOutcome(fileName, r.duplicateFile() ? Status.DUPLICATE_FILE : Status.IMPORTED, null,
                 r.parserId(), account.id(), r.rows(), r.newTransactions(), r.alreadyImported(),
-                r.periodFrom().orElse(null), r.periodTo().orElse(null), derived.transfers().transactions(), List.of());
+                r.periodFrom().orElse(null), r.periodTo().orElse(null), derived.transfers().transactions(), List.of(), currency);
         return new Upload(outcome, Optional.of(account), created);
     }
 

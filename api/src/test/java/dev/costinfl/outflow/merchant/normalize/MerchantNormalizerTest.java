@@ -60,6 +60,11 @@ class MerchantNormalizerTest {
         "MCD 5 DRISTOR DT - 1                                                 | MCD DRISTOR DT",
         "OMV PETROM 7123 CLUJ-NAPOCA RO                                       | OMV PETROM",
         "GLOVO*BUCURESTI                                                      | GLOVO",
+        // a reference number glued to a person's name with '/' (real ING export): the same person as without it
+        "ION POPESCU/7082938682055                                            | ION POPESCU",
+        "ION POPESCU                                                          | ION POPESCU",
+        "PERSON_6/7082938682055                                               | PERSON_6",
+        "PERSON_6                                                             | PERSON_6",
     })
     void goldenKeys(String raw, String key) {
         assertThat(NORMALIZER.key(raw)).isEqualTo(key);

@@ -80,10 +80,22 @@ class ImportControllerTest {
     }
 
     @Test
+    void aFileWithoutAnAccountSaysItsCurrencySoTheNewAccountGetsIt() {
+        var csv = "Date,Description,Amount,Currency\r\n2026-03-14,CUMPARARE POS CARREFOUR,-40.00,EUR\r\n";
+        var s = ok("", new Part("travel.csv", csv.getBytes(StandardCharsets.UTF_8)));
+
+        assertThat(s.files()).singleElement().satisfies(f -> {
+            assertThat(f.status()).isEqualTo(Status.NEEDS_ACCOUNT);
+            assertThat(f.currency()).isEqualTo("EUR");
+        });
+    }
+
+    @Test
     void firstRunDetectsTheAccountFromItsIbanAndAsksForTheOther() throws Exception {
         var s = ok("", file(RO), file(JAN_MAR));
 
         assertThat(s.files()).extracting(FileOutcome::status).containsExactly(Status.IMPORTED, Status.NEEDS_ACCOUNT);
+        assertThat(s.files()).extracting(FileOutcome::currency).containsExactly("RON", "RON");
         assertThat(s.accounts()).singleElement().satisfies(a -> {
             assertThat(a.created()).isTrue();
             assertThat(a.account().ibanMasked()).isEqualTo("RO49 •••• 0000");

@@ -77,6 +77,14 @@ class RealDataCategorizationTest {
     }
 
     @Test
+    void aReferenceGluedToAPersonIsTheSamePerson() {
+        // "Beneficiar:PERSON_6/7082938682055" used to become a second merchant for PERSON_6 (STATUS known issue).
+        assertThat(jdbc.queryForList("SELECT key FROM merchant WHERE key ~ '/[0-9]{6,}'", String.class)).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM merchant WHERE key LIKE 'PERSON_6%'", Long.class))
+                .isEqualTo(1);
+    }
+
+    @Test
     void theWholeExportImportsOnceAndAgainIsANoOp() throws Exception {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM transaction", Long.class)).isEqualTo(4026);
         long account = jdbc.queryForObject("SELECT id FROM account", Long.class);

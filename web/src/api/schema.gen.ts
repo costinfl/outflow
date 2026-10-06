@@ -680,6 +680,11 @@ export interface components {
             alreadyImported: number;
             /** @description Parser scores, best first; filled when the user has to pick (NEEDS_PARSER) */
             candidates: components["schemas"]["ParserCandidate"][];
+            /**
+             * @description The statement's currency (its first row's); a new account for a NEEDS_ACCOUNT file takes it
+             * @example EUR
+             */
+            currency?: string;
             fileName: string;
             /** @description Why the file was not imported, in words for the user */
             message?: string;
