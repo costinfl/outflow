@@ -2,6 +2,14 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — two small fixes (2026-10-11)
+
+- **References glued to a name:** `PERSON_6/7082938682055` on the real export is the same merchant as `PERSON_6`; a `/`
+  followed by 6+ digits is split off before digit tokens are dropped.
+- **A new account's currency:** a file without an IBAN reports its currency (`FileOutcome.currency`), so "New account…"
+  creates the account in it instead of always RON.
+- **Tests:** 467 backend (6 new), 17 web.
+
 ## After the plan — transfers between currencies (2026-10-06)
 
 - **Own-account transfers across currencies (V18):** a RON → EUR transfer pairs when its amounts fit the user's
