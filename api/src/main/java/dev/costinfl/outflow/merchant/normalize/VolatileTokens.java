@@ -6,9 +6,9 @@ import java.util.regex.Pattern;
 
 /**
  * Step 3b: remove what changes between charges from the same merchant: card masks, authorization codes, IBANs,
- * dates, times, processor suffixes after '*', and tokens with digits (terminal, store, reference and invoice numbers,
- * plan codes like {@code P770487}). A brand spelled with a digit or two ({@code 1MINUTE}, {@code 7ELEVEN}: 4+ letters,
- * at most 2 digits) is kept.
+ * dates, times, processor suffixes after '*', reference numbers glued to a name with '/', and tokens with digits
+ * (terminal, store, reference and invoice numbers, plan codes like {@code P770487}). A brand spelled with a digit or
+ * two ({@code 1MINUTE}, {@code 7ELEVEN}: 4+ letters, at most 2 digits) is kept.
  */
 public final class VolatileTokens implements MerchantStep {
 
@@ -19,6 +19,7 @@ public final class VolatileTokens implements MerchantStep {
             Pattern.compile("\\b[A-Z]{2}\\d{2}(?:\\s?[A-Z0-9]){11,30}\\b"),                  // IBAN
             Pattern.compile("\\b\\d{1,4}[./-]\\d{1,2}[./-]\\d{1,4}\\b"),                      // dates
             Pattern.compile("\\b\\d{1,2}:\\d{2}(?::\\d{2})?\\b"),                            // times
+            Pattern.compile("(?<=\\S)/(?=\\d{6,}\\b)"),                                   // "ION POPESCU/7082938682055"
             Pattern.compile("(?<=\\S)\\*\\S*"),                                               // "AMZN MKTP DE*2B4XY7Z"
             Pattern.compile("(?<=\\s|^)[#/*.,:;-]+(?=\\s|$)"));                               // leftover punctuation
     private static final Pattern DIGIT_TOKEN = Pattern.compile("\\b\\S*\\d\\S*\\b");

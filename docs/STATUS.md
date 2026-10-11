@@ -5,9 +5,27 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.19** — transfers between own accounts in two currencies |
+| Last completed | **CP6.20** — two small fixes: references glued to a name, a new account's currency |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.20 — done
+
+467 backend tests green (6 new); typecheck, web tests, build and demo build green. Checked in Chromium at 390 px against
+the API (a EUR file without an IBAN, "New account…" on the Upload screen), light and dark; no console errors.
+
+- **What:** the two remaining items need files from the user (a savings statement, a Revolut export), so this CP
+  fixes two known bugs.
+- **References glued to a name** (known issue from the real export): `Beneficiar:PERSON_6/7082938682055` became a
+  second merchant for PERSON_6. `VolatileTokens` now separates a `/` followed by 6+ digits from the name before
+  dropping digit tokens, so it is the same person (on the real export it also cleans `DFCD-SSU-CUB/48467613`). New
+  imports get it at once; transactions already imported move on the next merchant-alias change (`reassignAll`).
+- **A new account's currency:** a file without an IBAN asks "Which account?", and "New account…" always created a RON
+  account. `FileOutcome.currency` now gives the statement's currency (its first row's, else the account hint's), and
+  the new account takes it.
+- **Tests:** golden keys for names with and without a glued reference; the real export has no `/<digits>` merchant key
+  and one PERSON_6 (failed before the fix); a EUR file without an account says EUR; the existing first-run test checks
+  the currency of both outcomes.
 
 ## CP6.19 — done
 
@@ -1151,8 +1169,7 @@ Health tests now derive the expected schema version from the migrations instead 
   re-anonymizes the export and a real golden test is added. GitHub may keep unreferenced old commits cached: ask GitHub
   Support to purge them (the repository is public again since 2026-09-24).
 
-- Merchant key `Person_6/7082938682055` on the real export: a reference number glued to a name with `/` survives
-  normalization, so that person gets a second merchant. One transaction; not fixed yet.
+- ~~Merchant key `Person_6/7082938682055` on the real export~~: fixed in CP6.20.
 - Dev-container only: Docker Hub rate-limits image pulls here (429); images were pulled via `mirror.gcr.io`.
   Not a project issue; CI and local machines pull normally.
 - Dev-container only: `docker build` needs the sandbox proxy + CA injected, so compose images were verified with

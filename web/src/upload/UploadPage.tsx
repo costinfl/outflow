@@ -175,7 +175,7 @@ function Question({ outcome, accounts, busy, onAnswer }: { outcome: FileOutcome;
           void onAnswer(
             needsAccount
               ? accountId === 'new'
-                ? { newAccount: { name: name.trim(), currency: 'RON', kind } }
+                ? { newAccount: { name: name.trim(), currency: outcome.currency ?? 'RON', kind } }
                 : { accountId: Number(accountId) }
               : { parserId },
           )

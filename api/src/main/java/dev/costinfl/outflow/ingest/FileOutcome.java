@@ -22,7 +22,9 @@ public record FileOutcome(
         int transfers,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "Parser scores, best first; filled when the user has to pick (NEEDS_PARSER)")
-        List<ParserCandidate> candidates) {
+        List<ParserCandidate> candidates,
+        @Schema(description = "The statement's currency (its first row's); a new account for a NEEDS_ACCOUNT file takes it",
+                example = "EUR") String currency) {
 
     public enum Status {
         /** Imported; some rows may have been known already. */
@@ -44,6 +46,11 @@ public record FileOutcome(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String reason) {}
 
     static FileOutcome notImported(String fileName, Status status, String message, List<ParserCandidate> candidates) {
-        return new FileOutcome(fileName, status, message, null, null, 0, 0, 0, null, null, 0, candidates);
+        return new FileOutcome(fileName, status, message, null, null, 0, 0, 0, null, null, 0, candidates, null);
+    }
+
+    FileOutcome withCurrency(String currency) {
+        return new FileOutcome(fileName, status, message, parserId, accountId, rows, newTransactions, alreadyImported,
+                periodFrom, periodTo, transfers, candidates, currency);
     }
 }

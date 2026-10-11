@@ -373,6 +373,11 @@
             },
             "type" : "array"
           },
+          "currency" : {
+            "description" : "The statement's currency (its first row's); a new account for a NEEDS_ACCOUNT file takes it",
+            "example" : "EUR",
+            "type" : "string"
+          },
           "fileName" : {
             "type" : "string"
           },
