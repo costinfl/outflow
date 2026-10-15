@@ -43,7 +43,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_4"];
+        get: operations["list_5"];
         put?: never;
         post?: never;
         delete?: never;
@@ -59,7 +59,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_3"];
+        get: operations["list_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -78,7 +78,7 @@ export interface paths {
         get?: never;
         put: operations["set_1"];
         post?: never;
-        delete: operations["delete"];
+        delete: operations["delete_1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -155,7 +155,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_2"];
+        get: operations["list_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -302,6 +302,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["answerTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/splits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_2"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -479,6 +495,22 @@ export interface paths {
         put: operations["set"];
         post?: never;
         delete: operations["clear"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/transactions/{id}/split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get"];
+        put: operations["put"];
+        post?: never;
+        delete: operations["delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -662,6 +694,85 @@ export interface components {
         Duplicate: {
             /** @description true: the same payment, pending then posted */
             same: boolean;
+        };
+        ExpenseSplit: {
+            /**
+             * Format: int64
+             * @description The whole expense, positive minor units
+             */
+            amountMinor: number;
+            /** Format: date */
+            bookingDate: string;
+            /** @example RON */
+            currency: string;
+            merchantName: string;
+            /**
+             * Format: int64
+             * @description Your share: what figures count
+             */
+            mineMinor: number;
+            /** @enum {string} */
+            mode: "EQUAL" | "PERCENT" | "FIXED" | "SHARES";
+            /** Format: int32 */
+            myShares?: number;
+            /**
+             * Format: int64
+             * @description What the others owe together
+             */
+            othersMinor: number;
+            people: components["schemas"]["ExpenseSplitPerson"][];
+            /** Format: int64 */
+            transactionId: number;
+        };
+        ExpenseSplitInput: {
+            /** @enum {string} */
+            mode: "EQUAL" | "PERCENT" | "FIXED" | "SHARES";
+            /**
+             * Format: int32
+             * @description SHARES mode: your own weight, 0 if you only paid; default 1
+             */
+            myShares?: number;
+            people: components["schemas"]["ExpenseSplitPersonInput"][];
+        };
+        ExpenseSplitList: {
+            /** @description Names used so far, most used first */
+            people: string[];
+            /** @description Newest expense first */
+            splits: components["schemas"]["ExpenseSplit"][];
+        };
+        ExpenseSplitPerson: {
+            /**
+             * Format: int64
+             * @description What they owe, minor units
+             */
+            amountMinor: number;
+            /** Format: int64 */
+            fixedMinor?: number;
+            name: string;
+            percent?: number;
+            /** Format: int32 */
+            shares?: number;
+        };
+        ExpenseSplitPersonInput: {
+            /**
+             * Format: int64
+             * @description FIXED mode: minor units
+             * @example 12000
+             */
+            fixedMinor?: number;
+            /** @example Ana */
+            name: string;
+            /**
+             * @description PERCENT mode: above 0, at most 100
+             * @example 50
+             */
+            percent?: number;
+            /**
+             * Format: int32
+             * @description SHARES mode: a weight from 1
+             * @example 1
+             */
+            shares?: number;
         };
         Explanation: {
             categoryCode?: string;
@@ -1340,6 +1451,11 @@ export interface components {
             id: number;
             merchantKey: string;
             merchantName: string;
+            /**
+             * Format: int64
+             * @description What other people owe of a shared expense (positive minor units, 0 when not split); your share, which figures count, is amountMinor + sharedMinor
+             */
+            sharedMinor: number;
             /** @description PENDING: not posted yet (e.g. a card reservation); may still change */
             status: string;
             /**
@@ -1480,7 +1596,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -1500,7 +1616,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -1547,7 +1663,7 @@ export interface operations {
             };
         };
     };
-    delete: {
+    delete_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -1677,7 +1793,7 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    list_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -1900,6 +2016,26 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    list_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseSplitList"];
+                };
             };
         };
     };
@@ -2232,6 +2368,74 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CategoryChange"];
                 };
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseSplit"];
+                };
+            };
+        };
+    };
+    put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpenseSplitInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseSplit"];
+                };
+            };
+        };
+    };
+    delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

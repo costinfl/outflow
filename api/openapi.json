@@ -333,6 +333,149 @@
         "required" : [ "same" ],
         "type" : "object"
       },
+      "ExpenseSplit" : {
+        "properties" : {
+          "amountMinor" : {
+            "description" : "The whole expense, positive minor units",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "bookingDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "currency" : {
+            "example" : "RON",
+            "type" : "string"
+          },
+          "merchantName" : {
+            "type" : "string"
+          },
+          "mineMinor" : {
+            "description" : "Your share: what figures count",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "mode" : {
+            "enum" : [ "EQUAL", "PERCENT", "FIXED", "SHARES" ],
+            "type" : "string"
+          },
+          "myShares" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "othersMinor" : {
+            "description" : "What the others owe together",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "people" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ExpenseSplitPerson"
+            },
+            "type" : "array"
+          },
+          "transactionId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "amountMinor", "bookingDate", "currency", "merchantName", "mineMinor", "mode", "othersMinor", "people", "transactionId" ],
+        "type" : "object"
+      },
+      "ExpenseSplitInput" : {
+        "properties" : {
+          "mode" : {
+            "enum" : [ "EQUAL", "PERCENT", "FIXED", "SHARES" ],
+            "type" : "string"
+          },
+          "myShares" : {
+            "description" : "SHARES mode: your own weight, 0 if you only paid; default 1",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "people" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ExpenseSplitPersonInput"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "mode", "people" ],
+        "type" : "object"
+      },
+      "ExpenseSplitList" : {
+        "properties" : {
+          "people" : {
+            "description" : "Names used so far, most used first",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "splits" : {
+            "description" : "Newest expense first",
+            "items" : {
+              "$ref" : "#/components/schemas/ExpenseSplit"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "people", "splits" ],
+        "type" : "object"
+      },
+      "ExpenseSplitPerson" : {
+        "properties" : {
+          "amountMinor" : {
+            "description" : "What they owe, minor units",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "fixedMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "percent" : {
+            "type" : "number"
+          },
+          "shares" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "amountMinor", "name" ],
+        "type" : "object"
+      },
+      "ExpenseSplitPersonInput" : {
+        "properties" : {
+          "fixedMinor" : {
+            "description" : "FIXED mode: minor units",
+            "example" : 12000,
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "example" : "Ana",
+            "type" : "string"
+          },
+          "percent" : {
+            "description" : "PERCENT mode: above 0, at most 100",
+            "example" : 50,
+            "type" : "number"
+          },
+          "shares" : {
+            "description" : "SHARES mode: a weight from 1",
+            "example" : 1,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "name" ],
+        "type" : "object"
+      },
       "Explanation" : {
         "properties" : {
           "categoryCode" : {
@@ -1506,6 +1649,11 @@
           "merchantName" : {
             "type" : "string"
           },
+          "sharedMinor" : {
+            "description" : "What other people owe of a shared expense (positive minor units, 0 when not split); your share, which figures count, is amountMinor + sharedMinor",
+            "format" : "int64",
+            "type" : "integer"
+          },
           "status" : {
             "description" : "PENDING: not posted yet (e.g. a card reservation); may still change",
             "type" : "string"
@@ -1540,7 +1688,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "accountId", "amountMinor", "bookingDate", "currency", "description", "id", "merchantKey", "merchantName", "status" ],
+        "required" : [ "accountId", "amountMinor", "bookingDate", "currency", "description", "id", "merchantKey", "merchantName", "sharedMinor", "status" ],
         "type" : "object"
       },
       "TransferAnswer" : {
@@ -1706,7 +1854,7 @@
     },
     "/api/categories" : {
       "get" : {
-        "operationId" : "list_4",
+        "operationId" : "list_5",
         "responses" : {
           "200" : {
             "content" : {
@@ -1727,7 +1875,7 @@
     },
     "/api/fx-rates" : {
       "get" : {
-        "operationId" : "list_3",
+        "operationId" : "list_4",
         "responses" : {
           "200" : {
             "content" : {
@@ -1748,7 +1896,7 @@
     },
     "/api/fx-rates/{base}/{quote}" : {
       "delete" : {
-        "operationId" : "delete",
+        "operationId" : "delete_1",
         "parameters" : [ {
           "in" : "path",
           "name" : "base",
@@ -2003,7 +2151,7 @@
     },
     "/api/merchants" : {
       "get" : {
-        "operationId" : "list_2",
+        "operationId" : "list_3",
         "responses" : {
           "200" : {
             "content" : {
@@ -2260,6 +2408,24 @@
           }
         },
         "tags" : [ "review" ]
+      }
+    },
+    "/api/splits" : {
+      "get" : {
+        "operationId" : "list_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ExpenseSplitList"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "splits" ]
       }
     },
     "/api/subscriptions" : {
@@ -2769,6 +2935,86 @@
           }
         },
         "tags" : [ "categories" ]
+      }
+    },
+    "/api/transactions/{id}/split" : {
+      "delete" : {
+        "operationId" : "delete",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "splits" ]
+      },
+      "get" : {
+        "operationId" : "get",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ExpenseSplit"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "splits" ]
+      },
+      "put" : {
+        "operationId" : "put",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ExpenseSplitInput"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ExpenseSplit"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "splits" ]
       }
     }
   },

@@ -5,9 +5,41 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.20** — two small fixes: references glued to a name, a new account's currency |
+| Last completed | **CP6.21** — shared expenses: split a payment, count only your share |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.21 — done
+
+477 backend tests green (10 new), 21 web (4 new); typecheck, build and demo build green. Checked in Chromium at 390 px
+against the API (a 300.00 restaurant payment split equally with Ana and Dan: the row, the list total and the home
+screen all show 100.00 as yours), light and dark; no console errors.
+
+- **What:** the user's request (2026-10-15), after the group expenses of their trip planner: mark a payment as "this
+  should be split", choose what others owe, and count only the user's share. The user chose the four modes below and
+  "count only my share". Plan: CP6.21 split and figures; CP6.22 "Splits to settle" (who owes what, repayments matched
+  to open amounts); later, optionally, "they paid, I owe". **Open (user, for later):** paid from ING, paid back on
+  Revolut: person matching across banks once the Revolut parser exists.
+- **`split` slice** (V19 `expense_split`, `expense_split_person`; `transaction.others_share_minor`):
+  - one mode per split: `EQUAL` (the user and each person alike), `PERCENT` and `FIXED` (each person's part, the rest
+    is the user's), `SHARES` (weights, the user's included; 0 = only paid);
+  - `SplitCalculator`: each person's part rounded down to the minor unit, the odd cents are the user's, so the parts
+    add up exactly; percentages over 100, amounts over the expense, duplicate names, nobody owing anything are refused;
+  - only posted money out splits (money in, pending rows: 409); a split is the user's decision, never automatic.
+- **Figures:** `txn.Scope.MINE` (`amount_minor + others_share_minor`) replaces the raw amount in every sum of
+  `InsightService` (spent, income, net, categories, category detail and trend, merchants, accuracy) and in the
+  transaction list's total, so a split dinner counts as the user's share everywhere and still equals its drill-through.
+  Recurring payments keep the bank amounts (a shared subscription is a later question).
+- **API:** `PUT/GET/DELETE /api/transactions/{id}/split` (`mode`, `myShares`, `people[{name, percent | fixedMinor |
+  shares}]`), `GET /api/splits` (every split, newest first, and the names used so far). `TransactionView.sharedMinor`.
+- **Web:** an expanded payment offers "Split this expense": how (Equally / By percentage / Fixed amounts / By shares),
+  people (names suggested from earlier splits), and a live preview with the same arithmetic as the backend
+  (`lib/split.ts`); the row then shows "your share", and the split can be changed or undone. The demo has no splits
+  (its figures are hand-computed).
+- **Tests:** `SplitCalculatorTest` (6): each mode, odd cents, shares with 0 for the user, names, refusals.
+  `ExpenseSplitTest` (4): an equal split counts the user's share in spent, net, categories, category detail and
+  merchants, each equal to its drill-through; change and undo; refusals (400 / 409 / 404, pending CAMT row); shares.
+  Web `split.test.mjs` (4): the same cases as the backend.
 
 ## CP6.20 — done
 

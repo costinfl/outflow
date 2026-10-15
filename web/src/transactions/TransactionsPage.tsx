@@ -5,6 +5,7 @@ import type { Account, Category, TransactionList, TransactionView } from '../api
 import { parseAccounts, parseCurrency } from '../lib/accounts'
 import { addMonths, cadenceWord, formatMoney, formatMonth, formatMonthRange } from '../lib/format'
 import { useApi } from '../lib/useApi'
+import { SplitExpense } from './SplitExpense'
 
 type Scope = 'SPEND' | 'INCOME' | 'ALL'
 
@@ -227,9 +228,12 @@ function Row({ t, categories, onChanged }: { t: TransactionView; categories: Cat
           </span>
           <span className={`block truncate text-xs ${category ? 'text-muted' : 'text-bad'}`}>{category?.name ?? 'Uncategorized'}</span>
         </span>
-        <span className="shrink-0 text-sm text-ink tabular-nums">
+        <span className="shrink-0 text-right text-sm text-ink tabular-nums">
           {t.amountMinor > 0 ? '+' : ''}
           {formatMoney(t.amountMinor, t.currency)}
+          {t.sharedMinor > 0 && (
+            <span className="block text-xs text-muted">your share {formatMoney(-(t.amountMinor + t.sharedMinor), t.currency)}</span>
+          )}
         </span>
       </button>
       {open && (
@@ -276,6 +280,7 @@ function Row({ t, categories, onChanged }: { t: TransactionView; categories: Cat
           </button>
           {status && <p className="text-xs text-ink-2">{status}</p>}
           <Recurring t={t} onChanged={onChanged} />
+          <SplitExpense t={t} onChanged={onChanged} />
         </div>
       )}
     </li>

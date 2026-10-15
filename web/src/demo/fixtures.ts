@@ -148,6 +148,11 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
     throw new Error('Demo mode: no calendar download')
   },
   '/api/insights/categories/{id}': demoCategory,
+  // Nothing in the demo is split (its figures are hand-computed); splitting needs the real app.
+  '/api/splits': { splits: [], people: [] },
+  '/api/transactions/{id}/split': () => {
+    throw new Error('Demo mode: nothing is split')
+  },
   // All demo transactions are the Main account's: a filter without it has no data, as the real API would answer.
   '/api/insights/month': (url) => {
     const month = url.searchParams.get('month') ?? '2026-03'

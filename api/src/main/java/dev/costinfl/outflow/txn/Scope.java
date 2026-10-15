@@ -38,6 +38,13 @@ public final class Scope {
     public static final String PERIOD = "(t.booking_date >= ?::date AND t.booking_date < ?::date"
             + " AND t.superseded_by IS NULL)";
 
+    /**
+     * The user's own part of a transaction, signed like its amount: the amount, less what other people owe of a shared
+     * expense (CP6.21, {@code others_share_minor}, 0 when not split). Every figure sums this, never the raw amount, and
+     * the transaction list totals the same, so a split dinner counts as the user's share everywhere.
+     */
+    public static final String MINE = "(t.amount_minor + t.others_share_minor)";
+
     /** One currency, and the selected accounts or all of them: {@code ?} = currency, then the account ids twice. */
     public static final String SLICE =
             "(t.currency = ? AND (?::bigint[] IS NULL OR t.account_id = ANY (?::bigint[])))";
