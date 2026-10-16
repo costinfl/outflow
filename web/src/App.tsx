@@ -4,6 +4,7 @@ import { AnonymizePage } from './anonymize/AnonymizePage'
 import { CategoryPage } from './categories/CategoryPage'
 import { HomePage } from './home/HomePage'
 import { RecurringPage } from './recurring/RecurringPage'
+import { SplitsPage } from './split/SplitsPage'
 import { ReviewPage } from './review/ReviewPage'
 import { StatusPage } from './system/StatusPage'
 import { TransactionsPage } from './transactions/TransactionsPage'
@@ -20,6 +21,7 @@ export function App() {
           <Route path="categories/:id" element={<CategoryPage />} />
           <Route path="recurring" element={<RecurringPage />} />
           <Route path="review" element={<ReviewPage />} />
+          <Route path="splits" element={<SplitsPage />} />
           <Route path="upload" element={<UploadPage />} />
           <Route path="anonymize" element={<AnonymizePage />} />
           <Route path="status" element={<StatusPage />} />

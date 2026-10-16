@@ -5,9 +5,40 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.21** — shared expenses: split a payment, count only your share |
+| Last completed | **CP6.22** — splits to settle: who owes you what, repayments linked |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.22 — done
+
+483 backend tests green (6 new), 21 web; typecheck, build and demo build green. Checked in Chromium at 390 px against the
+API (two splits with Ana and Dan; Review links "people owe you RON 245.00"; Dan's 100.00 linked, Ana's 145.00 linked to
+one debt with the rest suggested for the other), light and dark; no console errors.
+
+- **What:** the second step of shared expenses (CP6.21): who owes the user what, and the money that paid it back.
+- **V20 `split_settlement`** (a person's split, the money-in transaction or none for "paid outside the bank", an
+  amount; one repayment can cover several splits) and **`transaction.repaid_minor`**, the linked part of money in.
+  `Scope.MINE` is now `amount + others_share - repaid`: a linked repayment is neither income nor a refund (only the
+  user's share of the expense ever counted), and figures still equal their drill-through.
+- **`SettlementService`:** balances per person and currency (names grouped in any case, the newest spelling shown,
+  who owes most first); per open debt up to 3 suggestions: posted money in, same currency, not an own-account
+  transfer, still partly unlinked, 7 days before to 120 days after the expense, whose amount is what is open or whose
+  bank text has every word of the person's name (whole words, 3+ letters, no diacritics); both first, then the name,
+  then the amount, then the closest date. Settling takes as much as is both open and unlinked (or a given amount);
+  undo opens it again.
+- **Splits keep their repayments:** re-saving a split keeps people by name (any case), so what they paid back stays
+  theirs; lowering someone below what they paid back, leaving them out, or removing the split is refused (409) until
+  the repayment is undone.
+- **API:** `GET /api/splits/balances`, `POST /api/splits/settlements` `{splitPersonId, transactionId?, amountMinor?}`
+  (201 with the balances; 409 already settled / not money in / nothing unlinked; 400 amount), `DELETE
+  /api/splits/settlements/{id}`. `TransactionView.repaidMinor`.
+- **Web:** `#/splits` "Splits to settle": a card per person (what they owe), open debts with suggestions ("names them,
+  same amount", "Link"), "Paid outside the bank", repayments with "Undo", settled ones folded. Review links to it when
+  someone owes the user ("people owe you RON 245.00"). A linked transaction says it pays the user back; a split whose
+  repayment blocks a change says so.
+- **Tests** (`SplitSettlementTest`, 6): balances; suggestions and their order; one repayment for two splits, a
+  repayment categorized as income or as a restaurant refund counting nowhere once linked (income and spending equal
+  their drill-through); outside the bank, partial, undo; refusals; re-splitting with repayments.
 
 ## CP6.21 — done
 

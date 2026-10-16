@@ -150,6 +150,7 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
   '/api/insights/categories/{id}': demoCategory,
   // Nothing in the demo is split (its figures are hand-computed); splitting needs the real app.
   '/api/splits': { splits: [], people: [] },
+  '/api/splits/balances': { people: [] },
   '/api/transactions/{id}/split': () => {
     throw new Error('Demo mode: nothing is split')
   },

@@ -68,21 +68,68 @@ public class SplitService {
                 ON CONFLICT (transaction_id) DO UPDATE
                     SET mode = EXCLUDED.mode, my_shares = EXCLUDED.my_shares, updated_at = now()
                 RETURNING id""", Long.class, HOUSEHOLD, transactionId, mode.name(), storedMyShares);
-        jdbc.update("DELETE FROM expense_split_person WHERE split_id = ?", splitId);
+        // People are kept by name (any case), so what they already paid back stays theirs (CP6.22).
+        record Existing(long id, String name, long repaid) {}
+        var existing = new HashMap<String, Existing>();
+        jdbc.query("""
+                SELECT p.id, p.name, coalesce((SELECT sum(amount_minor) FROM split_settlement s WHERE s.split_person_id = p.id), 0)
+                FROM expense_split_person p WHERE p.split_id = ?""", rs -> {
+            existing.put(rs.getString(2).toLowerCase(java.util.Locale.ROOT),
+                    new Existing(rs.getLong(1), rs.getString(2), rs.getLong(3)));
+        }, splitId);
+        var kept = new java.util.HashSet<Long>();
+        for (PersonShare p : allocation.people()) {
+            Existing e = existing.get(p.name().toLowerCase(java.util.Locale.ROOT));
+            if (e != null && p.amountMinor() < e.repaid()) {
+                throw new NotSplittableException(p.name() + " already paid back more than this; undo that repayment first");
+            }
+            if (e != null) {
+                kept.add(e.id());
+            }
+        }
+        for (Existing e : existing.values()) {
+            if (!kept.contains(e.id()) && e.repaid() > 0) {
+                throw new NotSplittableException(e.name() + " already paid back; undo that repayment first");
+            }
+        }
+        jdbc.update("UPDATE expense_split_person SET position = -position - 1 WHERE split_id = ?", splitId);
+        for (Existing e : existing.values()) {
+            if (!kept.contains(e.id())) {
+                jdbc.update("DELETE FROM expense_split_person WHERE id = ?", e.id());
+            }
+        }
         int position = 0;
         for (PersonShare p : allocation.people()) {
-            jdbc.update("""
-                    INSERT INTO expense_split_person (split_id, position, name, percent, fixed_minor, shares, amount_minor)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                    splitId, position++, p.name(), p.percent(), p.fixedMinor(), p.shares(), p.amountMinor());
+            Existing e = existing.get(p.name().toLowerCase(java.util.Locale.ROOT));
+            if (e != null) {
+                jdbc.update("""
+                        UPDATE expense_split_person SET position = ?, name = ?, percent = ?, fixed_minor = ?, shares = ?,
+                            amount_minor = ? WHERE id = ?""",
+                        position++, p.name(), p.percent(), p.fixedMinor(), p.shares(), p.amountMinor(), e.id());
+            } else {
+                jdbc.update("""
+                        INSERT INTO expense_split_person (split_id, position, name, percent, fixed_minor, shares, amount_minor)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        splitId, position++, p.name(), p.percent(), p.fixedMinor(), p.shares(), p.amountMinor());
+            }
         }
         jdbc.update("UPDATE transaction SET others_share_minor = ? WHERE id = ?", allocation.othersMinor(), transactionId);
         return find(transactionId).orElseThrow();
     }
 
-    /** Undoes a split: the whole amount is the user's again. False when it was not split. */
+    /**
+     * Undoes a split: the whole amount is the user's again. False when it was not split.
+     *
+     * @throws NotSplittableException when someone already paid part of it back (undo that first)
+     */
     @Transactional
     public boolean delete(long transactionId) {
+        Long repaid = jdbc.queryForObject("""
+                SELECT count(*) FROM split_settlement s JOIN expense_split_person p ON p.id = s.split_person_id
+                JOIN expense_split e ON e.id = p.split_id WHERE e.transaction_id = ?""", Long.class, transactionId);
+        if (repaid != null && repaid > 0) {
+            throw new NotSplittableException("Someone already paid part of this back; undo that repayment first");
+        }
         int removed = jdbc.update("DELETE FROM expense_split WHERE transaction_id = ? AND household_id = ?", transactionId,
                 HOUSEHOLD);
         jdbc.update("UPDATE transaction SET others_share_minor = 0 WHERE id = ?", transactionId);

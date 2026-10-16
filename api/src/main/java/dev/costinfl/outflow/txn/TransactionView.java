@@ -14,7 +14,10 @@ public record TransactionView(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "RON") String currency,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "What other people owe of a shared expense (positive minor units, 0 when not split); "
-                        + "your share, which figures count, is amountMinor + sharedMinor") long sharedMinor,
+                        + "your share, which figures count, is amountMinor + sharedMinor - repaidMinor") long sharedMinor,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "The part of money in that pays back shared expenses (positive minor units, 0 when none); "
+                        + "it counts nowhere") long repaidMinor,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String merchantName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String merchantKey,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Bank text with IBANs masked")

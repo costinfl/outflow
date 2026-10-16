@@ -37,7 +37,12 @@ export function SplitExpense({ t, onChanged }: { t: TransactionView; onChanged: 
     if (response.ok) {
       setStatus(null)
       onChanged()
-    } else setStatus(`Could not remove the split (HTTP ${response.status}).`)
+    } else
+      setStatus(
+        response.status === 409
+          ? 'Someone already paid part of this back: undo that in Splits to settle first.'
+          : `Could not remove the split (HTTP ${response.status}).`,
+      )
   }
 
   if (editing)
@@ -125,7 +130,14 @@ function SplitForm({ t, current, onCancel, onSaved }: { t: TransactionView; curr
       },
     })
     if (data) onSaved()
-    else setStatus(isDemo ? 'Splitting needs the real app (the demo has no server).' : `Could not save the split (HTTP ${response.status}).`)
+    else
+      setStatus(
+        isDemo
+          ? 'Splitting needs the real app (the demo has no server).'
+          : response.status === 409
+            ? 'Someone already paid back more than this leaves them, or was left out: undo that repayment in Splits to settle first.'
+            : `Could not save the split (HTTP ${response.status}).`,
+      )
   }
 
   return (

@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 public class TransactionQueries {
 
     static final String SELECT = """
-            SELECT t.id, t.account_id, t.booking_date, t.amount_minor, t.currency, t.others_share_minor, t.description_raw,
+            SELECT t.id, t.account_id, t.booking_date, t.amount_minor, t.currency, t.others_share_minor, t.repaid_minor, t.description_raw,
                    m.key AS merchant_key, m.display_name, t.category_id, c.code AS category_code,
                    t.category_source, t.category_confidence, t.transfer_state, ta.name AS transfer_account_name, t.status,
                    tt.amount_minor AS transfer_amount_minor, tt.currency AS transfer_currency,
@@ -30,7 +30,7 @@ public class TransactionQueries {
 
     static final RowMapper<TransactionView> ROW = (rs, i) -> new TransactionView(
             rs.getLong("id"), rs.getLong("account_id"), rs.getObject("booking_date", java.time.LocalDate.class),
-            rs.getLong("amount_minor"), rs.getString("currency"), rs.getLong("others_share_minor"), rs.getString("display_name"),
+            rs.getLong("amount_minor"), rs.getString("currency"), rs.getLong("others_share_minor"), rs.getLong("repaid_minor"), rs.getString("display_name"),
             rs.getString("merchant_key"), Iban.maskAll(rs.getString("description_raw")),
             (Long) rs.getObject("category_id"), rs.getString("category_code"), rs.getString("category_source"),
             rs.getBigDecimal("category_confidence"), rs.getString("transfer_state"),

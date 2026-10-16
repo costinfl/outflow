@@ -324,6 +324,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/splits/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["balances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/splits/settlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["settle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/splits/settlements/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["unsettle"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/subscriptions": {
         parameters: {
             query?: never;
@@ -1159,6 +1207,25 @@ export interface components {
         Rename: {
             name: string;
         };
+        RepaymentSuggestion: {
+            /** Format: int64 */
+            amountMinor: number;
+            /**
+             * Format: int64
+             * @description Not yet linked to other repayments
+             */
+            availableMinor: number;
+            /** Format: date */
+            bookingDate: string;
+            /** @description Who it came from, as the bank names it */
+            name: string;
+            /** @description Its bank text names the person */
+            namesPerson: boolean;
+            /** @description Its amount is what is open */
+            sameAmount: boolean;
+            /** Format: int64 */
+            transactionId: number;
+        };
         Rest: {
             /** Format: int32 */
             categoryCount: number;
@@ -1306,6 +1373,20 @@ export interface components {
             /** Format: int64 */
             categoryId: number;
         };
+        SettleInput: {
+            /**
+             * Format: int64
+             * @description Absent = as much as is open (and still unlinked in that money in)
+             */
+            amountMinor?: number;
+            /** Format: int64 */
+            splitPersonId: number;
+            /**
+             * Format: int64
+             * @description The money in that paid it; absent = paid outside the bank (cash, another account)
+             */
+            transactionId?: number;
+        };
         Skip: {
             key: string;
         };
@@ -1315,6 +1396,64 @@ export interface components {
              * @description Charges below this amount (positive minor units) are one plan, the rest the other
              */
             atMinor: number;
+        };
+        SplitBalance: {
+            /** @example RON */
+            currency: string;
+            /** @description Open first, newest first */
+            debts: components["schemas"]["SplitDebt"][];
+            name: string;
+            /**
+             * Format: int64
+             * @description What they still owe
+             */
+            openMinor: number;
+            /**
+             * Format: int64
+             * @description Their parts of all splits
+             */
+            owedMinor: number;
+        };
+        SplitBalances: {
+            /** @description Who owes the most first */
+            people: components["schemas"]["SplitBalance"][];
+        };
+        SplitDebt: {
+            /** Format: date */
+            bookingDate: string;
+            merchantName: string;
+            /** Format: int64 */
+            openMinor: number;
+            /** Format: int64 */
+            owedMinor: number;
+            repayments: components["schemas"]["SplitRepayment"][];
+            /** Format: int64 */
+            settledMinor: number;
+            /**
+             * Format: int64
+             * @description Use it to settle
+             */
+            splitPersonId: number;
+            /** @description Best first; only while something is open */
+            suggestions: components["schemas"]["RepaymentSuggestion"][];
+            /**
+             * Format: int64
+             * @description The shared expense
+             */
+            transactionId: number;
+        };
+        SplitRepayment: {
+            /** Format: int64 */
+            amountMinor: number;
+            /** Format: date */
+            bookingDate?: string;
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: int64
+             * @description The money in that paid it; absent when paid outside the bank
+             */
+            transactionId?: number;
         };
         StandingTransfer: {
             /** Format: int64 */
@@ -1453,7 +1592,12 @@ export interface components {
             merchantName: string;
             /**
              * Format: int64
-             * @description What other people owe of a shared expense (positive minor units, 0 when not split); your share, which figures count, is amountMinor + sharedMinor
+             * @description The part of money in that pays back shared expenses (positive minor units, 0 when none); it counts nowhere
+             */
+            repaidMinor: number;
+            /**
+             * Format: int64
+             * @description What other people owe of a shared expense (positive minor units, 0 when not split); your share, which figures count, is amountMinor + sharedMinor - repaidMinor
              */
             sharedMinor: number;
             /** @description PENDING: not posted yet (e.g. a card reservation); may still change */
@@ -2036,6 +2180,70 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ExpenseSplitList"];
                 };
+            };
+        };
+    };
+    balances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SplitBalances"];
+                };
+            };
+        };
+    };
+    settle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettleInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SplitBalances"];
+                };
+            };
+        };
+    };
+    unsettle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

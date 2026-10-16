@@ -42,7 +42,8 @@ API endpoints: `/api/health`, `POST /api/imports` (multipart `files`), `GET/POST
 `GET/POST /api/subscriptions` (POST: mark one transaction as recurring), `PATCH /api/subscriptions/{id}`, `PUT /api/subscriptions/{id}/reminder`,
 `GET /api/subscriptions/reminders.ics`, `POST /api/review/reminders/{id}`,
 `POST /api/subscriptions/{id}/confirm|reject|end|merge|split`, `GET /api/fx-rates`, `PUT/DELETE /api/fx-rates/{base}/{quote}`,
-`GET/PUT/DELETE /api/transactions/{id}/split`, `GET /api/splits`; OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
+`GET/PUT/DELETE /api/transactions/{id}/split`, `GET /api/splits`, `GET /api/splits/balances`,
+`POST /api/splits/settlements`, `DELETE /api/splits/settlements/{id}`; OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
 Parsers: one YAML profile per CSV format in `api/src/main/resources/parsers/` (keys: `docs/parsers.md`).
 Golden files in `samples/`, byte-exact (`.gitattributes`); expected values in `samples/synthetic/README.md`.
 Real exports only via the anonymizer (`#/anonymize` in the app, or `java tools/Anonymize.java`; `docs/anonymize.md`);
@@ -67,7 +68,8 @@ Pipeline per upload (one DB transaction): parse → import → `UploadService.de
 category or alias changes; detects payments and, from INCOME-category money in, recurring income: `direction` OUT/IN). Superseded pending rows count nowhere (`Scope.PERIOD` excludes them). Transactions with `category_source = 'USER'` are never recomputed.
 Home-screen numbers: every figure is a sum over a `txn.Scope` predicate; the transaction list uses the same
 predicates, so figures always equal their drill-through. Never compute a figure outside `Scope`. Figures sum
-`Scope.MINE` (the amount less what others owe of a split expense), never the raw `amount_minor`. Currency and the
+`Scope.MINE` (the amount less what others owe of a split expense, less money in that repays one), never the raw
+`amount_minor`. Currency and the
 accounts filter are one `txn.Slice` (`Scope.SLICE`); endpoints take `accounts` ids, the web keeps `?accounts=` in the URL.
 The "last 3 months" view is a `txn.Period` (`months` = 1 or 3, `?months=3` in the URL): figures are totals over it.
 Count tests from `api/target/surefire-reports/TEST-*.xml`: `@Nested` classes are missing from the text summary.

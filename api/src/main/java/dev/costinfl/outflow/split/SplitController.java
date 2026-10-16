@@ -98,7 +98,13 @@ public class SplitController {
 
     @DeleteMapping("/api/transactions/{id}/split")
     public ResponseEntity<Void> delete(@PathVariable long id) {
-        if (!splits.delete(id)) {
+        boolean removed;
+        try {
+            removed = splits.delete(id);
+        } catch (SplitService.NotSplittableException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+        }
+        if (!removed) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction " + id + " is not split");
         }
         return ResponseEntity.noContent().build();

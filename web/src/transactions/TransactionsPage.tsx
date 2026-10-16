@@ -234,6 +234,7 @@ function Row({ t, categories, onChanged }: { t: TransactionView; categories: Cat
           {t.sharedMinor > 0 && (
             <span className="block text-xs text-muted">your share {formatMoney(-(t.amountMinor + t.sharedMinor), t.currency)}</span>
           )}
+          {t.repaidMinor > 0 && <span className="block text-xs text-muted">pays you back</span>}
         </span>
       </button>
       {open && (
@@ -248,6 +249,16 @@ function Row({ t, categories, onChanged }: { t: TransactionView; categories: Cat
               {t.transferState === 'PAIRED'
                 ? ': both sides found, not counted as spending.'
                 : ` (recognised by its IBAN; upload the ${t.transferAccountName ?? 'other'} statement to confirm). Not counted as spending.`}
+            </p>
+          )}
+          {t.repaidMinor > 0 && (
+            <p className="text-xs text-ink-2">
+              {t.repaidMinor === t.amountMinor ? 'All of this' : `${formatMoney(t.repaidMinor, t.currency)} of this`} pays you back for
+              shared expenses (
+              <Link to="/splits" className="text-bar underline">
+                Splits to settle
+              </Link>
+              ): it is neither income nor a refund.
             </p>
           )}
           {t.categorySource && <p className="text-xs text-muted">Category {SOURCE[t.categorySource] ?? t.categorySource}.</p>}
