@@ -2,6 +2,16 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — shared expenses (2026-10-17)
+
+- **Split a payment (V19):** a posted payment can be shared with other people: equally, by percentage, by fixed
+  amounts or by shares (yours included). Each person's part is rounded down and the odd cents are yours. Every
+  figure counts only your share (`txn.Scope.MINE`), and figures still equal their drill-through.
+- **Splits to settle (V20):** who owes you what, per person and currency. Link the money they send back (same amount
+  or their name in the bank text is suggested), or mark it as paid outside the bank; undo either. A linked repayment
+  is neither income nor a refund. Changing a split keeps what people already paid back.
+- **Tests:** 483 backend (16 new), 21 web (4 new).
+
 ## After the plan — two small fixes (2026-10-11)
 
 - **References glued to a name:** `PERSON_6/7082938682055` on the real export is the same merchant as `PERSON_6`; a `/`
