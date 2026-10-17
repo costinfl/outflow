@@ -19,6 +19,11 @@ export function ReviewPage() {
   const inbox = useApi<Inbox>(`review:${version}`, () => api.GET('/api/review'))
   const categories = useApi<Category[]>('categories', () => api.GET('/api/categories'))
   const recurring = useApi<RecurringOverview>(`recurring:${version}`, () => api.GET('/api/subscriptions'))
+  const splits = useApi(`balances:${version}`, () => api.GET('/api/splits/balances'))
+  // What people owe for shared expenses, per currency: settled on its own page (CP6.22).
+  const owed = new Map<string, number>()
+  if (splits.kind === 'ok')
+    for (const p of splits.data.people) if (p.openMinor > 0) owed.set(p.currency, (owed.get(p.currency) ?? 0) + p.openMinor)
 
   const answer: Answer = async (label, call) => {
     setStatus(`${label}…`)
@@ -88,6 +93,16 @@ export function ReviewPage() {
             : `${cards.length} ${cards.length === 1 ? 'question' : 'questions'}, most money first. A few answers fix most of the picture.`}
         </p>
       </div>
+      {owed.size > 0 && (
+        <Link to="/splits" className="flex items-center justify-between rounded-2xl bg-surface px-4 py-3 text-sm ring-1 ring-hairline">
+          <span className="text-ink">
+            Splits to settle: people owe you {[...owed].map(([currency, minor]) => formatMoney(minor, currency)).join(' + ')}
+          </span>
+          <span aria-hidden className="text-muted">
+            ›
+          </span>
+        </Link>
+      )}
       <p aria-live="polite" className="min-h-5 text-sm text-ink-2">
         {status}
       </p>

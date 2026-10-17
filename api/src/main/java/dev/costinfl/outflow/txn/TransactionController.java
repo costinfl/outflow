@@ -87,7 +87,8 @@ public class TransactionController {
         if (recurring != null) f = f.recurringOnly(recurring);
         if (subscription != null) f = f.ofSubscription(subscription);
         var items = transactions.list(f);
-        long sum = items.stream().mapToLong(TransactionView::amountMinor).sum();
+        // The same as Scope.MINE: a shared expense counts with the user's share only, as in every figure.
+        long sum = items.stream().mapToLong(t -> t.amountMinor() + t.sharedMinor() - t.repaidMinor()).sum();
         return new TransactionList(ym.toString(), months, slice.currency(), scope, scope == Scope.SPEND ? -sum : sum, items.size(), items);
     }
 }

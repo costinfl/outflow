@@ -5,6 +5,7 @@ import type { Account, Category, TransactionList, TransactionView } from '../api
 import { parseAccounts, parseCurrency } from '../lib/accounts'
 import { addMonths, cadenceWord, formatMoney, formatMonth, formatMonthRange } from '../lib/format'
 import { useApi } from '../lib/useApi'
+import { SplitExpense } from './SplitExpense'
 
 type Scope = 'SPEND' | 'INCOME' | 'ALL'
 
@@ -227,9 +228,13 @@ function Row({ t, categories, onChanged }: { t: TransactionView; categories: Cat
           </span>
           <span className={`block truncate text-xs ${category ? 'text-muted' : 'text-bad'}`}>{category?.name ?? 'Uncategorized'}</span>
         </span>
-        <span className="shrink-0 text-sm text-ink tabular-nums">
+        <span className="shrink-0 text-right text-sm text-ink tabular-nums">
           {t.amountMinor > 0 ? '+' : ''}
           {formatMoney(t.amountMinor, t.currency)}
+          {t.sharedMinor > 0 && (
+            <span className="block text-xs text-muted">your share {formatMoney(-(t.amountMinor + t.sharedMinor), t.currency)}</span>
+          )}
+          {t.repaidMinor > 0 && <span className="block text-xs text-muted">pays you back</span>}
         </span>
       </button>
       {open && (
@@ -244,6 +249,16 @@ function Row({ t, categories, onChanged }: { t: TransactionView; categories: Cat
               {t.transferState === 'PAIRED'
                 ? ': both sides found, not counted as spending.'
                 : ` (recognised by its IBAN; upload the ${t.transferAccountName ?? 'other'} statement to confirm). Not counted as spending.`}
+            </p>
+          )}
+          {t.repaidMinor > 0 && (
+            <p className="text-xs text-ink-2">
+              {t.repaidMinor === t.amountMinor ? 'All of this' : `${formatMoney(t.repaidMinor, t.currency)} of this`} pays you back for
+              shared expenses (
+              <Link to="/splits" className="text-bar underline">
+                Splits to settle
+              </Link>
+              ): it is neither income nor a refund.
             </p>
           )}
           {t.categorySource && <p className="text-xs text-muted">Category {SOURCE[t.categorySource] ?? t.categorySource}.</p>}
@@ -276,6 +291,7 @@ function Row({ t, categories, onChanged }: { t: TransactionView; categories: Cat
           </button>
           {status && <p className="text-xs text-ink-2">{status}</p>}
           <Recurring t={t} onChanged={onChanged} />
+          <SplitExpense t={t} onChanged={onChanged} />
         </div>
       )}
     </li>

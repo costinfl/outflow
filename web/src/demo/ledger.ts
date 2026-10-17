@@ -44,6 +44,8 @@ const LEDGER: TransactionView[] = ROWS.map(([date, merchantId, key, name, amount
   bookingDate: date,
   amountMinor,
   currency: 'RON',
+  sharedMinor: 0,
+  repaidMinor: 0,
   merchantName: name,
   merchantKey: key,
   description,

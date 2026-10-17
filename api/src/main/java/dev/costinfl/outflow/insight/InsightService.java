@@ -62,7 +62,7 @@ public class InsightService {
         }
         // Money in for income categories, money out for everything else.
         String amount = category.get().kind() == dev.costinfl.outflow.category.Category.Kind.INCOME
-                ? "t.amount_minor" : "-t.amount_minor";
+                ? Scope.MINE : "-" + Scope.MINE;
         var available = availableMonths(slice);
         var trend = new ArrayList<CategoryDetail.MonthAmount>();
         for (int i = TREND - 1; i >= 0; i--) {
@@ -125,8 +125,8 @@ public class InsightService {
         int withData = (int) available.stream().filter(period::contains).count();
         int perMonthDivisor = Math.max(1, withData);
 
-        long spent = sum(Scope.SPEND, period, slice, "-t.amount_minor");
-        long income = sum(Scope.INCOME, period, slice, "t.amount_minor");
+        long spent = sum(Scope.SPEND, period, slice, "-" + Scope.MINE);
+        long income = sum(Scope.INCOME, period, slice, Scope.MINE);
         long spentPerMonth = divide(spent, perMonthDivisor);
 
         var baseline = new ArrayList<YearMonth>();
@@ -136,7 +136,7 @@ public class InsightService {
             }
         }
         Long average = baseline.isEmpty() ? null
-                : divide(baseline.stream().mapToLong(m -> sum(Scope.SPEND, Period.month(m), slice, "-t.amount_minor")).sum(),
+                : divide(baseline.stream().mapToLong(m -> sum(Scope.SPEND, Period.month(m), slice, "-" + Scope.MINE)).sum(),
                         baseline.size());
 
         var byCategory = spendByCategory(period, slice);
@@ -156,10 +156,11 @@ public class InsightService {
         var restRows = ranked.stream().skip(TOP).toList();
         long restSpent = restRows.stream().mapToLong(CategorySpend::spentMinor).sum();
 
-        var trust = jdbc.queryForMap("SELECT coalesce(sum(abs(t.amount_minor)), 0) AS total, "
-                        + "coalesce(sum(abs(t.amount_minor) * coalesce(t.category_confidence, 0)), 0) AS weighted, "
-                        + "coalesce(sum(abs(t.amount_minor)) FILTER (WHERE t.category_id IS NOT NULL), 0) AS categorized, "
-                        + "coalesce(sum(abs(t.amount_minor)) FILTER (WHERE " + Scope.REVIEWED + "), 0) AS reviewed"
+        String mine = "abs(" + Scope.MINE + ")";
+        var trust = jdbc.queryForMap("SELECT coalesce(sum(" + mine + "), 0) AS total, "
+                        + "coalesce(sum(" + mine + " * coalesce(t.category_confidence, 0)), 0) AS weighted, "
+                        + "coalesce(sum(" + mine + ") FILTER (WHERE t.category_id IS NOT NULL), 0) AS categorized, "
+                        + "coalesce(sum(" + mine + ") FILTER (WHERE " + Scope.REVIEWED + "), 0) AS reviewed"
                         + FROM + "WHERE " + Scope.SPEND + " AND " + Scope.PERIOD + " AND " + Scope.SLICE,
                 slice.args(period.from(), period.toExclusive()));
         BigDecimal total = new BigDecimal(trust.get("total").toString());
@@ -215,7 +216,7 @@ public class InsightService {
     }
 
     private List<CategorySpend> spendByCategory(Period period, Slice slice) {
-        return jdbc.query("SELECT t.category_id, c.code, c.name, sum(-t.amount_minor) AS spent, count(*) AS n" + FROM
+        return jdbc.query("SELECT t.category_id, c.code, c.name, sum(-" + Scope.MINE + ") AS spent, count(*) AS n" + FROM
                         + "WHERE " + Scope.SPEND + " AND " + Scope.PERIOD + " AND " + Scope.SLICE + " "
                         + "GROUP BY t.category_id, c.code, c.name",
                 (rs, i) -> new CategorySpend((Long) rs.getObject(1), rs.getString(2),
