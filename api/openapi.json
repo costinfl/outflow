@@ -333,6 +333,149 @@
         "required" : [ "same" ],
         "type" : "object"
       },
+      "ExpenseSplit" : {
+        "properties" : {
+          "amountMinor" : {
+            "description" : "The whole expense, positive minor units",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "bookingDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "currency" : {
+            "example" : "RON",
+            "type" : "string"
+          },
+          "merchantName" : {
+            "type" : "string"
+          },
+          "mineMinor" : {
+            "description" : "Your share: what figures count",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "mode" : {
+            "enum" : [ "EQUAL", "PERCENT", "FIXED", "SHARES" ],
+            "type" : "string"
+          },
+          "myShares" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "othersMinor" : {
+            "description" : "What the others owe together",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "people" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ExpenseSplitPerson"
+            },
+            "type" : "array"
+          },
+          "transactionId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "amountMinor", "bookingDate", "currency", "merchantName", "mineMinor", "mode", "othersMinor", "people", "transactionId" ],
+        "type" : "object"
+      },
+      "ExpenseSplitInput" : {
+        "properties" : {
+          "mode" : {
+            "enum" : [ "EQUAL", "PERCENT", "FIXED", "SHARES" ],
+            "type" : "string"
+          },
+          "myShares" : {
+            "description" : "SHARES mode: your own weight, 0 if you only paid; default 1",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "people" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ExpenseSplitPersonInput"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "mode", "people" ],
+        "type" : "object"
+      },
+      "ExpenseSplitList" : {
+        "properties" : {
+          "people" : {
+            "description" : "Names used so far, most used first",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "splits" : {
+            "description" : "Newest expense first",
+            "items" : {
+              "$ref" : "#/components/schemas/ExpenseSplit"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "people", "splits" ],
+        "type" : "object"
+      },
+      "ExpenseSplitPerson" : {
+        "properties" : {
+          "amountMinor" : {
+            "description" : "What they owe, minor units",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "fixedMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "percent" : {
+            "type" : "number"
+          },
+          "shares" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "amountMinor", "name" ],
+        "type" : "object"
+      },
+      "ExpenseSplitPersonInput" : {
+        "properties" : {
+          "fixedMinor" : {
+            "description" : "FIXED mode: minor units",
+            "example" : 12000,
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "example" : "Ana",
+            "type" : "string"
+          },
+          "percent" : {
+            "description" : "PERCENT mode: above 0, at most 100",
+            "example" : 50,
+            "type" : "number"
+          },
+          "shares" : {
+            "description" : "SHARES mode: a weight from 1",
+            "example" : 1,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "name" ],
+        "type" : "object"
+      },
       "Explanation" : {
         "properties" : {
           "categoryCode" : {
@@ -1045,6 +1188,41 @@
         "required" : [ "name" ],
         "type" : "object"
       },
+      "RepaymentSuggestion" : {
+        "properties" : {
+          "amountMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "availableMinor" : {
+            "description" : "Not yet linked to other repayments",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "bookingDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "name" : {
+            "description" : "Who it came from, as the bank names it",
+            "type" : "string"
+          },
+          "namesPerson" : {
+            "description" : "Its bank text names the person",
+            "type" : "boolean"
+          },
+          "sameAmount" : {
+            "description" : "Its amount is what is open",
+            "type" : "boolean"
+          },
+          "transactionId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "amountMinor", "availableMinor", "bookingDate", "name", "namesPerson", "sameAmount", "transactionId" ],
+        "type" : "object"
+      },
       "Rest" : {
         "properties" : {
           "categoryCount" : {
@@ -1242,6 +1420,26 @@
         "required" : [ "categoryId" ],
         "type" : "object"
       },
+      "SettleInput" : {
+        "properties" : {
+          "amountMinor" : {
+            "description" : "Absent = as much as is open (and still unlinked in that money in)",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "splitPersonId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "transactionId" : {
+            "description" : "The money in that paid it; absent = paid outside the bank (cash, another account)",
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "splitPersonId" ],
+        "type" : "object"
+      },
       "Skip" : {
         "properties" : {
           "key" : {
@@ -1260,6 +1458,120 @@
           }
         },
         "required" : [ "atMinor" ],
+        "type" : "object"
+      },
+      "SplitBalance" : {
+        "properties" : {
+          "currency" : {
+            "example" : "RON",
+            "type" : "string"
+          },
+          "debts" : {
+            "description" : "Open first, newest first",
+            "items" : {
+              "$ref" : "#/components/schemas/SplitDebt"
+            },
+            "type" : "array"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "openMinor" : {
+            "description" : "What they still owe",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "owedMinor" : {
+            "description" : "Their parts of all splits",
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "currency", "debts", "name", "openMinor", "owedMinor" ],
+        "type" : "object"
+      },
+      "SplitBalances" : {
+        "properties" : {
+          "people" : {
+            "description" : "Who owes the most first",
+            "items" : {
+              "$ref" : "#/components/schemas/SplitBalance"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "people" ],
+        "type" : "object"
+      },
+      "SplitDebt" : {
+        "properties" : {
+          "bookingDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "merchantName" : {
+            "type" : "string"
+          },
+          "openMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "owedMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "repayments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SplitRepayment"
+            },
+            "type" : "array"
+          },
+          "settledMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "splitPersonId" : {
+            "description" : "Use it to settle",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "suggestions" : {
+            "description" : "Best first; only while something is open",
+            "items" : {
+              "$ref" : "#/components/schemas/RepaymentSuggestion"
+            },
+            "type" : "array"
+          },
+          "transactionId" : {
+            "description" : "The shared expense",
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "bookingDate", "merchantName", "openMinor", "owedMinor", "repayments", "settledMinor", "splitPersonId", "suggestions", "transactionId" ],
+        "type" : "object"
+      },
+      "SplitRepayment" : {
+        "properties" : {
+          "amountMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "bookingDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "transactionId" : {
+            "description" : "The money in that paid it; absent when paid outside the bank",
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "amountMinor", "id" ],
         "type" : "object"
       },
       "StandingTransfer" : {
@@ -1506,6 +1818,16 @@
           "merchantName" : {
             "type" : "string"
           },
+          "repaidMinor" : {
+            "description" : "The part of money in that pays back shared expenses (positive minor units, 0 when none); it counts nowhere",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "sharedMinor" : {
+            "description" : "What other people owe of a shared expense (positive minor units, 0 when not split); your share, which figures count, is amountMinor + sharedMinor - repaidMinor",
+            "format" : "int64",
+            "type" : "integer"
+          },
           "status" : {
             "description" : "PENDING: not posted yet (e.g. a card reservation); may still change",
             "type" : "string"
@@ -1540,7 +1862,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "accountId", "amountMinor", "bookingDate", "currency", "description", "id", "merchantKey", "merchantName", "status" ],
+        "required" : [ "accountId", "amountMinor", "bookingDate", "currency", "description", "id", "merchantKey", "merchantName", "repaidMinor", "sharedMinor", "status" ],
         "type" : "object"
       },
       "TransferAnswer" : {
@@ -1706,7 +2028,7 @@
     },
     "/api/categories" : {
       "get" : {
-        "operationId" : "list_4",
+        "operationId" : "list_5",
         "responses" : {
           "200" : {
             "content" : {
@@ -1727,7 +2049,7 @@
     },
     "/api/fx-rates" : {
       "get" : {
-        "operationId" : "list_3",
+        "operationId" : "list_4",
         "responses" : {
           "200" : {
             "content" : {
@@ -1748,7 +2070,7 @@
     },
     "/api/fx-rates/{base}/{quote}" : {
       "delete" : {
-        "operationId" : "delete",
+        "operationId" : "delete_1",
         "parameters" : [ {
           "in" : "path",
           "name" : "base",
@@ -2003,7 +2325,7 @@
     },
     "/api/merchants" : {
       "get" : {
-        "operationId" : "list_2",
+        "operationId" : "list_3",
         "responses" : {
           "200" : {
             "content" : {
@@ -2260,6 +2582,90 @@
           }
         },
         "tags" : [ "review" ]
+      }
+    },
+    "/api/splits" : {
+      "get" : {
+        "operationId" : "list_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ExpenseSplitList"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "splits" ]
+      }
+    },
+    "/api/splits/balances" : {
+      "get" : {
+        "operationId" : "balances",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SplitBalances"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "splits" ]
+      }
+    },
+    "/api/splits/settlements" : {
+      "post" : {
+        "operationId" : "settle",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SettleInput"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SplitBalances"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "splits" ]
+      }
+    },
+    "/api/splits/settlements/{id}" : {
+      "delete" : {
+        "operationId" : "unsettle",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "splits" ]
       }
     },
     "/api/subscriptions" : {
@@ -2769,6 +3175,86 @@
           }
         },
         "tags" : [ "categories" ]
+      }
+    },
+    "/api/transactions/{id}/split" : {
+      "delete" : {
+        "operationId" : "delete",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "splits" ]
+      },
+      "get" : {
+        "operationId" : "get",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ExpenseSplit"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "splits" ]
+      },
+      "put" : {
+        "operationId" : "put",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ExpenseSplitInput"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ExpenseSplit"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "splits" ]
       }
     }
   },

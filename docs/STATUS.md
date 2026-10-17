@@ -5,9 +5,72 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.20** — two small fixes: references glued to a name, a new account's currency |
+| Last completed | **CP6.22** — splits to settle: who owes you what, repayments linked |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.22 — done
+
+483 backend tests green (6 new), 21 web; typecheck, build and demo build green. Checked in Chromium at 390 px against the
+API (two splits with Ana and Dan; Review links "people owe you RON 245.00"; Dan's 100.00 linked, Ana's 145.00 linked to
+one debt with the rest suggested for the other), light and dark; no console errors.
+
+- **What:** the second step of shared expenses (CP6.21): who owes the user what, and the money that paid it back.
+- **V20 `split_settlement`** (a person's split, the money-in transaction or none for "paid outside the bank", an
+  amount; one repayment can cover several splits) and **`transaction.repaid_minor`**, the linked part of money in.
+  `Scope.MINE` is now `amount + others_share - repaid`: a linked repayment is neither income nor a refund (only the
+  user's share of the expense ever counted), and figures still equal their drill-through.
+- **`SettlementService`:** balances per person and currency (names grouped in any case, the newest spelling shown,
+  who owes most first); per open debt up to 3 suggestions: posted money in, same currency, not an own-account
+  transfer, still partly unlinked, 7 days before to 120 days after the expense, whose amount is what is open or whose
+  bank text has every word of the person's name (whole words, 3+ letters, no diacritics); both first, then the name,
+  then the amount, then the closest date. Settling takes as much as is both open and unlinked (or a given amount);
+  undo opens it again.
+- **Splits keep their repayments:** re-saving a split keeps people by name (any case), so what they paid back stays
+  theirs; lowering someone below what they paid back, leaving them out, or removing the split is refused (409) until
+  the repayment is undone.
+- **API:** `GET /api/splits/balances`, `POST /api/splits/settlements` `{splitPersonId, transactionId?, amountMinor?}`
+  (201 with the balances; 409 already settled / not money in / nothing unlinked; 400 amount), `DELETE
+  /api/splits/settlements/{id}`. `TransactionView.repaidMinor`.
+- **Web:** `#/splits` "Splits to settle": a card per person (what they owe), open debts with suggestions ("names them,
+  same amount", "Link"), "Paid outside the bank", repayments with "Undo", settled ones folded. Review links to it when
+  someone owes the user ("people owe you RON 245.00"). A linked transaction says it pays the user back; a split whose
+  repayment blocks a change says so.
+- **Tests** (`SplitSettlementTest`, 6): balances; suggestions and their order; one repayment for two splits, a
+  repayment categorized as income or as a restaurant refund counting nowhere once linked (income and spending equal
+  their drill-through); outside the bank, partial, undo; refusals; re-splitting with repayments.
+
+## CP6.21 — done
+
+477 backend tests green (10 new), 21 web (4 new); typecheck, build and demo build green. Checked in Chromium at 390 px
+against the API (a 300.00 restaurant payment split equally with Ana and Dan: the row, the list total and the home
+screen all show 100.00 as yours), light and dark; no console errors.
+
+- **What:** the user's request (2026-10-15), after the group expenses of their trip planner: mark a payment as "this
+  should be split", choose what others owe, and count only the user's share. The user chose the four modes below and
+  "count only my share". Plan: CP6.21 split and figures; CP6.22 "Splits to settle" (who owes what, repayments matched
+  to open amounts); later, optionally, "they paid, I owe". **Open (user, for later):** paid from ING, paid back on
+  Revolut: person matching across banks once the Revolut parser exists.
+- **`split` slice** (V19 `expense_split`, `expense_split_person`; `transaction.others_share_minor`):
+  - one mode per split: `EQUAL` (the user and each person alike), `PERCENT` and `FIXED` (each person's part, the rest
+    is the user's), `SHARES` (weights, the user's included; 0 = only paid);
+  - `SplitCalculator`: each person's part rounded down to the minor unit, the odd cents are the user's, so the parts
+    add up exactly; percentages over 100, amounts over the expense, duplicate names, nobody owing anything are refused;
+  - only posted money out splits (money in, pending rows: 409); a split is the user's decision, never automatic.
+- **Figures:** `txn.Scope.MINE` (`amount_minor + others_share_minor`) replaces the raw amount in every sum of
+  `InsightService` (spent, income, net, categories, category detail and trend, merchants, accuracy) and in the
+  transaction list's total, so a split dinner counts as the user's share everywhere and still equals its drill-through.
+  Recurring payments keep the bank amounts (a shared subscription is a later question).
+- **API:** `PUT/GET/DELETE /api/transactions/{id}/split` (`mode`, `myShares`, `people[{name, percent | fixedMinor |
+  shares}]`), `GET /api/splits` (every split, newest first, and the names used so far). `TransactionView.sharedMinor`.
+- **Web:** an expanded payment offers "Split this expense": how (Equally / By percentage / Fixed amounts / By shares),
+  people (names suggested from earlier splits), and a live preview with the same arithmetic as the backend
+  (`lib/split.ts`); the row then shows "your share", and the split can be changed or undone. The demo has no splits
+  (its figures are hand-computed).
+- **Tests:** `SplitCalculatorTest` (6): each mode, odd cents, shares with 0 for the user, names, refusals.
+  `ExpenseSplitTest` (4): an equal split counts the user's share in spent, net, categories, category detail and
+  merchants, each equal to its drill-through; change and undo; refusals (400 / 409 / 404, pending CAMT row); shares.
+  Web `split.test.mjs` (4): the same cases as the backend.
 
 ## CP6.20 — done
 
