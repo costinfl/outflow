@@ -24,6 +24,12 @@ export function ReviewPage() {
   const owed = new Map<string, number>()
   if (splits.kind === 'ok')
     for (const p of splits.data.people) if (p.openMinor > 0) owed.set(p.currency, (owed.get(p.currency) ?? 0) + p.openMinor)
+  // And what the user owes people who paid for them (CP6.23).
+  const ious = useApi(`ious:${version}`, () => api.GET('/api/ious'))
+  const owing = new Map<string, number>()
+  if (ious.kind === 'ok')
+    for (const p of ious.data.people) if (p.openMinor > 0) owing.set(p.currency, (owing.get(p.currency) ?? 0) + p.openMinor)
+  const sum = (m: Map<string, number>) => [...m].map(([currency, minor]) => formatMoney(minor, currency)).join(' + ')
 
   const answer: Answer = async (label, call) => {
     setStatus(`${label}…`)
@@ -93,10 +99,12 @@ export function ReviewPage() {
             : `${cards.length} ${cards.length === 1 ? 'question' : 'questions'}, most money first. A few answers fix most of the picture.`}
         </p>
       </div>
-      {owed.size > 0 && (
+      {(owed.size > 0 || owing.size > 0) && (
         <Link to="/splits" className="flex items-center justify-between rounded-2xl bg-surface px-4 py-3 text-sm ring-1 ring-hairline">
           <span className="text-ink">
-            Splits to settle: people owe you {[...owed].map(([currency, minor]) => formatMoney(minor, currency)).join(' + ')}
+            Splits to settle: {[owed.size > 0 && `people owe you ${sum(owed)}`, owing.size > 0 && `you owe ${sum(owing)}`]
+              .filter(Boolean)
+              .join(', ')}
           </span>
           <span aria-hidden className="text-muted">
             ›

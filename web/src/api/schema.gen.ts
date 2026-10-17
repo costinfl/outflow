@@ -11,7 +11,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list"];
+        get: operations["list_1"];
         put?: never;
         post: operations["create"];
         delete?: never;
@@ -43,7 +43,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_5"];
+        get: operations["list_6"];
         put?: never;
         post?: never;
         delete?: never;
@@ -59,7 +59,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_4"];
+        get: operations["list_5"];
         put?: never;
         post?: never;
         delete?: never;
@@ -148,6 +148,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ious": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list"];
+        put?: never;
+        post: operations["add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ious/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["pay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ious/payments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["unpay"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ious/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_2"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/merchants": {
         parameters: {
             query?: never;
@@ -155,7 +219,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_3"];
+        get: operations["list_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -315,7 +379,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_2"];
+        get: operations["list_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -523,7 +587,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_1"];
+        get: operations["list_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -962,6 +1026,95 @@ export interface components {
             transactionCount: number;
             /** Format: int64 */
             usualMinor: number;
+        };
+        IouCreditor: {
+            currency: string;
+            /** @description Open first, newest first */
+            ious: components["schemas"]["IouView"][];
+            name: string;
+            /**
+             * Format: int64
+             * @description What you still owe them
+             */
+            openMinor: number;
+            /** Format: int64 */
+            owedMinor: number;
+        };
+        IouInput: {
+            /**
+             * Format: int64
+             * @description Your share, minor units
+             */
+            amountMinor: number;
+            /**
+             * Format: int64
+             * @description What it was; the payment that settles it takes this category
+             */
+            categoryId?: number;
+            /** @example RON */
+            currency: string;
+            /** @example Dinner at La Mama */
+            description: string;
+            /** Format: date */
+            incurredOn: string;
+            /** @example Ana */
+            person: string;
+        };
+        IouList: {
+            /** @description Whom you owe the most first */
+            people: components["schemas"]["IouCreditor"][];
+        };
+        IouPayInput: {
+            /**
+             * Format: int64
+             * @description Absent = as much as is open (and still unlinked in that money out)
+             */
+            amountMinor?: number;
+            /** Format: int64 */
+            iouId: number;
+            /**
+             * Format: int64
+             * @description The money out that paid it; absent = paid outside the bank
+             */
+            transactionId?: number;
+        };
+        IouPaymentView: {
+            /** Format: int64 */
+            amountMinor: number;
+            /** Format: date */
+            bookingDate?: string;
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: int64
+             * @description The money out that paid it; absent when paid outside the bank
+             */
+            transactionId?: number;
+        };
+        IouView: {
+            /**
+             * Format: int64
+             * @description What you owe
+             */
+            amountMinor: number;
+            /** Format: int64 */
+            categoryId?: number;
+            categoryName?: string;
+            /** @example RON */
+            currency: string;
+            description: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: date */
+            incurredOn: string;
+            /** Format: int64 */
+            openMinor: number;
+            /** Format: int64 */
+            paidMinor: number;
+            payments: components["schemas"]["IouPaymentView"][];
+            person: string;
+            /** @description Money out that may have paid it; best first */
+            suggestions: components["schemas"]["RepaymentSuggestion"][];
         };
         Item: {
             /** @enum {string} */
@@ -1670,7 +1823,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    list: {
+    list_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -1740,7 +1893,7 @@ export interface operations {
             };
         };
     };
-    list_5: {
+    list_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -1760,7 +1913,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -1937,7 +2090,115 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IouList"];
+                };
+            };
+        };
+    };
+    add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IouInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IouList"];
+                };
+            };
+        };
+    };
+    pay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IouPayInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IouList"];
+                };
+            };
+        };
+    };
+    unpay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -2163,7 +2424,7 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    list_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -2492,7 +2753,7 @@ export interface operations {
             };
         };
     };
-    list_1: {
+    list_2: {
         parameters: {
             query: {
                 /** @description YYYY-MM */

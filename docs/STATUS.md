@@ -5,9 +5,35 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.22** — splits to settle: who owes you what, repayments linked |
+| Last completed | **CP6.23** — "they paid, I owe": what you owe, payments linked |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.23 — done
+
+489 backend tests green (6 new), 21 web; typecheck, build and demo build green. Checked in Chromium at 390 px against the
+API (an IOU to Ana added through the form and linked to the 100.00 sent to her, which became Restaurants; Dan's taxi
+suggested from his 45.00; Review says "you owe RON 45.00"), light and dark; no console errors.
+
+- **What:** the third step of shared expenses, which the user asked for: someone paid for something shared and the
+  user owes them a share.
+- **V21 `iou`** (person, what, date, currency, the user's share, an optional category) **and `iou_payment`** (the money
+  out that paid it, or none for "paid outside the bank"; one payment can cover several IOUs).
+- **Figures:** an IOU counts nowhere: no money of the user's moved. The money out that pays it back is the user's
+  spending, and linking gives it the IOU's category as the user's decision (`category_source = 'USER'`), so 100.00
+  sent to Ana counts as Restaurants rather than uncategorized money to a person. A category the user already set by
+  hand is kept; the first linked IOU with a category decides; undoing a payment leaves the category (change it on
+  the transaction). The derived stages rerun after a link.
+- **`IouService`:** creditors per person and currency, who the user owes most first; suggestions as for repayments
+  (CP6.22) with signs reversed: money out matching what is open or naming the person, 7 days before to 120 after.
+  Pay (partial, outside the bank), undo, forget an unpaid IOU (409 once something was paid).
+- **API:** `GET/POST /api/ious`, `DELETE /api/ious/{id}`, `POST /api/ious/payments`, `DELETE /api/ious/payments/{id}`.
+- **Web:** the Splits page has "People owe you" and "You owe": "Add what you owe" (who, for what, when, your share,
+  currency when there is more than one, what it was), creditors with suggestions to link, "Paid outside the bank",
+  "Forget it", payments with "Undo". The Review link says "people owe you …, you owe …".
+- **Tests** (`IouTest`, 6): an IOU counts nowhere; suggestions; a linked payment takes the IOU's category and moves
+  its money there (spending unchanged in total); a category set by hand is kept; outside the bank, partial, undo,
+  refusals, forget; validation.
 
 ## CP6.22 — done
 

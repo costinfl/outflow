@@ -43,7 +43,8 @@ API endpoints: `/api/health`, `POST /api/imports` (multipart `files`), `GET/POST
 `GET /api/subscriptions/reminders.ics`, `POST /api/review/reminders/{id}`,
 `POST /api/subscriptions/{id}/confirm|reject|end|merge|split`, `GET /api/fx-rates`, `PUT/DELETE /api/fx-rates/{base}/{quote}`,
 `GET/PUT/DELETE /api/transactions/{id}/split`, `GET /api/splits`, `GET /api/splits/balances`,
-`POST /api/splits/settlements`, `DELETE /api/splits/settlements/{id}`; OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
+`POST /api/splits/settlements`, `DELETE /api/splits/settlements/{id}`, `GET/POST /api/ious`, `DELETE /api/ious/{id}`,
+`POST /api/ious/payments`, `DELETE /api/ious/payments/{id}`; OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
 Parsers: one YAML profile per CSV format in `api/src/main/resources/parsers/` (keys: `docs/parsers.md`).
 Golden files in `samples/`, byte-exact (`.gitattributes`); expected values in `samples/synthetic/README.md`.
 Real exports only via the anonymizer (`#/anonymize` in the app, or `java tools/Anonymize.java`; `docs/anonymize.md`);
