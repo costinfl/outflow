@@ -5,9 +5,37 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.23** — "they paid, I owe": what you owe, payments linked |
+| Last completed | **CP6.24** — ING savings account exports; signatures anonymized |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP6.24 — done
+
+494 backend tests green (5 new), 22 web (1 new); typecheck, build and demo build green. Checked in Chromium at 390 px against
+the API: the user's savings file uploaded through `#/upload` into a new Savings account (40 new, then 0 new on the same file;
+October income = 34.01 interest), light and dark; no console errors.
+
+- **What:** the user's anonymized ING savings export (`economii_Tranzactii_08-11-2026…`) was not recognised. Its
+  header is `Data,,,Detalii tranzactie,,Debit,Credit`: Debit and Credit one column later than the current account's
+  and no running balance, and the parser matched the current account's header exactly.
+- **`IngRoCsvParser`:** the columns are found by name in each page's header (`Layout`: Debit, Credit, optional
+  Balanta), so both layouts parse; the savings rows have no `Balanta` in their payload. The current account's golden
+  and real-sample tests are unchanged. Checked locally on the user's file (not committed): detected at 1.0, 40 rows,
+  debit 5513200, credit 3364471, 2026-08-09 – 2026-11-04, equal to totals computed separately from the CSV.
+- **V22:** keyword `ACTUALIZARE DOBANDA` → Income (the savings account's monthly interest).
+- **Anonymizer (Java and browser, byte-identical):** the bank officers who sign each page (the line above
+  "Şef Serviciu …") were left in the user's file, real people's names. Every name-like cell of a signature line is now
+  replaced like a payer or payee. The ING parity fixture gained a signature block and its expected output was
+  regenerated with the Java tool; the report and `docs/anonymize.md` say so. **Before the user's savings file can be a
+  real golden sample** it has to be anonymized again from the raw export with this version (ideally with the same
+  seed as the current account's, so the IBANs match).
+- **Golden file** `samples/synthetic/ing-ro-economii-2026.csv` (fabricated, the savings layout): 8 rows, debit 1750000,
+  credit 1009576, 2026-09-07 – 2026-11-04 (README).
+- **Tests:** `IngRoSavingsTest` (4): detection, rows and sums, entries with their details (interest Principal and tax,
+  the ING bonus with blank and Mesaj lines), both layouts from their headers. `IngSavingsImportTest`: through the
+  upload into a Savings account, interest is Income, and October's moves pair with the current account's side
+  (income = interest only, spending 0). Web: the officers are replaced, their titles and the bank kept; the detected
+  count on the ING fixture is 5 (3 payers and payees, 2 officers).
 
 ## CP6.23 — done
 

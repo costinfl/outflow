@@ -55,6 +55,8 @@ const NAME_FIELD =
 const ORGANISATION =
   /\b(?:SRL|SA|SCS|SNC|SCA|LTD|LIMITED|GMBH|AG|BV|NV|INC|LLC|PLC|SAS|SPA|IFN|BANK|BANCA|ROMANIA|ASOCIATIA|FUNDATIA|PRIMARIA|DIRECTIA|MINISTERUL|UNIVERSITATEA|SCOALA|LICEUL|GRADINITA|SPITALUL|CLINICA|CENTRUL|MEDICAL|HOSPITAL|ASIGURARI|INSURANCE|TRADING|SYSTEMS|SERVICES|SERV|GROUP|HOLDING|COMPANY|INTERNATIONAL|TREZORERIA|ADMINISTRATIA|ANAF|CNAS)\b/i
 const PERSON_LIKE = /^[\p{L}'-]+(?:[ .][\p{L}'-]+){1,4}$/u
+/** A page's signature block (ING): the officers' names are on the line above their titles, "Sef Serviciu ...". */
+const SIGNATURE = /^([^\r\n]*)\r?\n[^\r\n]*(?:S|\u015E|\u0218)ef Serviciu/gmu
 /**
  * Free-text memos typed by people (transfer details, messages): anything can be in them, first names included.
  * A quoted cell is taken up to its closing quote, so a comma inside a memo cannot leak the rest of it.
@@ -272,6 +274,22 @@ class Anonymizer {
         }
       } else if (!this.keptCounterparties.includes(value)) {
         this.keptCounterparties.push(value)
+      }
+    }
+    // Signature blocks: every name-like cell on the line above an officer's title.
+    for (const sig of s.matchAll(SIGNATURE)) {
+      for (const cell of sig[1]!.split(/[,;\t]/)) {
+        const value = strip(cell.replace(/"/g, ''))
+        if (
+          value &&
+          !/^PERSON_\d+$/.test(value) &&
+          PERSON_LIKE.test(value) &&
+          !ORGANISATION.test(value.replace(/\./g, '')) &&
+          !this.names.some((n) => n.toLowerCase() === value.toLowerCase())
+        ) {
+          this.names.push(value)
+          this.detectedNames++
+        }
       }
     }
     s = await this.replace(s, MEMO, 'memo', (m) => {

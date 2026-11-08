@@ -9,8 +9,9 @@
  *
  *   IBANs            -> checksum-valid fakes with bank code ANON, same country and length
  *   card numbers     -> full PANs and the digits next to masks ("****4412", "card 4412") get fake digits
- *   names            -> the account holder ("Titular: ..."), every name in --names, and people named in Beneficiar /
- *                       Ordonator / Platitor fields (organisations are kept and listed) become PERSON_1, PERSON_2, ...
+ *   names            -> the account holder ("Titular: ..."), every name in --names, people named in Beneficiar /
+ *                       Ordonator / Platitor fields (organisations are kept and listed) and the bank officers who
+ *                       sign each page (the line above "Sef Serviciu ...") become PERSON_1, PERSON_2, ...
  *   CNP              -> 13 fake digits
  *   emails, phones   -> person1@example.invalid, 0700xxxxxx
  *   long references  -> digit runs of 10+ (not CNPs or phone numbers) get fake digits of the same length
@@ -123,6 +124,8 @@ public class Anonymize {
                 + "|SCOALA|LICEUL|GRADINITA|SPITALUL|CLINICA|CENTRUL|MEDICAL|HOSPITAL|ASIGURARI|INSURANCE|TRADING|SYSTEMS"
                 + "|SERVICES|SERV|GROUP|HOLDING|COMPANY|INTERNATIONAL|TREZORERIA|ADMINISTRATIA|ANAF|CNAS)\\b");
         private static final Pattern PERSON_LIKE = Pattern.compile("[\\p{L}'-]+(?:[ .][\\p{L}'-]+){1,4}");
+        /** A page's signature block (ING): the officers' names are on the line above their titles, "Sef Serviciu ...". */
+        private static final Pattern SIGNATURE = Pattern.compile("(?m)^([^\\r\\n]*)\\r?\\n[^\\r\\n]*(?:S|\u015E|\u0218)ef Serviciu");
         /**
          * Free-text memos typed by people (transfer details, messages): anything can be in them, first names included.
          * A quoted cell is taken up to its closing quote, so a comma inside a memo cannot leak the rest of it.
@@ -184,6 +187,19 @@ public class Anonymize {
                     }
                 } else if (!keptCounterparties.contains(value)) {
                     keptCounterparties.add(value);
+                }
+            }
+            // Signature blocks: every name-like cell on the line above an officer's title.
+            Matcher sig = SIGNATURE.matcher(s);
+            while (sig.find()) {
+                for (String cell : sig.group(1).split("[,;\\t]")) {
+                    String value = cell.replace("\"", "").strip();
+                    if (!value.isEmpty() && !value.matches("PERSON_\\d+") && PERSON_LIKE.matcher(value).matches()
+                            && !ORGANISATION.matcher(value.replace(".", "")).find()
+                            && names.stream().noneMatch(n -> n.equalsIgnoreCase(value))) {
+                        names.add(value);
+                        detectedNames++;
+                    }
                 }
             }
             s = replace(s, MEMO, "memo", m -> {
@@ -284,7 +300,7 @@ public class Anonymize {
                 leftovers.add(digitRuns + " digit runs of 6-9 digits kept (store/terminal/invoice numbers?)");
             }
             if (detectedNames > 0) {
-                r.append("\nNames found in Beneficiar/Ordonator fields and replaced everywhere: ").append(detectedNames).append('\n');
+                r.append("\nNames found in Beneficiar/Ordonator fields and signature blocks, replaced everywhere: ").append(detectedNames).append('\n');
             }
             if (!keptCounterparties.isEmpty()) {
                 r.append("\nKept as organisations (make sure none of these is a person; if one is, add it to --names):\n");
