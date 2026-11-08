@@ -34,17 +34,7 @@ npm --prefix web run gen:api       # regenerate web/src/api/schema.gen.ts from a
 docker compose up --build          # full stack: SPA http://localhost:3000 (proxies /api), API :8080, Postgres :5432
 ```
 
-API endpoints: `/api/health`, `POST /api/imports` (multipart `files`), `GET/POST /api/accounts`, `PATCH /api/accounts/{id}`,
-`GET /api/categories`, `PUT/DELETE /api/transactions/{id}/category`, `GET /api/merchants`, `GET /api/merchants/explain`,
-`POST /api/merchants/aliases`, `GET /api/insights/month`, `GET /api/insights/categories/{id}`,
-`GET /api/transactions`, `GET /api/review`, `POST /api/review/skip`, `POST /api/review/merchants/{id}/category` (optional `direction` IN/OUT),
-`POST /api/review/duplicates/{id}`, `POST /api/review/transfers/{transactionId}`, `POST /api/review/alerts/{id}`,
-`GET/POST /api/subscriptions` (POST: mark one transaction as recurring), `PATCH /api/subscriptions/{id}`, `PUT /api/subscriptions/{id}/reminder`,
-`GET /api/subscriptions/reminders.ics`, `POST /api/review/reminders/{id}`,
-`POST /api/subscriptions/{id}/confirm|reject|end|merge|split`, `GET /api/fx-rates`, `PUT/DELETE /api/fx-rates/{base}/{quote}`,
-`GET/PUT/DELETE /api/transactions/{id}/split`, `GET /api/splits`, `GET /api/splits/balances`,
-`POST /api/splits/settlements`, `DELETE /api/splits/settlements/{id}`, `GET/POST /api/ious`, `DELETE /api/ious/{id}`,
-`POST /api/ious/payments`, `DELETE /api/ious/payments/{id}`; OpenAPI JSON at `/api/openapi.json`, Swagger UI at `/api/docs`.
+API endpoints: see `api/openapi.json` (also served at `/api/openapi.json`; Swagger UI at `/api/docs`).
 Parsers: one YAML profile per CSV format in `api/src/main/resources/parsers/` (keys: `docs/parsers.md`).
 Golden files in `samples/`, byte-exact (`.gitattributes`); expected values in `samples/synthetic/README.md`.
 Real exports only via the anonymizer (`#/anonymize` in the app, or `java tools/Anonymize.java`; `docs/anonymize.md`);

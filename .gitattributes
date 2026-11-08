@@ -2,3 +2,7 @@
 samples/** -text
 # Anonymizer golden fixtures: byte-exact (Windows-1250, UTF-8 BOM, CRLF)
 web/test/anonymize/** -text
+
+# Shell scripts run in Linux containers: must keep LF (a CRLF shebang makes mvnw "not found").
+mvnw text eol=lf
+*.sh text eol=lf

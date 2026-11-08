@@ -2,6 +2,8 @@
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /src
 COPY mvnw pom.xml ./
+# Windows checkouts may have CRLF in mvnw, which breaks the shebang ("not found").
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
 COPY .mvn .mvn
 COPY api/pom.xml api/pom.xml
 RUN ./mvnw -q -pl api dependency:go-offline
