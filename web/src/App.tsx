@@ -1,9 +1,9 @@
-import { HashRouter, Link, Outlet, Route, Routes } from 'react-router'
-import { isDemo } from './api/client'
+import { HashRouter, Link, Route, Routes } from 'react-router'
 import { AnonymizePage } from './anonymize/AnonymizePage'
 import { CategoryPage } from './categories/CategoryPage'
 import { HomePage } from './home/HomePage'
 import { RecurringPage } from './recurring/RecurringPage'
+import { MorePage, Shell } from './shell/Shell'
 import { SplitsPage } from './split/SplitsPage'
 import { ReviewPage } from './review/ReviewPage'
 import { StatusPage } from './system/StatusPage'
@@ -15,7 +15,7 @@ export function App() {
   return (
     <HashRouter>
       <Routes>
-        <Route element={<Layout />}>
+        <Route element={<Shell />}>
           <Route index element={<HomePage />} />
           <Route path="transactions" element={<TransactionsPage />} />
           <Route path="categories/:id" element={<CategoryPage />} />
@@ -25,44 +25,11 @@ export function App() {
           <Route path="upload" element={<UploadPage />} />
           <Route path="anonymize" element={<AnonymizePage />} />
           <Route path="status" element={<StatusPage />} />
+          <Route path="more" element={<MorePage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </HashRouter>
-  )
-}
-
-function Layout() {
-  return (
-    <div className="min-h-dvh bg-page text-ink">
-      {isDemo && (
-        <div className="bg-banner px-4 py-2 text-center text-xs text-banner-ink">
-          Demo mode: synthetic data, no server. Nothing you do here leaves your browser.
-        </div>
-      )}
-      <header className="mx-auto flex max-w-md items-center justify-between px-4 pt-4">
-        <Link to="/" className="text-lg font-semibold tracking-tight text-ink">
-          Outflow
-        </Link>
-        <nav className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs text-muted">
-          <Link to="/review" className="hover:underline">
-            Review
-          </Link>
-          <Link to="/upload" className="hover:underline">
-            Upload
-          </Link>
-          <Link to="/anonymize" className="hover:underline">
-            Anonymize
-          </Link>
-          <Link to="/status" className="hover:underline">
-            Status
-          </Link>
-        </nav>
-      </header>
-      <main className="mx-auto max-w-md px-4 pt-3 pb-10">
-        <Outlet />
-      </main>
-    </div>
   )
 }
 

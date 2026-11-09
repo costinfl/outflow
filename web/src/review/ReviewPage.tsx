@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { api, isDemo } from '../api/client'
 import type { Category, Inbox, RecurringOverview, ReviewCard } from '../api/types'
 import { cadenceWord, decimalToMinor, formatDay, formatMoney, formatSince, minorToDecimal } from '../lib/format'
+import { primary, quiet, secondary } from '../lib/ui'
 import { useApi } from '../lib/useApi'
 
 type Cadence = NonNullable<ReviewCard['cadence']>
@@ -153,16 +154,12 @@ function Swipeable({ onRight, onLeft, children }: { onRight?: () => void; onLeft
         setDx(0)
       }}
       style={{ transform: dx ? `translateX(${dx}px)` : undefined, touchAction: 'pan-y' }}
-      className="rounded-2xl bg-surface p-4 shadow-sm ring-1 ring-hairline transition-transform"
+      className="rounded-2xl bg-surface p-4 shadow-card ring-1 ring-hairline transition-transform"
     >
       {children}
     </li>
   )
 }
-
-const primary = 'rounded-lg bg-bar px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40'
-const secondary = 'rounded-lg px-3 py-1.5 text-sm text-ink ring-1 ring-hairline'
-const quiet = 'ml-auto px-1 py-1.5 text-sm text-muted hover:underline'
 
 type MergeTarget = { id: number; name: string; merchantId: number; income: boolean }
 

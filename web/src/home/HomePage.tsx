@@ -83,10 +83,15 @@ export function HomePage() {
           setParams(next)
         }}
       />
-      <SpentBlock s={s} />
-      <WhereItWentBlock s={s} />
-      <CommittedBlock s={s} />
-      <AttentionBlock s={s} />
+      {/* Desktop: two columns, the answer and its breakdown side by side. */}
+      <div className="space-y-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0">
+        <SpentBlock s={s} />
+        <div className="lg:col-start-2 lg:row-span-3 lg:row-start-1">
+          <WhereItWentBlock s={s} />
+        </div>
+        <CommittedBlock s={s} />
+        <AttentionBlock s={s} />
+      </div>
     </>,
   )
 }

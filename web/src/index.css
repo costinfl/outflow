@@ -2,42 +2,90 @@
 
 /*
  * Design tokens. Chart colors and inks follow the dataviz reference palette; dark mode has its own steps
- * (validated against its own surface), not an automatic flip.
+ * (validated against its own surface), not an automatic flip. The theme is the device's unless the user chose one
+ * (lib/theme.ts sets data-theme on <html>).
  */
 @theme {
-  --color-page: #f9f9f7;
-  --color-surface: #fcfcfb;
+  --color-page: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-raised: #ffffff;
   --color-ink: #0b0b0b;
   --color-ink-2: #52514e;
   --color-muted: #6f6d68;
-  --color-hairline: #e1e0d9;
+  --color-hairline: #e4e3dc;
   --color-bar: #2a78d6;
-  --color-bar-track: #eef3fb;
+  --color-bar-track: #eaf1fb;
   --color-bar-neutral: #898781;
+  --color-accent-ink: #1a5db0;
   --color-good: #006300;
   --color-bad: #d03b3b;
   --color-banner: #fff4d6;
   --color-banner-ink: #5c4300;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.04);
+}
+
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-page: #0e0e0d;
+  --color-surface: #1a1a19;
+  --color-raised: #232322;
+  --color-ink: #ffffff;
+  --color-ink-2: #c3c2b7;
+  --color-muted: #9d9b95;
+  --color-hairline: #2e2e2c;
+  --color-bar: #3987e5;
+  --color-bar-track: #1f2a38;
+  --color-bar-neutral: #898781;
+  --color-accent-ink: #7fb4f2;
+  --color-good: #0ca30c;
+  --color-bad: #e36868;
+  --color-banner: #3a2f10;
+  --color-banner-ink: #f6dd9c;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --color-page: #0d0d0d;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-page: #0e0e0d;
     --color-surface: #1a1a19;
+    --color-raised: #232322;
     --color-ink: #ffffff;
     --color-ink-2: #c3c2b7;
     --color-muted: #9d9b95;
-    --color-hairline: #2c2c2a;
+    --color-hairline: #2e2e2c;
     --color-bar: #3987e5;
     --color-bar-track: #1f2a38;
     --color-bar-neutral: #898781;
+    --color-accent-ink: #7fb4f2;
     --color-good: #0ca30c;
     --color-bad: #e36868;
     --color-banner: #3a2f10;
     --color-banner-ink: #f6dd9c;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
   }
 }
 
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--color-page);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* One visible focus style everywhere, for keyboard users only. */
+:focus-visible {
+  outline: 2px solid var(--color-bar);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
 }

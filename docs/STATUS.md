@@ -5,9 +5,32 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.24** — ING savings account exports; signatures anonymized |
+| Last completed | **CP7.1** — theme (Light / Dark / System) and the app shell |
+| Plan in progress | Usability, four CPs: 7.1 theme and shell (done); 7.2 review one question at a time, one-tap categories; 7.3 suggested category; 7.4 sweep the small merchants |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP7.1 — done
+
+494 backend tests green (none new: web only), 24 web (2 new); typecheck, build and demo build green. Checked in
+Chromium against the API with the real anonymized ING sample, at 390 px and 1280 px, light and dark: every destination
+reached from the tab bar, More and the sidebar; a forced theme survives a reload; no console errors.
+
+- **What:** the user asked for better usability (2026-11-09): classifying after an upload means a lot of scrolling,
+  and the app should have a modern theme (light, dark, system) on phones and desktops. They chose: one question at a
+  time, one-tap category buttons, suggested categories, a sweep for small merchants; the current palette refined; a
+  bottom tab bar on phones and a sidebar on desktop. CP7.2–7.4 follow.
+- **Theme:** `web/src/index.css` keeps the tokens; dark values apply for `data-theme="dark"` or, without a choice, the
+  device's dark scheme. `lib/theme.ts` (Light / Dark / System, remembered in `localStorage`, safe when storage is
+  blocked) sets `data-theme` and the browser chrome colour; `index.html` applies a stored choice before first paint.
+  New tokens `raised`, `accent-ink`, `shadow-card`; one focus-visible style; reduced motion respected.
+- **Shell** (`web/src/shell/`): phones get a bottom tab bar (Home, Review with the open-question count, Recurring,
+  Upload, More); More lists Transactions, Splits, Anonymize, Status and the theme switch. From 1024 px a sidebar lists
+  every destination with the theme switch, and the home screen is two columns (`max-w-5xl`); other pages are one
+  `max-w-2xl` column.
+- **Transactions from the menu** opens the latest month with data (no request is made without a month).
+- Shared control styles in `lib/ui.ts` (`primary`, `secondary`, `quiet`, `card`), used by Review.
+- **Tests:** `web/test/theme.test.mjs` (stored value parsing, system vs choice).
 
 ## CP6.24 — done
 

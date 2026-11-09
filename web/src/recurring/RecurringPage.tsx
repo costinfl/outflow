@@ -110,7 +110,7 @@ export function RecurringPage() {
         </p>
       ) : (
         o.groups.map((g) => (
-          <section key={g.kind} aria-labelledby={`group-${g.kind}`} className="rounded-2xl bg-surface p-4 shadow-sm ring-1 ring-hairline">
+          <section key={g.kind} aria-labelledby={`group-${g.kind}`} className="rounded-2xl bg-surface p-4 shadow-card ring-1 ring-hairline">
             <div className="flex items-baseline justify-between">
               <h2 id={`group-${g.kind}`} className="text-sm font-medium text-ink-2">
                 {GROUP_TITLES[g.kind] ?? g.kind}
@@ -340,7 +340,7 @@ function StandingTransfers({
 }) {
   const { withFilters } = useAccountsFilter()
   return (
-    <section aria-labelledby="group-standing" className="rounded-2xl bg-surface p-4 shadow-sm ring-1 ring-hairline">
+    <section aria-labelledby="group-standing" className="rounded-2xl bg-surface p-4 shadow-card ring-1 ring-hairline">
       <div className="flex items-baseline justify-between gap-3">
         <h2 id="group-standing" className="text-sm font-medium text-ink-2">
           Standing transfers

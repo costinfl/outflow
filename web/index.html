@@ -3,7 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0e0e0d" media="(prefers-color-scheme: dark)" />
+    <script>
+      // A stored Light or Dark choice, applied before first paint (lib/theme.ts); otherwise the device decides.
+      try {
+        var t = localStorage.getItem('outflow-theme')
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t
+      } catch (e) {}
+    </script>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <title>Outflow</title>
   </head>
