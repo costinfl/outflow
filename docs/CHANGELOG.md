@@ -2,6 +2,25 @@
 
 Newest first. One entry per milestone. History only, never instructions.
 
+## After the plan — usability, savings exports, "I owe" (2026-11-10)
+
+- **Theme and navigation (CP7.1):** Light / Dark / System, remembered per browser and applied before first paint; a
+  bottom tab bar on phones (Home, Review with its count, Recurring, Upload, More) and a sidebar on desktop, where the
+  home screen uses two columns.
+- **Review one question at a time (CP7.2):** one card on screen with "N left", a "Spending with a category" bar,
+  Skip and Back, and keys on desktop; category buttons (most used first) instead of a dropdown, one tap per answer.
+  After an upload the main button is "Answer N questions".
+- **Suggested category (CP7.3):** a merchant resembling ones the user already categorized offers that category first
+  ("Like …"), learned only from the user's own answers; never applied automatically.
+- **Sweep the small ones (CP7.4):** the many small one-way merchants left are answered together in one tap, with undo;
+  hand-set categories are kept.
+- **They paid, I owe (CP6.23, V21):** record what you owe someone who paid for something shared; the payment back
+  takes the debt's category.
+- **ING savings exports (CP6.24, V22):** the savings layout parses (columns found by name); monthly interest is
+  income; the anonymizer also replaces the bank officers who sign each page.
+- **README** with how to run locally and how to start over (volumes, the IBAN key).
+- **Tests:** 507 backend (24 new), 28 web (11 new).
+
 ## After the plan — shared expenses (2026-10-17)
 
 - **Split a payment (V19):** a posted payment can be shared with other people: equally, by percentage, by fixed
