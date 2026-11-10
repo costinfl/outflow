@@ -710,6 +710,10 @@
               "$ref" : "#/components/schemas/ReviewCard"
             },
             "type" : "array"
+          },
+          "sweep" : {
+            "$ref" : "#/components/schemas/Sweep",
+            "description" : "Small merchants that can be answered together; absent when there are too few"
           }
         },
         "required" : [ "cards", "categorizedPct", "categoryOrder", "count", "possible" ],
@@ -1932,6 +1936,98 @@
         "required" : [ "accountId", "amountKind", "bandMaxMinor", "bandMinMinor", "cadence", "confidence", "currency", "direction", "expectedAmountMinor", "firstSeen", "id", "lastSeen", "merchantId", "name", "state", "toleranceMinor" ],
         "type" : "object"
       },
+      "Sweep" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "eachUnderMinor" : {
+            "description" : "Each under this, positive minor units",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "merchantIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "merchants" : {
+            "description" : "Largest first",
+            "items" : {
+              "$ref" : "#/components/schemas/SweepMerchant"
+            },
+            "type" : "array"
+          },
+          "sharePct" : {
+            "description" : "Of all spending, 0-100",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalMinor" : {
+            "description" : "Together, positive minor units",
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "currency", "eachUnderMinor", "merchantIds", "merchants", "sharePct", "totalMinor" ],
+        "type" : "object"
+      },
+      "SweepAnswer" : {
+        "properties" : {
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "merchantIds" : {
+            "description" : "The merchants, from the inbox's sweep",
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "categoryId", "merchantIds" ],
+        "type" : "object"
+      },
+      "SweepMerchant" : {
+        "properties" : {
+          "count" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "merchantId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "sentMinor" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "count", "merchantId", "name", "sentMinor" ],
+        "type" : "object"
+      },
+      "SweepResult" : {
+        "properties" : {
+          "changed" : {
+            "description" : "Transactions whose category changed",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "merchants" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "changed", "merchants" ],
+        "type" : "object"
+      },
       "TransactionList" : {
         "properties" : {
           "count" : {
@@ -2784,6 +2880,62 @@
         "responses" : {
           "204" : {
             "description" : "No Content"
+          }
+        },
+        "tags" : [ "review" ]
+      }
+    },
+    "/api/review/merchants/sweep" : {
+      "post" : {
+        "operationId" : "sweep",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SweepAnswer"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SweepResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "review" ]
+      }
+    },
+    "/api/review/merchants/sweep/undo" : {
+      "post" : {
+        "operationId" : "undoSweep",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SweepAnswer"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SweepResult"
+                }
+              }
+            },
+            "description" : "OK"
           }
         },
         "tags" : [ "review" ]

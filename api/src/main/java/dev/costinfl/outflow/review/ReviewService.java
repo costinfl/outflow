@@ -197,7 +197,7 @@ public class ReviewService {
                 .thenComparing(ReviewCard::key);
         cards.sort(byImpact);
         possible.sort(byImpact);
-        return new Inbox(cards, possible, cards.size(), categoryOrder(), categorizedPct());
+        return new Inbox(cards, possible, cards.size(), categoryOrder(), categorizedPct(), sweep(cards));
     }
 
     private ReviewCard tieCard(TransferService.Tie tie) {
@@ -237,7 +237,7 @@ public class ReviewService {
      * review session. Same predicates as the home screen ({@link Scope#SPEND}, {@link Scope#MINE}).
      */
     int categorizedPct() {
-        String currency = currencies.slice(null, List.of()).currency();
+        String currency = mainCurrency();
         var r = jdbc.queryForMap("SELECT coalesce(sum(-" + Scope.MINE + "), 0) AS total, "
                 + "coalesce(sum(-" + Scope.MINE + ") FILTER (WHERE t.category_id IS NOT NULL), 0) AS categorized "
                 + "FROM transaction t LEFT JOIN category c ON c.id = t.category_id "
@@ -245,6 +245,52 @@ public class ReviewService {
         long total = ((Number) r.get("total")).longValue();
         long categorized = ((Number) r.get("categorized")).longValue();
         return total <= 0 ? 100 : (int) Math.max(0, Math.min(100, Math.round(100.0 * categorized / total)));
+    }
+
+    private String mainCurrency() {
+        return currencies.slice(null, List.of()).currency();
+    }
+
+    /** A merchant counts as small under this many units of its currency (CP7.4). */
+    static final int SMALL_UNITS = 50;
+    /** The small ones together stay under this share of all spending. */
+    static final int SWEEP_MAX_PCT = 5;
+    /** Fewer than this are just answered one by one. */
+    static final int SWEEP_MIN = 3;
+
+    /**
+     * The small merchants that can be answered at once: one-way money out, main currency, not a person, each under
+     * {@value #SMALL_UNITS} units, smallest first while together at most {@value #SWEEP_MAX_PCT}% of all spending.
+     */
+    ReviewCard.Sweep sweep(List<ReviewCard> cards) {
+        String currency = mainCurrency();
+        long eachUnder = SMALL_UNITS * (long) Math.pow(10, Math.max(0, java.util.Currency.getInstance(currency).getDefaultFractionDigits()));
+        long spending = jdbc.queryForObject("SELECT coalesce(sum(-" + Scope.MINE + "), 0) "
+                + "FROM transaction t LEFT JOIN category c ON c.id = t.category_id "
+                + "WHERE " + Scope.SPEND + " AND t.superseded_by IS NULL AND t.currency = ?", Long.class, currency);
+        var small = cards.stream()
+                .filter(c -> c.kind() == Kind.UNCATEGORIZED_MERCHANT && currency.equals(c.currency())
+                        && c.receivedCount() != null && c.receivedCount() == 0 && c.sentMinor() != null
+                        && c.sentMinor() < eachUnder && !c.name().startsWith("Person_"))
+                .sorted(Comparator.comparingLong(ReviewCard::sentMinor).thenComparing(ReviewCard::merchantId))
+                .toList();
+        var chosen = new ArrayList<ReviewCard>();
+        long total = 0;
+        for (ReviewCard c : small) {
+            if ((total + c.sentMinor()) * 100 > spending * SWEEP_MAX_PCT) {
+                break;
+            }
+            total += c.sentMinor();
+            chosen.add(c);
+        }
+        if (chosen.size() < SWEEP_MIN) {
+            return null;
+        }
+        chosen.sort(Comparator.comparingLong(ReviewCard::sentMinor).reversed().thenComparing(ReviewCard::merchantId));
+        int share = spending <= 0 ? 0 : (int) Math.max(1, Math.round(100.0 * total / spending));
+        return new ReviewCard.Sweep(chosen.stream().map(ReviewCard::merchantId).toList(), currency, total, share, eachUnder,
+                chosen.stream().map(c -> new ReviewCard.SweepMerchant(c.merchantId(), c.name(), c.sentMinor(),
+                        c.sentCount())).toList());
     }
 
     /** Hides a card until the next upload. */

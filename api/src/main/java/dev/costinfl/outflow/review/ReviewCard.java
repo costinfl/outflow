@@ -129,5 +129,26 @@ public record ReviewCard(
             List<Long> categoryOrder,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                     description = "Share of all spending in the main currency that has a category, 0-100")
-            int categorizedPct) {}
+            int categorizedPct,
+            @Schema(description = "Small merchants that can be answered together; absent when there are too few")
+            Sweep sweep) {}
+
+    /**
+     * "Sweep the small ones" (CP7.4): uncategorized merchants the user only paid, each under 50 units of the main
+     * currency, smallest first, together at most 5% of all spending. People are never in it.
+     */
+    public record Sweep(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<Long> merchantIds,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String currency,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Together, positive minor units") long totalMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Of all spending, 0-100") int sharePct,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Each under this, positive minor units")
+            long eachUnderMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Largest first") List<SweepMerchant> merchants) {}
+
+    public record SweepMerchant(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long merchantId,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long sentMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int count) {}
 }

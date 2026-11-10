@@ -308,6 +308,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/review/merchants/sweep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sweep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/review/merchants/sweep/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["undoSweep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/review/merchants/{merchantId}/category": {
         parameters: {
             query?: never;
@@ -1005,6 +1037,8 @@ export interface components {
             count: number;
             /** @description Subscription suggestions with confidence between 0.45 and 0.65 */
             possible: components["schemas"]["ReviewCard"][];
+            /** @description Small merchants that can be answered together; absent when there are too few */
+            sweep?: components["schemas"]["Sweep"];
         };
         Insight: {
             /** Format: int64 */
@@ -1709,6 +1743,51 @@ export interface components {
              */
             toleranceMinor: number;
         };
+        Sweep: {
+            currency: string;
+            /**
+             * Format: int64
+             * @description Each under this, positive minor units
+             */
+            eachUnderMinor: number;
+            merchantIds: number[];
+            /** @description Largest first */
+            merchants: components["schemas"]["SweepMerchant"][];
+            /**
+             * Format: int32
+             * @description Of all spending, 0-100
+             */
+            sharePct: number;
+            /**
+             * Format: int64
+             * @description Together, positive minor units
+             */
+            totalMinor: number;
+        };
+        SweepAnswer: {
+            /** Format: int64 */
+            categoryId: number;
+            /** @description The merchants, from the inbox's sweep */
+            merchantIds: number[];
+        };
+        SweepMerchant: {
+            /** Format: int32 */
+            count: number;
+            /** Format: int64 */
+            merchantId: number;
+            name: string;
+            /** Format: int64 */
+            sentMinor: number;
+        };
+        SweepResult: {
+            /**
+             * Format: int32
+             * @description Transactions whose category changed
+             */
+            changed: number;
+            /** Format: int32 */
+            merchants: number;
+        };
         TransactionList: {
             /** Format: int32 */
             count: number;
@@ -2344,6 +2423,54 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    sweep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SweepAnswer"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SweepResult"];
+                };
+            };
+        };
+    };
+    undoSweep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SweepAnswer"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SweepResult"];
+                };
             };
         };
     };

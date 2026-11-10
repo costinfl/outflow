@@ -5,10 +5,31 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP7.3** — suggested category from the user's own answers |
-| Plan in progress | Usability, four CPs: 7.1 theme and shell (done); 7.2 one question at a time, one-tap categories (done); 7.3 suggested category (done); 7.4 sweep the small merchants |
+| Last completed | **CP7.4** — sweep the small merchants (usability plan complete: CP7.1–7.4) |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP7.4 — done
+
+507 backend tests green (3 new), 28 web; typecheck, build and demo build green. Checked in Chromium against the API
+with the real anonymized ING sample: after the 143 bigger questions, one card offered "85 small shops, each under
+RON 50.00 (RON 1,575.86 together, 1% of your spending)"; "Put them all in Other" took the open questions from 232 to
+147, and Undo brought them back; 390 px light and 1280 px dark; no console errors. This completes the usability plan.
+
+- **What:** the last usability step: the many small merchants left after the big ones are answered together.
+- **`Inbox.sweep`:** uncategorized merchants the user only paid, in the main currency, not a person (`Person_n`), each
+  under 50 units, taken smallest first while together at most 5% of all spending; at least 3, else none. It lists them
+  (largest first) with the total and its share.
+- **API:** `POST /api/review/merchants/sweep` `{merchantIds, categoryId}`: a user rule for money sent for each, then one
+  recategorization (`CategoryService.setMerchantsCategory`); transactions categorized by hand keep their category.
+  `POST /api/review/merchants/sweep/undo` with the same body removes exactly those rules
+  (`removeMerchantsCategory`). 400 for no merchants or an unknown category, 404 for an unknown merchant.
+- **Web:** in the one-at-a-time view the sweep card replaces the questions about those small merchants when they come
+  up ("Put them all in Other", or one tap on another category, "Show them", "Answer them one by one"); the list view
+  shows it on top. Right after a sweep the status line offers Undo.
+- **Tests** (`ReviewSweepTest`, 3): who is in the sweep and its numbers; a sweep answers them all, keeps a hand-set
+  category, leaves the bigger shop, the person and the two-way merchant alone, and is undone; refusals, and fewer than
+  3 small ones left means no sweep.
 
 ## CP7.3 — done
 

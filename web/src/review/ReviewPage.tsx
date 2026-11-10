@@ -23,6 +23,9 @@ export function ReviewPage() {
   const [view, setView] = useState<'focus' | 'list'>('focus')
   const [queue, setQueue] = useState<QueueState>(START)
   const [done, setDone] = useState(0) // answered in this visit
+  // "Sweep the small ones" (CP7.4): set aside for this visit, and the last sweep, to undo it.
+  const [sweepAside, setSweepAside] = useState(false)
+  const [lastSweep, setLastSweep] = useState<{ merchantIds: number[]; categoryId: number; label: string } | null>(null)
   const loaded = useApi<Inbox>(`review:${version}`, () => api.GET('/api/review'))
   // Keep the answered inbox on screen while the next one loads: no flash between questions.
   const lastInbox = useRef<Inbox | null>(null)
@@ -153,6 +156,36 @@ export function ReviewPage() {
     </div>
   )
   const card = cards.find((c) => c.key === current)
+  const sweep = inbox.sweep
+  // The sweep comes up when the next question would be one of its small merchants.
+  const sweepNow =
+    view === 'focus' && !!sweep && !sweepAside && card?.kind === 'UNCATEGORIZED_MERCHANT' && sweep.merchantIds.includes(card.merchantId)
+  const doSweep = (categoryId: number, name: string) => {
+    const body = { merchantIds: sweep!.merchantIds, categoryId }
+    const label = `${sweep!.merchantIds.length} small shops → ${name}`
+    void answerFor('sweep')(label, async () => {
+      const r = await api.POST('/api/review/merchants/sweep', { body })
+      if (r.response.ok) setLastSweep({ ...body, label })
+      return r
+    })
+  }
+  const undoSweep = () => {
+    const body = lastSweep!
+    setLastSweep(null)
+    void answerFor('sweep-undo')('Sweep undone', () =>
+      api.POST('/api/review/merchants/sweep/undo', { body: { merchantIds: body.merchantIds, categoryId: body.categoryId } }),
+    )
+  }
+  const sweepCard = sweep && (
+    <SweepCard
+      sweep={sweep}
+      categories={categoryList}
+      usage={inbox.categoryOrder}
+      hotkeys={sweepNow}
+      onSweep={doSweep}
+      onAside={view === 'focus' ? () => setSweepAside(true) : undefined}
+    />
+  )
 
   return (
     <div className="space-y-4">
@@ -177,8 +210,15 @@ export function ReviewPage() {
       {splitsLink}
       <p aria-live="polite" className="min-h-5 text-sm text-ink-2">
         {status}
+        {lastSweep && (
+          <button type="button" className="ml-2 text-bar underline" onClick={undoSweep}>
+            Undo
+          </button>
+        )}
       </p>
-      {view === 'focus' && card && (
+      {sweepNow && sweepCard}
+      {view === 'list' && sweepCard}
+      {view === 'focus' && card && !sweepNow && (
         <>
           <ul key={card.key} className="animate-[fadein_.2s_ease-out]">
             {render(card, true)}
@@ -216,6 +256,72 @@ export function ReviewPage() {
         Back to the overview
       </Link>
     </div>
+  )
+}
+
+/**
+ * "Sweep the small ones" (CP7.4): after the merchants worth a question each, the many small ones left are answered
+ * together (one rule each, as if answered one by one; hand-set categories stay). Undo is offered right after.
+ */
+function SweepCard({
+  sweep,
+  categories,
+  usage,
+  hotkeys,
+  onSweep,
+  onAside,
+}: {
+  sweep: NonNullable<Inbox['sweep']>
+  categories: Category[]
+  usage: number[]
+  hotkeys: boolean
+  onSweep: (categoryId: number, name: string) => void
+  onAside?: () => void
+}) {
+  const money = (minor: number) => formatMoney(minor, sweep.currency)
+  const other = categories.find((c) => c.code === 'OTHER')
+  const choices = orderCategories(
+    categories.filter((c) => c.kind === 'SPEND' && c.id !== other?.id),
+    usage,
+    'OUT',
+  ).map((c) => ({ key: String(c.id), label: c.name, onPick: () => onSweep(c.id, c.name) }))
+  return (
+    <section aria-label="Small shops" className={`${cardClass} space-y-3`}>
+      <div>
+        <p className="text-xs font-medium tracking-wide text-muted uppercase">The small ones</p>
+        <p className="mt-1 text-lg text-ink">
+          {sweep.merchants.length} small shops, each under {money(sweep.eachUnderMinor)}
+        </p>
+        <p className="mt-1 text-sm text-ink-2">
+          {money(sweep.totalMinor)} together, {sweep.sharePct}% of your spending. Answer them all at once, or one by one.
+        </p>
+      </div>
+      {other && (
+        <button type="button" className={primary} onClick={() => onSweep(other.id, other.name)}>
+          Put them all in {other.name}
+        </button>
+      )}
+      <div>
+        <p className="mb-1.5 text-xs text-ink-2">Or all in</p>
+        <CategoryButtons label="Category for all the small shops" choices={choices} hotkeys={hotkeys} limit={6} />
+      </div>
+      <details className="text-sm">
+        <summary className="cursor-pointer text-ink-2">Show them</summary>
+        <ul className="mt-2 max-h-72 space-y-1 overflow-y-auto pr-1">
+          {sweep.merchants.map((m) => (
+            <li key={m.merchantId} className="flex justify-between gap-3 text-ink-2">
+              <span className="truncate">{m.name}</span>
+              <span className="shrink-0 tabular-nums">{money(m.sentMinor)}</span>
+            </li>
+          ))}
+        </ul>
+      </details>
+      {onAside && (
+        <button type="button" className="text-sm text-muted hover:underline" onClick={onAside}>
+          Answer them one by one
+        </button>
+      )}
+    </section>
   )
 }
 

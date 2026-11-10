@@ -113,6 +113,32 @@ public class CategoryService {
     }
 
     /**
+     * The same answer for many merchants at once (CP7.4, "sweep the small ones"): one rule each, then one
+     * recategorization. Transactions the user categorized by hand keep their category. Returns how many changed.
+     */
+    @Transactional
+    public int setMerchantsCategory(List<Long> merchantIds, long categoryId, Direction direction) {
+        merchantIds.forEach(id -> putMerchantRule(id, categoryId, direction));
+        return categorizeAll();
+    }
+
+    /**
+     * Undoes {@link #setMerchantsCategory}: removes exactly those rules (the user's, for that category and direction);
+     * the merchants' transactions go back to automatic categorization. Returns how many changed.
+     */
+    @Transactional
+    public int removeMerchantsCategory(List<Long> merchantIds, long categoryId, Direction direction) {
+        for (long id : merchantIds) {
+            String key = jdbc.queryForObject("SELECT key FROM merchant WHERE id = ?", String.class, id);
+            jdbc.update("""
+                    DELETE FROM category_rule WHERE household_id = ? AND source = 'USER' AND match_type = 'MERCHANT'
+                      AND pattern = ? AND category_id = ? AND direction IS NOT DISTINCT FROM ?""",
+                    HOUSEHOLD, key, categoryId, direction == null ? null : direction.name());
+        }
+        return categorizeAll();
+    }
+
+    /**
      * The user's rule for a merchant, replacing any earlier one for the same money. A rule for one direction splits
      * an earlier rule for both: the other direction keeps its category.
      */
