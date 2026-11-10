@@ -1,12 +1,14 @@
 package dev.costinfl.outflow.review;
 
 import dev.costinfl.outflow.category.CategoryRule.Direction;
+import dev.costinfl.outflow.merchant.normalize.FillerWords;
 import dev.costinfl.outflow.recurring.Cadence;
 import dev.costinfl.outflow.recurring.Candidate.AmountKind;
 import dev.costinfl.outflow.recurring.RecurrenceDetector;
 import dev.costinfl.outflow.recurring.ReminderService;
 import dev.costinfl.outflow.review.ReviewCard.Inbox;
 import dev.costinfl.outflow.review.ReviewCard.Kind;
+import dev.costinfl.outflow.txn.Currencies;
 import dev.costinfl.outflow.txn.Scope;
 import dev.costinfl.outflow.txn.TransferService;
 import java.math.BigDecimal;
@@ -35,11 +37,13 @@ public class ReviewService {
     private final JdbcTemplate jdbc;
     private final ReminderService reminders;
     private final TransferService transfers;
+    private final Currencies currencies;
 
-    public ReviewService(JdbcTemplate jdbc, ReminderService reminders, TransferService transfers) {
+    public ReviewService(JdbcTemplate jdbc, ReminderService reminders, TransferService transfers, Currencies currencies) {
         this.jdbc = jdbc;
         this.reminders = reminders;
         this.transfers = transfers;
+        this.currencies = currencies;
     }
 
     public Inbox inbox() {
@@ -67,19 +71,42 @@ public class ReviewService {
                 (confidence.compareTo(PROPOSE) >= 0 ? cards : possible).add(card);
             }
         });
+        // Suggestions for uncategorized merchants (CP7.3): from the user's own answers only (by hand, their rules and
+        // learned edits), per direction, the most used merchants first.
+        var suggester = new CategorySuggester(jdbc.queryForList("SELECT key FROM merchant", String.class),
+                FillerWords.FILLER);
+        var known = new HashMap<Boolean, List<CategorySuggester.Known>>();
+        jdbc.query("""
+                SELECT m.key, m.display_name, t.category_id, c.name, t.amount_minor < 0 AS out
+                FROM transaction t JOIN merchant m ON m.id = t.merchant_id JOIN category c ON c.id = t.category_id
+                WHERE t.category_source IN ('USER', 'RULE', 'LEARNED') AND t.superseded_by IS NULL
+                GROUP BY m.id, m.key, m.display_name, t.category_id, c.name, t.amount_minor < 0
+                ORDER BY count(*) DESC, m.id""", rs -> {
+            known.computeIfAbsent(rs.getBoolean(5), k -> new ArrayList<>()).add(new CategorySuggester.Known(
+                    rs.getString(1), rs.getString(2), rs.getLong(3), rs.getString(4)));
+        });
         jdbc.query("""
                 SELECT t.merchant_id, m.display_name, t.currency, count(*), sum(abs(t.amount_minor)),
                        count(*) FILTER (WHERE t.amount_minor < 0), coalesce(sum(-t.amount_minor) FILTER (WHERE t.amount_minor < 0), 0),
                        count(*) FILTER (WHERE t.amount_minor >= 0), coalesce(sum(t.amount_minor) FILTER (WHERE t.amount_minor >= 0), 0),
-                       min(t.booking_date)
+                       min(t.booking_date), m.key
                 FROM transaction t JOIN merchant m ON m.id = t.merchant_id
                 WHERE t.category_id IS NULL AND t.superseded_by IS NULL
-                GROUP BY t.merchant_id, m.display_name, t.currency""", rs -> {
+                GROUP BY t.merchant_id, m.display_name, t.currency, m.key""", rs -> {
             var card = new ReviewCard("merchant:" + rs.getLong(1) + ":" + rs.getString(3), Kind.UNCATEGORIZED_MERCHANT,
                     rs.getLong(5), rs.getString(3), rs.getLong(1), rs.getString(2),
                     null, null, null, null, null, null, null, null, rs.getInt(4), null, null, null, null, null,
                     null, null, null, null, rs.getInt(6), rs.getLong(7), rs.getInt(8), rs.getLong(9),
                     rs.getObject(10, LocalDate.class), null, null, null, null, null, null);
+            boolean sentOnly = rs.getInt(8) == 0;
+            boolean receivedOnly = rs.getInt(6) == 0;
+            if (sentOnly || receivedOnly) { // money both ways is mostly people: no suggestion
+                var suggestion = suggester.suggest(rs.getString(11), known.getOrDefault(sentOnly, List.of()));
+                if (suggestion.isPresent()) {
+                    card = card.withSuggestion(suggestion.get().categoryId(), suggestion.get().categoryName(),
+                            suggestion.get().because());
+                }
+            }
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }
@@ -170,7 +197,7 @@ public class ReviewService {
                 .thenComparing(ReviewCard::key);
         cards.sort(byImpact);
         possible.sort(byImpact);
-        return new Inbox(cards, possible, cards.size());
+        return new Inbox(cards, possible, cards.size(), categoryOrder(), categorizedPct(), sweep(cards));
     }
 
     private ReviewCard tieCard(TransferService.Tie tie) {
@@ -195,6 +222,75 @@ public class ReviewService {
                 t.merchantId(), t.name(), null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, t.amountMinor() < 0 ? Direction.OUT : Direction.IN,
                 null, null, new ReviewCard.TransferTie(t.id(), t.account(), t.date(), t.amountMinor(), options), null, null);
+    }
+
+    /** Category ids, the ones holding the most transactions first (ties: the seeded order), for one-tap answers. */
+    List<Long> categoryOrder() {
+        return jdbc.queryForList("""
+                SELECT c.id FROM category c
+                LEFT JOIN transaction t ON t.category_id = c.id AND t.superseded_by IS NULL
+                GROUP BY c.id ORDER BY count(t.id) DESC, c.id""", Long.class);
+    }
+
+    /**
+     * How much of all spending (every month) in the main currency has a category, in whole percent: the progress of a
+     * review session. Same predicates as the home screen ({@link Scope#SPEND}, {@link Scope#MINE}).
+     */
+    int categorizedPct() {
+        String currency = mainCurrency();
+        var r = jdbc.queryForMap("SELECT coalesce(sum(-" + Scope.MINE + "), 0) AS total, "
+                + "coalesce(sum(-" + Scope.MINE + ") FILTER (WHERE t.category_id IS NOT NULL), 0) AS categorized "
+                + "FROM transaction t LEFT JOIN category c ON c.id = t.category_id "
+                + "WHERE " + Scope.SPEND + " AND t.superseded_by IS NULL AND t.currency = ?", currency);
+        long total = ((Number) r.get("total")).longValue();
+        long categorized = ((Number) r.get("categorized")).longValue();
+        return total <= 0 ? 100 : (int) Math.max(0, Math.min(100, Math.round(100.0 * categorized / total)));
+    }
+
+    private String mainCurrency() {
+        return currencies.slice(null, List.of()).currency();
+    }
+
+    /** A merchant counts as small under this many units of its currency (CP7.4). */
+    static final int SMALL_UNITS = 50;
+    /** The small ones together stay under this share of all spending. */
+    static final int SWEEP_MAX_PCT = 5;
+    /** Fewer than this are just answered one by one. */
+    static final int SWEEP_MIN = 3;
+
+    /**
+     * The small merchants that can be answered at once: one-way money out, main currency, not a person, each under
+     * {@value #SMALL_UNITS} units, smallest first while together at most {@value #SWEEP_MAX_PCT}% of all spending.
+     */
+    ReviewCard.Sweep sweep(List<ReviewCard> cards) {
+        String currency = mainCurrency();
+        long eachUnder = SMALL_UNITS * (long) Math.pow(10, Math.max(0, java.util.Currency.getInstance(currency).getDefaultFractionDigits()));
+        long spending = jdbc.queryForObject("SELECT coalesce(sum(-" + Scope.MINE + "), 0) "
+                + "FROM transaction t LEFT JOIN category c ON c.id = t.category_id "
+                + "WHERE " + Scope.SPEND + " AND t.superseded_by IS NULL AND t.currency = ?", Long.class, currency);
+        var small = cards.stream()
+                .filter(c -> c.kind() == Kind.UNCATEGORIZED_MERCHANT && currency.equals(c.currency())
+                        && c.receivedCount() != null && c.receivedCount() == 0 && c.sentMinor() != null
+                        && c.sentMinor() < eachUnder && !c.name().startsWith("Person_"))
+                .sorted(Comparator.comparingLong(ReviewCard::sentMinor).thenComparing(ReviewCard::merchantId))
+                .toList();
+        var chosen = new ArrayList<ReviewCard>();
+        long total = 0;
+        for (ReviewCard c : small) {
+            if ((total + c.sentMinor()) * 100 > spending * SWEEP_MAX_PCT) {
+                break;
+            }
+            total += c.sentMinor();
+            chosen.add(c);
+        }
+        if (chosen.size() < SWEEP_MIN) {
+            return null;
+        }
+        chosen.sort(Comparator.comparingLong(ReviewCard::sentMinor).reversed().thenComparing(ReviewCard::merchantId));
+        int share = spending <= 0 ? 0 : (int) Math.max(1, Math.round(100.0 * total / spending));
+        return new ReviewCard.Sweep(chosen.stream().map(ReviewCard::merchantId).toList(), currency, total, share, eachUnder,
+                chosen.stream().map(c -> new ReviewCard.SweepMerchant(c.merchantId(), c.name(), c.sentMinor(),
+                        c.sentCount())).toList());
     }
 
     /** Hides a card until the next upload. */

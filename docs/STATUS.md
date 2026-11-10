@@ -5,9 +5,154 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP6.22** — splits to settle: who owes you what, repayments linked |
+| Last completed | **CP7.4** — sweep the small merchants (usability plan complete: CP7.1–7.4) |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP7.4 — done
+
+507 backend tests green (3 new), 28 web; typecheck, build and demo build green. Checked in Chromium against the API
+with the real anonymized ING sample: after the 143 bigger questions, one card offered "85 small shops, each under
+RON 50.00 (RON 1,575.86 together, 1% of your spending)"; "Put them all in Other" took the open questions from 232 to
+147, and Undo brought them back; 390 px light and 1280 px dark; no console errors. This completes the usability plan.
+
+- **What:** the last usability step: the many small merchants left after the big ones are answered together.
+- **`Inbox.sweep`:** uncategorized merchants the user only paid, in the main currency, not a person (`Person_n`), each
+  under 50 units, taken smallest first while together at most 5% of all spending; at least 3, else none. It lists them
+  (largest first) with the total and its share.
+- **API:** `POST /api/review/merchants/sweep` `{merchantIds, categoryId}`: a user rule for money sent for each, then one
+  recategorization (`CategoryService.setMerchantsCategory`); transactions categorized by hand keep their category.
+  `POST /api/review/merchants/sweep/undo` with the same body removes exactly those rules
+  (`removeMerchantsCategory`). 400 for no merchants or an unknown category, 404 for an unknown merchant.
+- **Web:** in the one-at-a-time view the sweep card replaces the questions about those small merchants when they come
+  up ("Put them all in Other", or one tap on another category, "Show them", "Answer them one by one"); the list view
+  shows it on top. Right after a sweep the status line offers Undo.
+- **Tests** (`ReviewSweepTest`, 3): who is in the sweep and its numbers; a sweep answers them all, keeps a hand-set
+  category, leaves the bigger shop, the person and the two-way merchant alone, and is undone; refusals, and fewer than
+  3 small ones left means no sweep.
+
+## CP7.3 — done
+
+504 backend tests green (7 new), 28 web; typecheck, build and demo build green. Checked in Chromium against the API
+with the real anonymized ING sample: answering "Bikaldi Bucuresti Ma" (Shopping) made the other Bikaldi shops offer
+"Suggested: Shopping" first ("Like Bikaldi Bucuresti Ma …"); Enter accepted it at 1280 px in dark; 390 px in light;
+no console errors.
+
+- **What:** the third usability step: a category suggested from the user's own answers for similar names, never
+  applied without the user.
+- **`review/CategorySuggester`** (pure): what the user decided (`category_source` USER, RULE, LEARNED; never KEYWORD,
+  MCC or SYSTEM), per direction, the most used merchants first. A merchant key's telling words: 4+ letters, no digits,
+  not filler (`FillerWords.FILLER`, now public), not common (in more than 10 merchant keys: cities, "ROMANIA").
+  Suggested when 2+ known merchants sharing a word agree and no other category has as many, or exactly one known
+  merchant shares the first word (the brand). One-way cards only; `PERSON_n` never.
+- **`ReviewCard`** gains `suggestedCategoryId`, `suggestedCategoryName`, `suggestedBecause` (up to 2 names); a
+  constructor with the old arguments and `withSuggestion` keep every other card as it was.
+- **Web:** the suggestion is the first, highlighted button ("Suggested: Shopping"), with "Like …, which you put in
+  Shopping" under the name; Enter accepts it in the one-at-a-time view (Enter on a focused button presses that button).
+  Demo: Zz Widgets suggests Shopping.
+- **Tests:** `CategorySuggesterTest` (5): agreement, a tie, the brand's first word, common words and filler, people and
+  the merchant itself. `ReviewSuggestionTest` (2): one answer suggests for the other shops of the chain and changes
+  nothing by itself, answering by the suggestion, a keyword's guess teaches nothing.
+
+## CP7.2 — done
+
+497 backend tests green (3 new), 28 web (4 new); typecheck, build and demo build green. Checked in Chromium against
+the API with the real anonymized ING sample (232 questions after the upload): at 390 px in light by tapping (a one-way
+card in one tap, a two-way card in two), at 1280 px in dark by keyboard (1 and Enter): spending with a category went
+from 23% to 70% in a few answers; Skip and Back move between cards; "See all" shows the list; no console errors.
+
+- **What:** the user's complaint (2026-11-09): classifying after an upload meant scrolling a long list of cards, each
+  with a dropdown and an Apply button.
+- **Review, one question at a time** (the default; "See all" shows the list as before): the card on screen,
+  "N left · M answered", a "Spending with a category" bar that moves with each answer, Back and "Skip for now" (to the
+  end of the line, this visit only; the list's Skip still hides a card until the next upload). The answered inbox
+  stays on screen while the next loads. Keys on desktop: 1-9 answer, Enter "Right", S skip, B back (hints show only
+  with a mouse or trackpad). `lib/reviewQueue.ts` holds the queue logic (pure, tested).
+- **One-tap categories** (`review/CategoryButtons.tsx`): uncategorized merchants and "No, it is…" on "Is this right?"
+  show category buttons, the most used first (8, then "More…"), the kinds that fit the direction first (spending and
+  transfers for money sent, income and transfers for money received). One tap answers a one-way card; a two-way card
+  takes one tap per direction ("Paying me back" stays, as does "Both ways are a transfer").
+- **Inbox** gains `categoryOrder` (category ids, most transactions first) and `categorizedPct` (share of all spending
+  in the main currency with a category, by `Scope.SPEND` and `Scope.MINE`).
+- **After an upload** the main button is "Answer N questions" when there are any, then "See where your money went".
+- **Tests:** `ReviewProgressTest` (3): category order, the share moving with an answer, none left with no spending.
+  Web `reviewQueue.test.mjs` (4): order, skip to the end, back, category order by direction.
+
+## CP7.1 — done
+
+494 backend tests green (none new: web only), 24 web (2 new); typecheck, build and demo build green. Checked in
+Chromium against the API with the real anonymized ING sample, at 390 px and 1280 px, light and dark: every destination
+reached from the tab bar, More and the sidebar; a forced theme survives a reload; no console errors.
+
+- **What:** the user asked for better usability (2026-11-09): classifying after an upload means a lot of scrolling,
+  and the app should have a modern theme (light, dark, system) on phones and desktops. They chose: one question at a
+  time, one-tap category buttons, suggested categories, a sweep for small merchants; the current palette refined; a
+  bottom tab bar on phones and a sidebar on desktop. CP7.2–7.4 follow.
+- **Theme:** `web/src/index.css` keeps the tokens; dark values apply for `data-theme="dark"` or, without a choice, the
+  device's dark scheme. `lib/theme.ts` (Light / Dark / System, remembered in `localStorage`, safe when storage is
+  blocked) sets `data-theme` and the browser chrome colour; `index.html` applies a stored choice before first paint.
+  New tokens `raised`, `accent-ink`, `shadow-card`; one focus-visible style; reduced motion respected.
+- **Shell** (`web/src/shell/`): phones get a bottom tab bar (Home, Review with the open-question count, Recurring,
+  Upload, More); More lists Transactions, Splits, Anonymize, Status and the theme switch. From 1024 px a sidebar lists
+  every destination with the theme switch, and the home screen is two columns (`max-w-5xl`); other pages are one
+  `max-w-2xl` column.
+- **Transactions from the menu** opens the latest month with data (no request is made without a month).
+- Shared control styles in `lib/ui.ts` (`primary`, `secondary`, `quiet`, `card`), used by Review.
+- **Tests:** `web/test/theme.test.mjs` (stored value parsing, system vs choice).
+
+## CP6.24 — done
+
+494 backend tests green (5 new), 22 web (1 new); typecheck, build and demo build green. Checked in Chromium at 390 px against
+the API: the user's savings file uploaded through `#/upload` into a new Savings account (40 new, then 0 new on the same file;
+October income = 34.01 interest), light and dark; no console errors.
+
+- **What:** the user's anonymized ING savings export (`economii_Tranzactii_08-11-2026…`) was not recognised. Its
+  header is `Data,,,Detalii tranzactie,,Debit,Credit`: Debit and Credit one column later than the current account's
+  and no running balance, and the parser matched the current account's header exactly.
+- **`IngRoCsvParser`:** the columns are found by name in each page's header (`Layout`: Debit, Credit, optional
+  Balanta), so both layouts parse; the savings rows have no `Balanta` in their payload. The current account's golden
+  and real-sample tests are unchanged. Checked locally on the user's file (not committed): detected at 1.0, 40 rows,
+  debit 5513200, credit 3364471, 2026-08-09 – 2026-11-04, equal to totals computed separately from the CSV.
+- **V22:** keyword `ACTUALIZARE DOBANDA` → Income (the savings account's monthly interest).
+- **Anonymizer (Java and browser, byte-identical):** the bank officers who sign each page (the line above
+  "Şef Serviciu …") were left in the user's file, real people's names. Every name-like cell of a signature line is now
+  replaced like a payer or payee. The ING parity fixture gained a signature block and its expected output was
+  regenerated with the Java tool; the report and `docs/anonymize.md` say so. **Before the user's savings file can be a
+  real golden sample** it has to be anonymized again from the raw export with this version (ideally with the same
+  seed as the current account's, so the IBANs match).
+- **Golden file** `samples/synthetic/ing-ro-economii-2026.csv` (fabricated, the savings layout): 8 rows, debit 1750000,
+  credit 1009576, 2026-09-07 – 2026-11-04 (README).
+- **Tests:** `IngRoSavingsTest` (4): detection, rows and sums, entries with their details (interest Principal and tax,
+  the ING bonus with blank and Mesaj lines), both layouts from their headers. `IngSavingsImportTest`: through the
+  upload into a Savings account, interest is Income, and October's moves pair with the current account's side
+  (income = interest only, spending 0). Web: the officers are replaced, their titles and the bank kept; the detected
+  count on the ING fixture is 5 (3 payers and payees, 2 officers).
+
+## CP6.23 — done
+
+489 backend tests green (6 new), 21 web; typecheck, build and demo build green. Checked in Chromium at 390 px against the
+API (an IOU to Ana added through the form and linked to the 100.00 sent to her, which became Restaurants; Dan's taxi
+suggested from his 45.00; Review says "you owe RON 45.00"), light and dark; no console errors.
+
+- **What:** the third step of shared expenses, which the user asked for: someone paid for something shared and the
+  user owes them a share.
+- **V21 `iou`** (person, what, date, currency, the user's share, an optional category) **and `iou_payment`** (the money
+  out that paid it, or none for "paid outside the bank"; one payment can cover several IOUs).
+- **Figures:** an IOU counts nowhere: no money of the user's moved. The money out that pays it back is the user's
+  spending, and linking gives it the IOU's category as the user's decision (`category_source = 'USER'`), so 100.00
+  sent to Ana counts as Restaurants rather than uncategorized money to a person. A category the user already set by
+  hand is kept; the first linked IOU with a category decides; undoing a payment leaves the category (change it on
+  the transaction). The derived stages rerun after a link.
+- **`IouService`:** creditors per person and currency, who the user owes most first; suggestions as for repayments
+  (CP6.22) with signs reversed: money out matching what is open or naming the person, 7 days before to 120 after.
+  Pay (partial, outside the bank), undo, forget an unpaid IOU (409 once something was paid).
+- **API:** `GET/POST /api/ious`, `DELETE /api/ious/{id}`, `POST /api/ious/payments`, `DELETE /api/ious/payments/{id}`.
+- **Web:** the Splits page has "People owe you" and "You owe": "Add what you owe" (who, for what, when, your share,
+  currency when there is more than one, what it was), creditors with suggestions to link, "Paid outside the bank",
+  "Forget it", payments with "Undo". The Review link says "people owe you …, you owe …".
+- **Tests** (`IouTest`, 6): an IOU counts nowhere; suggestions; a linked payment takes the IOU's category and moves
+  its money there (spending unchanged in total); a category set by hand is kept; outside the bank, partial, undo,
+  refusals, forget; validation.
 
 ## CP6.22 — done
 

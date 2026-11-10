@@ -230,12 +230,30 @@ function Summary({ summary, onRenamed }: { summary: ImportSummary; onRenamed: ()
           <span className="font-medium text-bad">{f.fileName}</span> <span className="text-ink-2">was not imported: {f.message}</span>
         </p>
       ))}
-      {imported && (
-        <Link to="/" className="block rounded-lg bg-bar px-4 py-2.5 text-center font-medium text-white">
-          See where your money went
-        </Link>
-      )}
+      {imported && <NextStep summary={summary} />}
     </section>
+  )
+}
+
+/** After an import: answering the open questions first makes the numbers right (CP7.2), then the overview. */
+function NextStep({ summary }: { summary: ImportSummary }) {
+  const inbox = useApi(`after-import:${summary.newTransactions}:${summary.files.length}`, () => api.GET('/api/review'))
+  const questions = inbox.kind === 'ok' ? inbox.data.count : 0
+  const button = 'block rounded-lg px-4 py-2.5 text-center font-medium'
+  return questions > 0 ? (
+    <div className="space-y-2">
+      <Link to="/review" className={`${button} bg-bar text-white`}>
+        Answer {questions} {questions === 1 ? 'question' : 'questions'}
+      </Link>
+      <p className="text-center text-xs text-muted">One at a time, most money first: a few answers fix most of the picture.</p>
+      <Link to="/" className={`${button} text-ink ring-1 ring-hairline`}>
+        See where your money went
+      </Link>
+    </div>
+  ) : (
+    <Link to="/" className={`${button} bg-bar text-white`}>
+      See where your money went
+    </Link>
   )
 }
 

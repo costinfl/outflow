@@ -55,7 +55,36 @@ public record ReviewCard(
         @Schema(description = "Transfer tie: the transaction and the transfers it could be") TransferTie transferTie,
         @Schema(description = "Subscription: its lowest charge (positive minor units); below the highest one, it can be split")
         Long lowestMinor,
-        @Schema(description = "Subscription: its highest charge (positive minor units)") Long highestMinor) {
+        @Schema(description = "Subscription: its highest charge (positive minor units)") Long highestMinor,
+        @Schema(description = "Uncategorized merchant: a category suggested from the user's answers for similar names")
+        Long suggestedCategoryId,
+        String suggestedCategoryName,
+        @Schema(description = "The merchants the suggestion comes from (up to two)") List<String> suggestedBecause) {
+
+    /** A card without a suggestion (every kind but some uncategorized merchants, CP7.3). */
+    public ReviewCard(String key, Kind kind, long affectedMinor, String currency, long merchantId, String name,
+            Long subscriptionId, Cadence cadence, Long expectedAmountMinor, AmountKind amountKind, LocalDate since,
+            Integer occurrences, BigDecimal confidence, LocalDate nextExpectedDate, Integer transactionCount,
+            Long duplicateId, LocalDate pendingDate, Long pendingAmountMinor, LocalDate postedDate, Long postedAmountMinor,
+            Long alertId, Long previousAmountMinor, Long newAmountMinor, LocalDate dueDate, Integer sentCount,
+            Long sentMinor, Integer receivedCount, Long receivedMinor, LocalDate firstDate, Direction direction,
+            Long categoryId, String categoryName, TransferTie transferTie, Long lowestMinor, Long highestMinor) {
+        this(key, kind, affectedMinor, currency, merchantId, name, subscriptionId, cadence, expectedAmountMinor, amountKind,
+                since, occurrences, confidence, nextExpectedDate, transactionCount, duplicateId, pendingDate,
+                pendingAmountMinor, postedDate, postedAmountMinor, alertId, previousAmountMinor, newAmountMinor, dueDate,
+                sentCount, sentMinor, receivedCount, receivedMinor, firstDate, direction, categoryId, categoryName,
+                transferTie, lowestMinor, highestMinor, null, null, null);
+    }
+
+    /** The same card, with the category to offer first. */
+    public ReviewCard withSuggestion(long categoryId, String categoryName, List<String> because) {
+        return new ReviewCard(key, kind, affectedMinor, currency, merchantId, name, subscriptionId, cadence,
+                expectedAmountMinor, amountKind, since, occurrences, confidence, nextExpectedDate, transactionCount,
+                duplicateId, pendingDate, pendingAmountMinor, postedDate, postedAmountMinor, alertId, previousAmountMinor,
+                newAmountMinor, dueDate, sentCount, sentMinor, receivedCount, receivedMinor, firstDate, direction,
+                this.categoryId, this.categoryName, transferTie, lowestMinor, highestMinor, categoryId, categoryName,
+                List.copyOf(because));
+    }
 
     /**
      * TRANSFER_TIE: "Which transfer is this?" Money out of (or into) one own account matches the same amount in more
@@ -94,5 +123,32 @@ public record ReviewCard(
                     description = "Subscription suggestions with confidence between 0.45 and 0.65")
             List<ReviewCard> possible,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Number of cards, for the home badge")
-            int count) {}
+            int count,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "Category ids, the most used first: the order of the one-tap answers")
+            List<Long> categoryOrder,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "Share of all spending in the main currency that has a category, 0-100")
+            int categorizedPct,
+            @Schema(description = "Small merchants that can be answered together; absent when there are too few")
+            Sweep sweep) {}
+
+    /**
+     * "Sweep the small ones" (CP7.4): uncategorized merchants the user only paid, each under 50 units of the main
+     * currency, smallest first, together at most 5% of all spending. People are never in it.
+     */
+    public record Sweep(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<Long> merchantIds,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String currency,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Together, positive minor units") long totalMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Of all spending, 0-100") int sharePct,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Each under this, positive minor units")
+            long eachUnderMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Largest first") List<SweepMerchant> merchants) {}
+
+    public record SweepMerchant(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long merchantId,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long sentMinor,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int count) {}
 }

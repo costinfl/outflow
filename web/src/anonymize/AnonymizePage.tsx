@@ -154,8 +154,8 @@ function Report({ r, onDownload }: { r: AnonymizeResult; onDownload: () => void 
         <div className="rounded-2xl bg-surface p-4 ring-1 ring-hairline">
           <h2 className="font-medium text-ink">Payers and payees</h2>
           <p className="mt-1 text-sm text-ink-2">
-            {r.detectedNames} {r.detectedNames === 1 ? 'person' : 'people'} found in Beneficiar / Ordonator fields and
-            replaced everywhere in the file.
+            {r.detectedNames} {r.detectedNames === 1 ? 'person' : 'people'} found in Beneficiar / Ordonator fields and the
+            bank's signature blocks, replaced everywhere in the file.
           </p>
           {r.keptCounterparties.length > 0 && (
             <>

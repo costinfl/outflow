@@ -9,6 +9,7 @@ example `RO49AAAA1B31007593840000`. Real anonymized exports go in `samples/` (on
 | `generic-2026-02-to-04.csv` | `generic-csv-v1` | 63 | 953449 | 2026-02-01 – 2026-04-26 |
 | `ing-ro-2026-q1.csv` | `ing-ro-csv-v1` | 193 | debit 2335532, credit 2553247 | 2026-01-02 – 2026-03-31 |
 | `ro-style-2026-02.csv` | `ro-style-csv-v1` (test profile) | 21 | 306308 (debit 543692, credit 850000) | 2026-02-01 – 2026-02-26 |
+| `ing-ro-economii-2026.csv` | `ing-ro-csv-v1` (savings layout) | 8 | debit 1750000, credit 1009576 | 2026-09-07 – 2026-11-04 |
 | `camt053-2026-03.xml` | `camt053-v1` | 8 (of 9 entries; 1 INFO skipped, 1 pending) | 494791 (debit 305209, credit 800000) | 2026-03-02 – 2026-03-14 |
 
 Both generic files come from one Jan–Apr history, so Feb–Mar rows are identical in both (overlap tests, CP1.3).
@@ -30,6 +31,12 @@ credit 8000.00, net 4947.91.
 `ing-ro-2026-q1.csv` is fabricated data in the exact layout of an ING Bank Romania Home'Bank export: multi-line
 records, page chrome (also inside a record), a wrapped detail line, a monthly standing order that reuses one reference,
 Round Ups to a savings account, a refund and a cash withdrawal. Balances are consistent on every line.
+
+`ing-ro-economii-2026.csv` is fabricated data in the layout of an ING savings account export ("cont de economii"):
+`Data,,,Detalii tranzactie,,Debit,Credit` (Debit and Credit one column later than the current account's, no running
+balance), monthly interest ("Actualizare dobanda" with its Principal and tax lines), transfers to and from the current
+account, an ING bonus with blank and "Mesaj" lines, and the page chrome inside the list. Totals computed by a separate
+Python script from the CSV.
 
 ## Real ING export
 

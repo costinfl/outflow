@@ -127,6 +127,8 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
         key: 'merchant:8:RON', kind: 'UNCATEGORIZED_MERCHANT', affectedMinor: 4000, currency: 'RON', merchantId: 8,
         name: 'Zz Widgets', transactionCount: 1, sentCount: 1, sentMinor: 4000, receivedCount: 0, receivedMinor: 0,
         firstDate: '2026-03-11',
+        // A suggestion from the user's earlier answers (CP7.3), illustrative in the demo.
+        suggestedCategoryId: 11, suggestedCategoryName: 'Shopping', suggestedBecause: ['Emag'],
       },
       {
         key: 'merchant:11:RON', kind: 'UNCATEGORIZED_MERCHANT', affectedMinor: 3000, currency: 'RON', merchantId: 11,
@@ -142,6 +144,9 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
       },
     ],
     count: 7,
+    // Most used first, as the ledger has them: groceries, restaurants, transport, fuel, …
+    categoryOrder: [1, 2, 3, 4, 5, 10, 11, 15, 16, 6, 7, 8, 9, 12, 13, 14, 17, 18, 19],
+    categorizedPct: 94,
   },
   // A calendar file, not JSON: the demo never offers the download (no server), so there is nothing to answer.
   '/api/subscriptions/reminders.ics': () => {
@@ -151,6 +156,7 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
   // Nothing in the demo is split (its figures are hand-computed); splitting needs the real app.
   '/api/splits': { splits: [], people: [] },
   '/api/splits/balances': { people: [] },
+  '/api/ious': { people: [] },
   '/api/transactions/{id}/split': () => {
     throw new Error('Demo mode: nothing is split')
   },

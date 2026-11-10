@@ -60,6 +60,16 @@ test('people in Beneficiar / Ordonator fields are replaced everywhere; organisat
   for (const person of ['Andrei Fictiv', 'FICTIV ANDREI', 'Maria-Elena Exemplu', 'Ion Testescu', '4323', '2625']) {
     assert.ok(!r.text.includes(person), `still contains ${person}`)
   }
-  assert.equal(r.detectedNames, 3)
+  assert.equal(r.detectedNames, 5) // 3 payers and payees, 2 officers signing the page
   assert.deepEqual(r.keptCounterparties, ['DIGI ROMANIA SA', 'EXEMPLU SOFTWARE S.R.L.', 'Revolut'])
+})
+
+test('the bank officers signing each page are replaced; their titles and the bank are kept', async () => {
+  const r = await anonymize(bytes('raw-ing-utf8.csv'), { seed: 'parity', names })
+  for (const person of ['Elena Vasilescu', 'Mihai Georgescu']) {
+    assert.ok(!r.text.includes(person), `still contains ${person}`)
+  }
+  assert.ok(r.text.includes(',PERSON_7,,,,PERSON_8,,'))
+  assert.ok(r.text.includes('Şef Serviciu Dezvoltare Produse'))
+  assert.ok(r.text.includes('ING Bank N.V. Amsterdam'))
 })

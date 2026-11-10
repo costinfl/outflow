@@ -3,13 +3,15 @@ import { Link } from 'react-router'
 import { api, isDemo } from '../api/client'
 import type { SplitBalance, SplitDebt } from '../api/types'
 import { formatDay, formatMoney } from '../lib/format'
+import { YouOwe } from './YouOwe'
 import { useApi } from '../lib/useApi'
 
-type Settle = (label: string, call: () => Promise<{ response: Response }>) => Promise<void>
+export type Settle = (label: string, call: () => Promise<{ response: Response }>) => Promise<void>
 
 /**
  * "Splits to settle" (CP6.22): who owes you what for shared expenses. Link the money they send back to what they owe;
- * that money is then neither income nor a refund, since only your share of the expense ever counted.
+ * that money is then neither income nor a refund, since only your share of the expense ever counted. Below, what you
+ * owe people who paid for you (CP6.23, "they paid, I owe").
  */
 export function SplitsPage() {
   const [version, setVersion] = useState(0)
@@ -36,8 +38,14 @@ export function SplitsPage() {
   const owing = people.filter((p) => p.openMinor > 0)
   return (
     <div className="space-y-4">
+      <h1 className="text-xl font-semibold text-ink">Splits to settle</h1>
+      {status && (
+        <p role="status" className="text-sm text-ink-2">
+          {status}
+        </p>
+      )}
       <div>
-        <h1 className="text-xl font-semibold text-ink">Splits to settle</h1>
+        <h2 className="font-medium text-ink">People owe you</h2>
         <p className="mt-1 text-sm text-ink-2">
           {people.length === 0
             ? 'Nothing is split yet. Open a payment in Transactions and choose “Split this expense”.'
@@ -46,11 +54,6 @@ export function SplitsPage() {
               : 'What people owe you for shared expenses. Link the money they send back: it is then neither income nor a refund.'}
         </p>
       </div>
-      {status && (
-        <p role="status" className="text-sm text-ink-2">
-          {status}
-        </p>
-      )}
       {people.map((p) => (
         <PersonCard key={`${p.name}|${p.currency}`} person={p} act={act} />
       ))}
@@ -59,6 +62,7 @@ export function SplitsPage() {
           Go to transactions
         </Link>
       )}
+      <YouOwe version={version} act={act} />
     </div>
   )
 }

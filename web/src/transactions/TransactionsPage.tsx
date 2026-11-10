@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, Navigate, useSearchParams } from 'react-router'
 import { api, isDemo } from '../api/client'
 import type { Account, Category, TransactionList, TransactionView } from '../api/types'
 import { parseAccounts, parseCurrency } from '../lib/accounts'
@@ -14,6 +14,12 @@ type Scope = 'SPEND' | 'INCOME' | 'ALL'
  * that can be removed; the total always equals the rows listed.
  */
 export function TransactionsPage() {
+  const [params] = useSearchParams()
+  // Opened from the menu, without a month: nothing is asked of the API until there is one.
+  return /^\d{4}-\d{2}$/.test(params.get('month') ?? '') ? <MonthTransactions /> : <LatestMonth />
+}
+
+function MonthTransactions() {
   const [params, setParams] = useSearchParams()
   const month = params.get('month') ?? ''
   const months = params.get('months') === '3' ? 3 : 1
@@ -52,13 +58,6 @@ export function TransactionsPage() {
     }),
   )
 
-  if (!/^\d{4}-\d{2}$/.test(month)) {
-    return (
-      <p className="text-ink-2">
-        Pick a number on the <Link to="/" className="text-bar underline">home screen</Link> to see its transactions.
-      </p>
-    )
-  }
 
   const categoryList = categories.kind === 'ok' ? categories.data : []
   const categoryName = (id: number | null | undefined) => categoryList.find((c) => c.id === id)?.name
@@ -369,5 +368,19 @@ function Recurring({ t, onChanged }: { t: TransactionView; onChanged: () => void
       </div>
       {status && <p className="text-xs text-ink-2">{status}</p>}
     </div>
+  )
+}
+
+/** Opened from the menu, without a month: go to the latest month that has transactions. */
+function LatestMonth() {
+  const latest = useApi('latest-month', () => api.GET('/api/insights/month'))
+  if (latest.kind === 'loading') return <p className="py-12 text-center text-muted">Loading…</p>
+  if (latest.kind === 'ok' && latest.data.availableMonths.length > 0) {
+    return <Navigate to={`/transactions?month=${latest.data.month}`} replace />
+  }
+  return (
+    <p className="text-ink-2">
+      No transactions yet. <Link to="/upload" className="text-bar underline">Upload a statement</Link> to see them here.
+    </p>
   )
 }

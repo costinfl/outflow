@@ -7,6 +7,7 @@ import dev.costinfl.outflow.recurring.AlertService;
 import dev.costinfl.outflow.recurring.ReminderService;
 import dev.costinfl.outflow.txn.SoftMatchService;
 import dev.costinfl.outflow.txn.TransferService;
+import java.util.List;
 import java.util.NoSuchElementException;
 import org.springframework.transaction.annotation.Transactional;
 import dev.costinfl.outflow.recurring.SubscriptionService;
@@ -37,6 +38,17 @@ public class ReviewController {
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Long categoryId,
             @Schema(description = "Only money sent (OUT) or only money received (IN); absent for both")
             CategoryRule.Direction direction) {}
+
+    /** "Sweep the small ones" (CP7.4): one category for many merchants, for money sent. */
+    public record SweepAnswer(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The merchants, from the inbox's sweep")
+            List<Long> merchantIds,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Long categoryId) {}
+
+    public record SweepResult(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int merchants,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Transactions whose category changed")
+            int changed) {}
 
     public record Duplicate(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "true: the same payment, pending then posted")
@@ -175,5 +187,42 @@ public class ReviewController {
         int changed = categories.setMerchantCategory(merchantId, body.categoryId(), body.direction());
         subscriptions.refreshNow(); // a merchant marked as transfer or cash is no longer a subscription candidate
         return new MerchantCategoryResult(changed);
+    }
+
+    /**
+     * "Sweep the small ones" (CP7.4): the same category for many merchants' money sent, as if each was answered on its
+     * own card. Transactions the user categorized by hand keep their category. Undone by {@link #undoSweep}.
+     */
+    @PostMapping(path = "/merchants/sweep", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public SweepResult sweep(@RequestBody SweepAnswer body) {
+        List<Long> ids = checkSweep(body);
+        int changed = categories.setMerchantsCategory(ids, body.categoryId(), CategoryRule.Direction.OUT);
+        subscriptions.refreshNow();
+        return new SweepResult(ids.size(), changed);
+    }
+
+    /** Takes a sweep back: exactly those merchants' rules for that category; their money is uncategorized again. */
+    @PostMapping(path = "/merchants/sweep/undo", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public SweepResult undoSweep(@RequestBody SweepAnswer body) {
+        List<Long> ids = checkSweep(body);
+        int changed = categories.removeMerchantsCategory(ids, body.categoryId(), CategoryRule.Direction.OUT);
+        subscriptions.refreshNow();
+        return new SweepResult(ids.size(), changed);
+    }
+
+    private List<Long> checkSweep(SweepAnswer body) {
+        List<Long> ids = body.merchantIds() == null ? List.of() : body.merchantIds().stream().distinct().toList();
+        if (ids.isEmpty() || ids.size() > 1000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "1 to 1000 merchants");
+        }
+        if (body.categoryId() == null || !categories.exists(body.categoryId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown category");
+        }
+        long known = jdbc.queryForObject("SELECT count(*) FROM merchant WHERE id = ANY (?)", Long.class,
+                (Object) ids.toArray(Long[]::new));
+        if (known != ids.size()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown merchant");
+        }
+        return ids;
     }
 }

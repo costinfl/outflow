@@ -5,7 +5,8 @@ import java.util.Set;
 /** Step 3c: drop words that describe the payment, not the payee: month names, "LUNA", "FACTURA", "ABONAMENT", … */
 public final class FillerWords implements MerchantStep {
 
-    static final Set<String> FILLER = Set.of(
+    /** Also used by review suggestions (CP7.3): these words never tell one payee from another. */
+    public static final Set<String> FILLER = Set.of(
             "IANUARIE", "FEBRUARIE", "MARTIE", "APRILIE", "MAI", "IUNIE", "IULIE", "AUGUST", "SEPTEMBRIE",
             "OCTOMBRIE", "NOIEMBRIE", "DECEMBRIE",
             "JANUARY", "FEBRUARY", "MARCH", "APRIL", "JUNE", "JULY", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",

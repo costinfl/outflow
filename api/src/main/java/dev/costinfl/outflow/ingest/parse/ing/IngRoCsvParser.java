@@ -35,13 +35,18 @@ import java.util.regex.Pattern;
  * fourth column. Every page repeats a holder line, the column header and a signature block; long details wrap onto a
  * line without a key. The export names no IBAN for the account itself, so the user picks the account on upload.
  *
+ * <p>The columns are found by name in the header: the current account writes {@code Data,,,Detalii tranzactie,Debit,,
+ * Credit,Balanta}, the savings account ("cont de economii", CP6.24) {@code Data,,,Detalii tranzactie,,Debit,Credit},
+ * with no running balance.
+ *
  * <p>ING's "Referinta" is not unique per transaction (a standing order reuses it every month), so it is part of the
  * description, never the identity reference.
  */
 public final class IngRoCsvParser implements StatementParser {
 
     public static final String ID = "ing-ro-csv-v1";
-    static final List<String> HEADER = List.of("Data", "", "", "Detalii tranzactie", "Debit", "", "Credit", "Balanta");
+    /** Where Debit, Credit and the running balance (-1 when the export has none) are, from the header. */
+    record Layout(int debit, int credit, int balance) {}
     static final Currency RON = Currency.getInstance("RON");
 
     private static final Pattern DATE_LINE = Pattern.compile("(\\d{1,2}) (\\p{L}+) (\\d{4})");
@@ -74,9 +79,9 @@ public final class IngRoCsvParser implements StatementParser {
         } catch (IOException | StatementParseException e) {
             return DetectionScore.none("not UTF-8 CSV"); // detection must never throw on foreign input
         }
-        boolean header = records.stream().anyMatch(r -> isHeader(r));
+        boolean header = records.stream().anyMatch(r -> layout(r).isPresent());
         if (!header) {
-            return DetectionScore.none("ING header (Data, Detalii tranzactie, Debit, Credit, Balanta) not found");
+            return DetectionScore.none("ING header (Data, Detalii tranzactie, Debit, Credit) not found");
         }
         boolean dated = records.stream().anyMatch(r -> !r.isEmpty() && parseDate(r.getFirst().strip()).isPresent());
         return dated ? new DetectionScore(1.0, "ING header and a dated transaction line")
@@ -88,17 +93,19 @@ public final class IngRoCsvParser implements StatementParser {
         List<List<String>> records = read(in);
         var rows = new ArrayList<ParsedRow>();
         Builder current = null;
-        boolean headerSeen = false;
+        Layout layout = null;
         for (int i = 0; i < records.size(); i++) {
             List<String> r = records.get(i);
             String first = cell(r, 0).strip();
             if (CsvReader.isBlank(r) || first.startsWith("Titular cont")) {
                 continue;
             }
-            if (isHeader(r)) {
-                headerSeen = true;
+            var header = layout(r);
+            if (header.isPresent()) {
+                layout = header.get();
                 continue;
             }
+            boolean headerSeen = layout != null;
             var date = parseDate(first);
             if (date.isPresent()) {
                 if (!headerSeen) {
@@ -107,8 +114,9 @@ public final class IngRoCsvParser implements StatementParser {
                 if (current != null) {
                     rows.add(current.build(rows.size() + 1));
                 }
-                current = new Builder(date.get(), first, cell(r, 3).strip(), cell(r, 4).strip(), cell(r, 6).strip(),
-                        cell(r, 7).strip());
+                current = new Builder(date.get(), first, cell(r, 3).strip(), cell(r, layout.debit()).strip(),
+                        cell(r, layout.credit()).strip(),
+                        layout.balance() < 0 ? null : cell(r, layout.balance()).strip());
                 continue;
             }
             if (first.isEmpty() && cell(r, 3).isBlank()) {
@@ -123,7 +131,7 @@ public final class IngRoCsvParser implements StatementParser {
             }
             throw new StatementParseException("Line " + (i + 1) + ": unexpected content for an ING export");
         }
-        if (!headerSeen) {
+        if (layout == null) {
             throw new StatementParseException("Not an ING Home'Bank export: column header not found");
         }
         if (current != null) {
@@ -141,8 +149,24 @@ public final class IngRoCsvParser implements StatementParser {
         }
     }
 
-    private static boolean isHeader(List<String> r) {
-        return r.size() >= HEADER.size() && r.subList(0, HEADER.size()).stream().map(String::strip).toList().equals(HEADER);
+    /** The header row ("Data", two empty cells, "Detalii tranzactie", then Debit and Credit somewhere after). */
+    static Optional<Layout> layout(List<String> r) {
+        if (!cell(r, 0).strip().equals("Data") || !cell(r, 3).strip().equals("Detalii tranzactie")
+                || !cell(r, 1).isBlank() || !cell(r, 2).isBlank()) {
+            return Optional.empty();
+        }
+        int debit = -1;
+        int credit = -1;
+        int balance = -1;
+        for (int i = 4; i < r.size(); i++) {
+            switch (r.get(i).strip()) {
+                case "Debit" -> debit = i;
+                case "Credit" -> credit = i;
+                case "Balanta" -> balance = i;
+                default -> { }
+            }
+        }
+        return debit > 0 && credit > 0 ? Optional.of(new Layout(debit, credit, balance)) : Optional.empty();
     }
 
     private static String cell(List<String> r, int i) {
@@ -183,7 +207,9 @@ public final class IngRoCsvParser implements StatementParser {
             payload.put("Detalii tranzactie", type);
             payload.put("Debit", debit);
             payload.put("Credit", credit);
-            payload.put("Balanta", balance);
+            if (balance != null) {
+                payload.put("Balanta", balance); // the savings export has no running balance
+            }
         }
 
         void detail(String line) {
