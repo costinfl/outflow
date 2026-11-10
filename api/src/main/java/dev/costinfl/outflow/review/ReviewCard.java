@@ -55,7 +55,36 @@ public record ReviewCard(
         @Schema(description = "Transfer tie: the transaction and the transfers it could be") TransferTie transferTie,
         @Schema(description = "Subscription: its lowest charge (positive minor units); below the highest one, it can be split")
         Long lowestMinor,
-        @Schema(description = "Subscription: its highest charge (positive minor units)") Long highestMinor) {
+        @Schema(description = "Subscription: its highest charge (positive minor units)") Long highestMinor,
+        @Schema(description = "Uncategorized merchant: a category suggested from the user's answers for similar names")
+        Long suggestedCategoryId,
+        String suggestedCategoryName,
+        @Schema(description = "The merchants the suggestion comes from (up to two)") List<String> suggestedBecause) {
+
+    /** A card without a suggestion (every kind but some uncategorized merchants, CP7.3). */
+    public ReviewCard(String key, Kind kind, long affectedMinor, String currency, long merchantId, String name,
+            Long subscriptionId, Cadence cadence, Long expectedAmountMinor, AmountKind amountKind, LocalDate since,
+            Integer occurrences, BigDecimal confidence, LocalDate nextExpectedDate, Integer transactionCount,
+            Long duplicateId, LocalDate pendingDate, Long pendingAmountMinor, LocalDate postedDate, Long postedAmountMinor,
+            Long alertId, Long previousAmountMinor, Long newAmountMinor, LocalDate dueDate, Integer sentCount,
+            Long sentMinor, Integer receivedCount, Long receivedMinor, LocalDate firstDate, Direction direction,
+            Long categoryId, String categoryName, TransferTie transferTie, Long lowestMinor, Long highestMinor) {
+        this(key, kind, affectedMinor, currency, merchantId, name, subscriptionId, cadence, expectedAmountMinor, amountKind,
+                since, occurrences, confidence, nextExpectedDate, transactionCount, duplicateId, pendingDate,
+                pendingAmountMinor, postedDate, postedAmountMinor, alertId, previousAmountMinor, newAmountMinor, dueDate,
+                sentCount, sentMinor, receivedCount, receivedMinor, firstDate, direction, categoryId, categoryName,
+                transferTie, lowestMinor, highestMinor, null, null, null);
+    }
+
+    /** The same card, with the category to offer first. */
+    public ReviewCard withSuggestion(long categoryId, String categoryName, List<String> because) {
+        return new ReviewCard(key, kind, affectedMinor, currency, merchantId, name, subscriptionId, cadence,
+                expectedAmountMinor, amountKind, since, occurrences, confidence, nextExpectedDate, transactionCount,
+                duplicateId, pendingDate, pendingAmountMinor, postedDate, postedAmountMinor, alertId, previousAmountMinor,
+                newAmountMinor, dueDate, sentCount, sentMinor, receivedCount, receivedMinor, firstDate, direction,
+                this.categoryId, this.categoryName, transferTie, lowestMinor, highestMinor, categoryId, categoryName,
+                List.copyOf(because));
+    }
 
     /**
      * TRANSFER_TIE: "Which transfer is this?" Money out of (or into) one own account matches the same amount in more

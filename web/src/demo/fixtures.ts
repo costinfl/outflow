@@ -127,6 +127,8 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
         key: 'merchant:8:RON', kind: 'UNCATEGORIZED_MERCHANT', affectedMinor: 4000, currency: 'RON', merchantId: 8,
         name: 'Zz Widgets', transactionCount: 1, sentCount: 1, sentMinor: 4000, receivedCount: 0, receivedMinor: 0,
         firstDate: '2026-03-11',
+        // A suggestion from the user's earlier answers (CP7.3), illustrative in the demo.
+        suggestedCategoryId: 11, suggestedCategoryName: 'Shopping', suggestedBecause: ['Emag'],
       },
       {
         key: 'merchant:11:RON', kind: 'UNCATEGORIZED_MERCHANT', affectedMinor: 3000, currency: 'RON', merchantId: 11,

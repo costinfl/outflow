@@ -5,10 +5,33 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP7.2** — review one question at a time, one-tap categories |
-| Plan in progress | Usability, four CPs: 7.1 theme and shell (done); 7.2 one question at a time, one-tap categories (done); 7.3 suggested category; 7.4 sweep the small merchants |
+| Last completed | **CP7.3** — suggested category from the user's own answers |
+| Plan in progress | Usability, four CPs: 7.1 theme and shell (done); 7.2 one question at a time, one-tap categories (done); 7.3 suggested category (done); 7.4 sweep the small merchants |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP7.3 — done
+
+504 backend tests green (7 new), 28 web; typecheck, build and demo build green. Checked in Chromium against the API
+with the real anonymized ING sample: answering "Bikaldi Bucuresti Ma" (Shopping) made the other Bikaldi shops offer
+"Suggested: Shopping" first ("Like Bikaldi Bucuresti Ma …"); Enter accepted it at 1280 px in dark; 390 px in light;
+no console errors.
+
+- **What:** the third usability step: a category suggested from the user's own answers for similar names, never
+  applied without the user.
+- **`review/CategorySuggester`** (pure): what the user decided (`category_source` USER, RULE, LEARNED; never KEYWORD,
+  MCC or SYSTEM), per direction, the most used merchants first. A merchant key's telling words: 4+ letters, no digits,
+  not filler (`FillerWords.FILLER`, now public), not common (in more than 10 merchant keys: cities, "ROMANIA").
+  Suggested when 2+ known merchants sharing a word agree and no other category has as many, or exactly one known
+  merchant shares the first word (the brand). One-way cards only; `PERSON_n` never.
+- **`ReviewCard`** gains `suggestedCategoryId`, `suggestedCategoryName`, `suggestedBecause` (up to 2 names); a
+  constructor with the old arguments and `withSuggestion` keep every other card as it was.
+- **Web:** the suggestion is the first, highlighted button ("Suggested: Shopping"), with "Like …, which you put in
+  Shopping" under the name; Enter accepts it in the one-at-a-time view (Enter on a focused button presses that button).
+  Demo: Zz Widgets suggests Shopping.
+- **Tests:** `CategorySuggesterTest` (5): agreement, a tie, the brand's first word, common words and filler, people and
+  the merchant itself. `ReviewSuggestionTest` (2): one answer suggests for the other shops of the chain and changes
+  nothing by itself, answering by the suggestion, a keyword's guess teaches nothing.
 
 ## CP7.2 — done
 

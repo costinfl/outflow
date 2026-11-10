@@ -1579,6 +1579,21 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "suggestedBecause" : {
+            "description" : "The merchants the suggestion comes from (up to two)",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "suggestedCategoryId" : {
+            "description" : "Uncategorized merchant: a category suggested from the user's answers for similar names",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "suggestedCategoryName" : {
+            "type" : "string"
+          },
           "transactionCount" : {
             "description" : "Uncategorized transactions of the merchant",
             "format" : "int32",

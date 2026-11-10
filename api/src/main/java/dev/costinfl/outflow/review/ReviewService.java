@@ -1,6 +1,7 @@
 package dev.costinfl.outflow.review;
 
 import dev.costinfl.outflow.category.CategoryRule.Direction;
+import dev.costinfl.outflow.merchant.normalize.FillerWords;
 import dev.costinfl.outflow.recurring.Cadence;
 import dev.costinfl.outflow.recurring.Candidate.AmountKind;
 import dev.costinfl.outflow.recurring.RecurrenceDetector;
@@ -70,19 +71,42 @@ public class ReviewService {
                 (confidence.compareTo(PROPOSE) >= 0 ? cards : possible).add(card);
             }
         });
+        // Suggestions for uncategorized merchants (CP7.3): from the user's own answers only (by hand, their rules and
+        // learned edits), per direction, the most used merchants first.
+        var suggester = new CategorySuggester(jdbc.queryForList("SELECT key FROM merchant", String.class),
+                FillerWords.FILLER);
+        var known = new HashMap<Boolean, List<CategorySuggester.Known>>();
+        jdbc.query("""
+                SELECT m.key, m.display_name, t.category_id, c.name, t.amount_minor < 0 AS out
+                FROM transaction t JOIN merchant m ON m.id = t.merchant_id JOIN category c ON c.id = t.category_id
+                WHERE t.category_source IN ('USER', 'RULE', 'LEARNED') AND t.superseded_by IS NULL
+                GROUP BY m.id, m.key, m.display_name, t.category_id, c.name, t.amount_minor < 0
+                ORDER BY count(*) DESC, m.id""", rs -> {
+            known.computeIfAbsent(rs.getBoolean(5), k -> new ArrayList<>()).add(new CategorySuggester.Known(
+                    rs.getString(1), rs.getString(2), rs.getLong(3), rs.getString(4)));
+        });
         jdbc.query("""
                 SELECT t.merchant_id, m.display_name, t.currency, count(*), sum(abs(t.amount_minor)),
                        count(*) FILTER (WHERE t.amount_minor < 0), coalesce(sum(-t.amount_minor) FILTER (WHERE t.amount_minor < 0), 0),
                        count(*) FILTER (WHERE t.amount_minor >= 0), coalesce(sum(t.amount_minor) FILTER (WHERE t.amount_minor >= 0), 0),
-                       min(t.booking_date)
+                       min(t.booking_date), m.key
                 FROM transaction t JOIN merchant m ON m.id = t.merchant_id
                 WHERE t.category_id IS NULL AND t.superseded_by IS NULL
-                GROUP BY t.merchant_id, m.display_name, t.currency""", rs -> {
+                GROUP BY t.merchant_id, m.display_name, t.currency, m.key""", rs -> {
             var card = new ReviewCard("merchant:" + rs.getLong(1) + ":" + rs.getString(3), Kind.UNCATEGORIZED_MERCHANT,
                     rs.getLong(5), rs.getString(3), rs.getLong(1), rs.getString(2),
                     null, null, null, null, null, null, null, null, rs.getInt(4), null, null, null, null, null,
                     null, null, null, null, rs.getInt(6), rs.getLong(7), rs.getInt(8), rs.getLong(9),
                     rs.getObject(10, LocalDate.class), null, null, null, null, null, null);
+            boolean sentOnly = rs.getInt(8) == 0;
+            boolean receivedOnly = rs.getInt(6) == 0;
+            if (sentOnly || receivedOnly) { // money both ways is mostly people: no suggestion
+                var suggestion = suggester.suggest(rs.getString(11), known.getOrDefault(sentOnly, List.of()));
+                if (suggestion.isPresent()) {
+                    card = card.withSuggestion(suggestion.get().categoryId(), suggestion.get().categoryName(),
+                            suggestion.get().because());
+                }
+            }
             if (!skipped.contains(card.key())) {
                 cards.add(card);
             }

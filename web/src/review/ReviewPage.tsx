@@ -781,13 +781,33 @@ function MerchantCard({
     setReceived(c)
     if (sent) apply(sent, c === 'same' ? sent : c, c === 'same')
   }
-  const choices = (direction: Direction, pick: (c: Category) => void, chosen: Category | 'same' | null) =>
-    orderCategories(categories, usage, direction).map((c) => ({
-      key: String(c.id),
-      label: c.name,
-      onPick: () => pick(c),
-      selected: chosen !== 'same' && chosen?.id === c.id,
-    }))
+  // A category suggested from the user's answers for similar names (CP7.3) comes first; only one-way cards get one.
+  const suggested = categories.find((c) => c.id === card.suggestedCategoryId)
+  const choices = (direction: Direction, pick: (c: Category) => void, chosen: Category | 'same' | null) => [
+    ...(suggested && !both
+      ? [{ key: 'suggested', label: `Suggested: ${suggested.name}`, onPick: () => pick(suggested), accent: true }]
+      : []),
+    ...orderCategories(categories, usage, direction)
+      .filter((c) => both || c.id !== suggested?.id)
+      .map((c) => ({
+        key: String(c.id),
+        label: c.name,
+        onPick: () => pick(c),
+        selected: chosen !== 'same' && chosen?.id === c.id,
+      })),
+  ]
+  useEffect(() => {
+    if (!hotkeys || !suggested || both) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return
+      if (e.target instanceof HTMLButtonElement) return // Enter on a focused button presses that button
+      e.preventDefault()
+      if (hasSent) pickSent(suggested)
+      else pickReceived(suggested)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
   const paidBackChoice =
     sent?.kind === 'SPEND'
       ? [{ key: 'same', label: `Paying me back (less ${sent.name})`, onPick: () => pickReceived('same'), selected: received === 'same', accent: true }]
@@ -800,6 +820,12 @@ function MerchantCard({
         <span className="font-medium">{card.name}</span>
         {card.firstDate && <span className="text-sm text-ink-2"> · since {formatSince(card.firstDate)}</span>}
       </p>
+      {suggested && !both && (card.suggestedBecause?.length ?? 0) > 0 && (
+        <p className="mt-1 text-xs text-accent-ink">
+          Like {card.suggestedBecause!.join(' and ')}, which you put in {suggested.name}.
+          {hotkeys && <span className="hidden text-muted [@media(pointer:fine)]:inline"> Enter accepts.</span>}
+        </p>
+      )}
       <dl className="mt-2 grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0.5 text-sm">
         {hasSent && (
           <>

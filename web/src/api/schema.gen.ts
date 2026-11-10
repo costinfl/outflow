@@ -1519,6 +1519,14 @@ export interface components {
             since?: string;
             /** Format: int64 */
             subscriptionId?: number;
+            /** @description The merchants the suggestion comes from (up to two) */
+            suggestedBecause?: string[];
+            /**
+             * Format: int64
+             * @description Uncategorized merchant: a category suggested from the user's answers for similar names
+             */
+            suggestedCategoryId?: number;
+            suggestedCategoryName?: string;
             /**
              * Format: int32
              * @description Uncategorized transactions of the merchant
