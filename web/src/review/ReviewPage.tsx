@@ -1,9 +1,11 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { api, isDemo } from '../api/client'
 import type { Category, Inbox, RecurringOverview, ReviewCard } from '../api/types'
 import { cadenceWord, decimalToMinor, formatDay, formatMoney, formatSince, minorToDecimal } from '../lib/format'
-import { primary, quiet, secondary } from '../lib/ui'
+import { START, answered, back, canGoBack, currentKey, orderCategories, skip, type QueueState } from '../lib/reviewQueue'
+import { card as cardClass, primary, quiet, secondary } from '../lib/ui'
+import { CategoryButtons, isTyping } from './CategoryButtons'
 import { useApi } from '../lib/useApi'
 
 type Cadence = NonNullable<ReviewCard['cadence']>
@@ -12,12 +14,19 @@ type Answer = (label: string, call: () => Promise<{ response: Response }>) => Pr
 
 /**
  * The review inbox (DESIGN: Review inbox): every decision the system needs, one card per merchant, most money first.
- * Every card is skippable (it returns after the next upload); swipe right accepts, left rejects or skips.
+ * By default one question at a time (CP7.2): the card on screen, how far along the user is, Skip and Back; "See all"
+ * shows the whole list (where Skip hides a card until the next upload). Swipe right accepts, left skips.
  */
 export function ReviewPage() {
   const [version, setVersion] = useState(0)
   const [status, setStatus] = useState<string | null>(null)
-  const inbox = useApi<Inbox>(`review:${version}`, () => api.GET('/api/review'))
+  const [view, setView] = useState<'focus' | 'list'>('focus')
+  const [queue, setQueue] = useState<QueueState>(START)
+  const [done, setDone] = useState(0) // answered in this visit
+  const loaded = useApi<Inbox>(`review:${version}`, () => api.GET('/api/review'))
+  // Keep the answered inbox on screen while the next one loads: no flash between questions.
+  const lastInbox = useRef<Inbox | null>(null)
+  if (loaded.kind === 'ok') lastInbox.current = loaded.data
   const categories = useApi<Category[]>('categories', () => api.GET('/api/categories'))
   const recurring = useApi<RecurringOverview>(`recurring:${version}`, () => api.GET('/api/subscriptions'))
   const splits = useApi(`balances:${version}`, () => api.GET('/api/splits/balances'))
@@ -32,26 +41,53 @@ export function ReviewPage() {
     for (const p of ious.data.people) if (p.openMinor > 0) owing.set(p.currency, (owing.get(p.currency) ?? 0) + p.openMinor)
   const sum = (m: Map<string, number>) => [...m].map(([currency, minor]) => formatMoney(minor, currency)).join(' + ')
 
-  const answer: Answer = async (label, call) => {
-    setStatus(`${label}…`)
-    const { response } = await call()
-    if (response.ok) {
-      setStatus(`${label}: done.`)
-      setVersion((v) => v + 1)
-    } else {
-      setStatus(isDemo ? 'Answering needs the real app: the demo has no server.' : `${label} failed (HTTP ${response.status}).`)
-    }
-  }
-  const skip = (card: ReviewCard) => answer('Skipped', () => api.POST('/api/review/skip', { body: { key: card.key } }))
+  const inbox = lastInbox.current
+  const keys = inbox ? inbox.cards.map((c) => c.key) : []
+  const current = currentKey(keys, queue)
 
-  if (inbox.kind === 'loading') return <p className="py-12 text-center text-muted">Loading…</p>
-  if (inbox.kind === 'error')
+  const answerFor =
+    (key: string): Answer =>
+    async (label, call) => {
+      setStatus(`${label}…`)
+      const { response } = await call()
+      if (response.ok) {
+        setStatus(`${label}: done.`)
+        setQueue((q) => answered(q, key))
+        setDone((n) => n + 1)
+        setVersion((v) => v + 1)
+      } else {
+        setStatus(isDemo ? 'Answering needs the real app: the demo has no server.' : `${label} failed (HTTP ${response.status}).`)
+      }
+    }
+  // The list's Skip hides a card until the next upload; the one-at-a-time Skip only moves it to the end of the line.
+  const hide = (card: ReviewCard) =>
+    answerFor(card.key)('Skipped until the next upload', () => api.POST('/api/review/skip', { body: { key: card.key } }))
+  const later = (card: ReviewCard) => setQueue((q) => skip(q, card.key))
+
+  useEffect(() => {
+    if (view !== 'focus' || !current) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return
+      if (e.key === 's' || e.key === 'S') {
+        e.preventDefault()
+        setQueue((q) => skip(q, current))
+      } else if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault()
+        setQueue((q) => back(keys, q))
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [view, current, keys.join('|')])
+
+  if (!inbox && loaded.kind === 'error')
     return (
       <p role="alert" className="py-12 text-center text-bad">
-        Could not load the review inbox ({inbox.message}).
+        Could not load the review inbox ({loaded.message}).
       </p>
     )
-  const { cards, possible } = inbox.data
+  if (!inbox) return <p className="py-12 text-center text-muted">Loading…</p>
+  const { cards, possible } = inbox
   const categoryList = categories.kind === 'ok' ? categories.data : []
   // "Same as…" targets for a proposal: the confirmed recurring payments and the other proposals.
   const payments: MergeTarget[] = [
@@ -65,64 +101,115 @@ export function ReviewPage() {
       .map((c) => ({ id: c.subscriptionId!, name: c.name, merchantId: c.merchantId, income: c.direction === 'IN' })),
   ]
 
-  const render = (card: ReviewCard) =>
-    card.kind === 'SUBSCRIPTION' ? (
+  const render = (card: ReviewCard, focus: boolean) => {
+    const answer = answerFor(card.key)
+    const skipIt = () => (focus ? later(card) : void hide(card))
+    return card.kind === 'SUBSCRIPTION' ? (
       <SubscriptionCard
         key={card.key}
         card={card}
         answer={answer}
-        skip={() => void skip(card)}
+        skip={skipIt}
         targets={payments.filter(
           (p) => p.id !== card.subscriptionId && p.merchantId !== card.merchantId && p.income === (card.direction === 'IN'),
         )}
       />
     ) : card.kind === 'POSSIBLE_DUPLICATE' ? (
-      <DuplicateCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
+      <DuplicateCard key={card.key} card={card} answer={answer} skip={skipIt} />
     ) : card.kind === 'TRANSFER_TIE' ? (
-      <TransferTieCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
+      <TransferTieCard key={card.key} card={card} answer={answer} skip={skipIt} />
     ) : card.kind === 'CONFIRM_CATEGORY' ? (
-      <ConfirmCategoryCard key={card.key} card={card} categories={categoryList} answer={answer} skip={() => void skip(card)} />
+      <ConfirmCategoryCard key={card.key} card={card} categories={categoryList} usage={inbox.categoryOrder} answer={answer} skip={skipIt} hotkeys={focus} />
     ) : card.kind === 'UPCOMING_CHARGE' ? (
-      <ReminderCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
+      <ReminderCard key={card.key} card={card} answer={answer} skip={skipIt} />
     ) : card.kind === 'PRICE_CHANGE' || card.kind === 'MISSED_CHARGE' ? (
-      <AlertCard key={card.key} card={card} answer={answer} skip={() => void skip(card)} />
+      <AlertCard key={card.key} card={card} answer={answer} skip={skipIt} />
     ) : (
-      <MerchantCard key={card.key} card={card} categories={categoryList} answer={answer} skip={() => void skip(card)} />
+      <MerchantCard key={card.key} card={card} categories={categoryList} usage={inbox.categoryOrder} answer={answer} skip={skipIt} hotkeys={focus} />
     )
+  }
+
+  const splitsLink = (owed.size > 0 || owing.size > 0) && (
+    <Link to="/splits" className="flex items-center justify-between rounded-2xl bg-surface px-4 py-3 text-sm shadow-card ring-1 ring-hairline">
+      <span className="text-ink">
+        Splits to settle: {[owed.size > 0 && `people owe you ${sum(owed)}`, owing.size > 0 && `you owe ${sum(owing)}`]
+          .filter(Boolean)
+          .join(', ')}
+      </span>
+      <span aria-hidden className="text-muted">
+        ›
+      </span>
+    </Link>
+  )
+  const progress = (
+    <div>
+      <div className="flex items-baseline justify-between text-sm">
+        <span className="text-ink-2">Spending with a category</span>
+        <span className="font-medium text-ink tabular-nums">{inbox.categorizedPct}%</span>
+      </div>
+      <div role="meter" aria-label="Spending with a category" aria-valuemin={0} aria-valuemax={100} aria-valuenow={inbox.categorizedPct} className="mt-1.5 h-2 rounded-full bg-bar-track">
+        <div className="h-2 rounded-full bg-bar transition-[width] duration-500" style={{ width: `${inbox.categorizedPct}%` }} />
+      </div>
+    </div>
+  )
+  const card = cards.find((c) => c.key === current)
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-ink">Review</h1>
-        <p className="mt-1 text-sm text-ink-2">
-          {cards.length === 0
-            ? 'Nothing needs your attention.'
-            : `${cards.length} ${cards.length === 1 ? 'question' : 'questions'}, most money first. A few answers fix most of the picture.`}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-ink">Review</h1>
+          <p className="mt-1 text-sm text-ink-2">
+            {cards.length === 0
+              ? 'Nothing needs your attention.'
+              : view === 'focus'
+                ? `${cards.length} left${done > 0 ? ` · ${done} answered` : ''}, most money first.`
+                : `${cards.length} ${cards.length === 1 ? 'question' : 'questions'}, most money first. A few answers fix most of the picture.`}
+          </p>
+        </div>
+        {cards.length > 0 && (
+          <button type="button" className={secondary} onClick={() => setView(view === 'focus' ? 'list' : 'focus')}>
+            {view === 'focus' ? 'See all' : 'One at a time'}
+          </button>
+        )}
       </div>
-      {(owed.size > 0 || owing.size > 0) && (
-        <Link to="/splits" className="flex items-center justify-between rounded-2xl bg-surface px-4 py-3 text-sm ring-1 ring-hairline">
-          <span className="text-ink">
-            Splits to settle: {[owed.size > 0 && `people owe you ${sum(owed)}`, owing.size > 0 && `you owe ${sum(owing)}`]
-              .filter(Boolean)
-              .join(', ')}
-          </span>
-          <span aria-hidden className="text-muted">
-            ›
-          </span>
-        </Link>
-      )}
+      {progress}
+      {splitsLink}
       <p aria-live="polite" className="min-h-5 text-sm text-ink-2">
         {status}
       </p>
-      {cards.length > 0 && <ul className="space-y-3">{cards.map(render)}</ul>}
+      {view === 'focus' && card && (
+        <>
+          <ul key={card.key} className="animate-[fadein_.2s_ease-out]">
+            {render(card, true)}
+          </ul>
+          <div className="flex items-center gap-2">
+            <button type="button" className={secondary} disabled={!canGoBack(keys, queue)} onClick={() => setQueue((q) => back(keys, q))}>
+              ‹ Back
+            </button>
+            <button type="button" className={secondary} onClick={() => later(card)}>
+              Skip for now
+            </button>
+            <span className="ml-auto hidden text-xs text-muted [@media(pointer:fine)]:inline">
+              <kbd>1</kbd>–<kbd>9</kbd> answer · <kbd>S</kbd> skip · <kbd>B</kbd> back
+            </span>
+          </div>
+        </>
+      )}
+      {view === 'focus' && cards.length === 0 && (
+        <div className={`${cardClass} text-center`}>
+          <p className="text-ink">All caught up.</p>
+          <p className="mt-1 text-sm text-ink-2">New questions come with your next upload.</p>
+        </div>
+      )}
+      {view === 'list' && cards.length > 0 && <ul className="space-y-3">{cards.map((c) => render(c, false))}</ul>}
       {possible.length > 0 && (
-        <details className="rounded-2xl bg-surface p-4 ring-1 ring-hairline">
+        <details className="rounded-2xl bg-surface p-4 shadow-card ring-1 ring-hairline">
           <summary className="cursor-pointer text-sm font-medium text-ink-2">
             Possible recurring payments ({possible.length})
           </summary>
           <p className="mt-2 text-xs text-muted">Weaker patterns: fewer charges or less regular. Confirm the ones you recognise.</p>
-          <ul className="mt-3 space-y-3">{possible.map(render)}</ul>
+          <ul className="mt-3 space-y-3">{possible.map((c) => render(c, false))}</ul>
         </details>
       )}
       <Link to="/" className="inline-block text-sm text-bar underline">
@@ -432,16 +519,19 @@ function AlertCard({ card, answer, skip }: { card: ReviewCard; answer: Answer; s
 function ConfirmCategoryCard({
   card,
   categories,
+  usage,
   answer,
   skip,
+  hotkeys = false,
 }: {
   card: ReviewCard
   categories: Category[]
+  usage: number[]
   answer: Answer
   skip: () => void
+  hotkeys?: boolean
 }) {
   const [changing, setChanging] = useState(false)
-  const [choice, setChoice] = useState('')
   const count = card.transactionCount ?? 0
   const set = (categoryId: number, name: string) =>
     void answer(`${card.name} → ${name}`, () =>
@@ -451,11 +541,26 @@ function ConfirmCategoryCard({
       }),
     )
   const right = () => set(card.categoryId!, card.categoryName!)
-  const spend = categories.filter((c) => c.kind === 'SPEND' || c.kind === 'TRANSFER')
+  useEffect(() => {
+    if (!hotkeys || changing) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return
+      if (e.target instanceof HTMLButtonElement) return // Enter on a focused button presses that button
+      e.preventDefault()
+      right()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+  const spend = orderCategories(
+    categories.filter((c) => (c.kind === 'SPEND' || c.kind === 'TRANSFER') && c.id !== card.categoryId),
+    usage,
+    'OUT',
+  )
   return (
     <Swipeable onRight={right} onLeft={skip}>
       <p className="text-xs font-medium tracking-wide text-muted uppercase">Is this right?</p>
-      <p className="mt-1 text-ink">
+      <p className="mt-1 text-lg text-ink">
         <span className="font-medium">{card.name}</span> → <span className="font-medium">{card.categoryName}</span>
       </p>
       <p className="mt-1 text-xs text-muted">
@@ -463,35 +568,14 @@ function ConfirmCategoryCard({
         keyword. Your answer applies to all of them, past and future.
       </p>
       {changing ? (
-        <div className="mt-3 flex flex-wrap items-end gap-2">
-          <label className="min-w-40 flex-1 text-xs text-ink-2">
-            Category
-            <select
-              value={choice}
-              onChange={(e) => setChoice(e.target.value)}
-              aria-label={`Category for ${card.name}`}
-              className="mt-1 block w-full rounded-lg bg-page px-2 py-1.5 text-sm text-ink ring-1 ring-hairline"
-            >
-              <option value="">Choose a category</option>
-              {spend.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            className={primary}
-            disabled={choice === ''}
-            onClick={() => {
-              const c = spend.find((x) => x.id === Number(choice))
-              if (c) set(c.id, c.name)
-            }}
-          >
-            Apply
-          </button>
-          <button type="button" className={quiet} onClick={() => setChanging(false)}>
+        <div className="mt-3 space-y-2">
+          <p className="text-xs text-ink-2">It is</p>
+          <CategoryButtons
+            label={`Category for ${card.name}`}
+            choices={spend.map((c) => ({ key: String(c.id), label: c.name, onPick: () => set(c.id, c.name) }))}
+            hotkeys={hotkeys}
+          />
+          <button type="button" className="text-sm text-muted hover:underline" onClick={() => setChanging(false)}>
             Cancel
           </button>
         </div>
@@ -499,13 +583,16 @@ function ConfirmCategoryCard({
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button type="button" className={primary} onClick={right}>
             Right
+            {hotkeys && <kbd className="ml-1.5 hidden rounded bg-white/20 px-1 text-[10px] [@media(pointer:fine)]:inline">Enter</kbd>}
           </button>
           <button type="button" className={secondary} onClick={() => setChanging(true)}>
-            Change
+            No, it is…
           </button>
-          <button type="button" className={quiet} onClick={skip}>
-            Skip
-          </button>
+          {!hotkeys && (
+            <button type="button" className={quiet} onClick={skip}>
+              Skip
+            </button>
+          )}
         </div>
       )}
     </Swipeable>
@@ -639,28 +726,30 @@ type Direction = 'IN' | 'OUT'
 
 /**
  * An uncategorized merchant or person. Money sent and money received are answered separately (a person you pay rent
- * to may also pay you back, and that is not rent); a card with only one of them asks only about that one.
+ * to may also pay you back, and that is not rent); a card with only one of them asks only about that one. One tap on
+ * a category answers a one-way card (CP7.2); a two-way card takes one tap per direction.
  */
 function MerchantCard({
   card,
   categories,
+  usage,
   answer,
   skip,
+  hotkeys = false,
 }: {
   card: ReviewCard
   categories: Category[]
+  usage: number[]
   answer: Answer
   skip: () => void
+  hotkeys?: boolean
 }) {
-  const [sent, setSent] = useState('')
-  const [received, setReceived] = useState('') // a category id, or 'same': paid back, nets the sent category
+  const [sent, setSent] = useState<Category | null>(null)
+  const [received, setReceived] = useState<Category | 'same' | null>(null)
   const hasSent = (card.sentCount ?? 0) > 0
   const hasReceived = (card.receivedCount ?? 0) > 0
   const both = hasSent && hasReceived
   const money = (minor: number | undefined) => formatMoney(minor ?? 0, card.currency)
-  const byId = (id: string) => categories.find((c) => c.id === Number(id))
-  const sentCategory = byId(sent)
-  const receivedCategory = received === 'same' ? sentCategory : byId(received)
   const transfer = categories.find((c) => c.kind === 'TRANSFER')
 
   const post = (categoryId: number, direction?: Direction) =>
@@ -668,8 +757,8 @@ function MerchantCard({
       params: { path: { merchantId: card.merchantId } },
       body: { categoryId, ...(direction ? { direction } : {}) },
     })
-  const apply = (out: Category | undefined, into: Category | undefined) => {
-    const paidBack = received === 'same' && into !== undefined && into.kind === 'SPEND'
+  /** `paidBack`: the money received pays the sent money back, so it nets the sent category. */
+  const apply = (out: Category | undefined, into: Category | undefined, paidBack = false) => {
     const parts = [out && `sent → ${out.name}`, into && (paidBack ? 'received → paying me back' : `received → ${into.name}`)]
       .filter(Boolean)
     if (parts.length === 0) return
@@ -682,33 +771,34 @@ function MerchantCard({
       return post(into!.id, 'IN')
     })
   }
-
-  const picker = (label: string, value: string, onChange: (v: string) => void, extra?: ReactNode) => (
-    <label className="block text-xs text-ink-2">
-      {label}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={`${label} (${card.name})`}
-        className="mt-1 block w-full rounded-lg bg-page px-2 py-1.5 text-sm text-ink ring-1 ring-hairline"
-      >
-        <option value="">Choose a category</option>
-        {extra}
-        {categories.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
-    </label>
-  )
+  const pickSent = (c: Category) => {
+    if (!both) return apply(c, undefined)
+    setSent(c)
+    if (received) apply(c, received === 'same' ? c : received, received === 'same')
+  }
+  const pickReceived = (c: Category | 'same') => {
+    if (!both) return c === 'same' ? undefined : apply(undefined, c)
+    setReceived(c)
+    if (sent) apply(sent, c === 'same' ? sent : c, c === 'same')
+  }
+  const choices = (direction: Direction, pick: (c: Category) => void, chosen: Category | 'same' | null) =>
+    orderCategories(categories, usage, direction).map((c) => ({
+      key: String(c.id),
+      label: c.name,
+      onPick: () => pick(c),
+      selected: chosen !== 'same' && chosen?.id === c.id,
+    }))
+  const paidBackChoice =
+    sent?.kind === 'SPEND'
+      ? [{ key: 'same', label: `Paying me back (less ${sent.name})`, onPick: () => pickReceived('same'), selected: received === 'same', accent: true }]
+      : []
 
   return (
     <Swipeable onLeft={skip}>
       <p className="text-xs font-medium tracking-wide text-muted uppercase">{both ? 'Money both ways' : 'Uncategorized'}</p>
-      <p className="mt-1 text-ink">
+      <p className="mt-1 text-lg text-ink">
         <span className="font-medium">{card.name}</span>
-        {card.firstDate && <span className="text-ink-2"> · since {formatSince(card.firstDate)}</span>}
+        {card.firstDate && <span className="text-sm text-ink-2"> · since {formatSince(card.firstDate)}</span>}
       </p>
       <dl className="mt-2 grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0.5 text-sm">
         {hasSent && (
@@ -730,18 +820,24 @@ function MerchantCard({
           </>
         )}
       </dl>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        {hasSent && picker('Money sent is', sent, setSent)}
-        {hasReceived &&
-          picker(
-            'Money received is',
-            received,
-            setReceived,
-            sentCategory?.kind === 'SPEND' && <option value="same">Paying me back: less {sentCategory.name}</option>,
-          )}
-      </div>
+      {hasSent && (
+        <div className="mt-3">
+          {both && <p className="mb-1.5 text-xs text-ink-2">Money sent is</p>}
+          <CategoryButtons label={`Money sent to ${card.name} is`} choices={choices('OUT', pickSent, sent)} hotkeys={hotkeys && !sent} />
+        </div>
+      )}
+      {hasReceived && (
+        <div className="mt-3">
+          {both && <p className="mb-1.5 text-xs text-ink-2">Money received is</p>}
+          <CategoryButtons
+            label={`Money received from ${card.name} is`}
+            choices={[...paidBackChoice, ...choices('IN', pickReceived, received)]}
+            hotkeys={hotkeys && (!hasSent || !!sent)}
+          />
+        </div>
+      )}
       {both && transfer && (
-        <p className="mt-2 text-xs text-ink-2">
+        <p className="mt-3 text-xs text-ink-2">
           Moving your own money, or the household&apos;s?{' '}
           <button type="button" className="text-bar underline" onClick={() => apply(transfer, transfer)}>
             Both ways are a transfer
@@ -749,19 +845,13 @@ function MerchantCard({
           (neither spending nor income).
         </p>
       )}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={primary}
-          disabled={!(hasSent && sentCategory) && !(hasReceived && receivedCategory)}
-          onClick={() => apply(hasSent ? sentCategory : undefined, hasReceived ? receivedCategory : undefined)}
-        >
-          Apply
-        </button>
-        <button type="button" className={quiet} onClick={skip}>
-          Skip
-        </button>
-      </div>
+      {!hotkeys && (
+        <div className="mt-3 flex">
+          <button type="button" className={quiet} onClick={skip}>
+            Skip
+          </button>
+        </div>
+      )}
     </Swipeable>
   )
 }

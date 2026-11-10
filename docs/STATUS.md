@@ -5,10 +5,34 @@ _Resume entrypoint. Updated at every checkpoint._
 | | |
 | --- | --- |
 | Milestone | Plan complete (M0–M5 merged to `main`); post-plan work on real data |
-| Last completed | **CP7.1** — theme (Light / Dark / System) and the app shell |
-| Plan in progress | Usability, four CPs: 7.1 theme and shell (done); 7.2 review one question at a time, one-tap categories; 7.3 suggested category; 7.4 sweep the small merchants |
+| Last completed | **CP7.2** — review one question at a time, one-tap categories |
+| Plan in progress | Usability, four CPs: 7.1 theme and shell (done); 7.2 one question at a time, one-tap categories (done); 7.3 suggested category; 7.4 sweep the small merchants |
 | Next | See "What is left" below; the user picks |
 | Branch | `claude/outflow-project-setup-vbwx3f` (`main` + post-plan work) |
+
+## CP7.2 — done
+
+497 backend tests green (3 new), 28 web (4 new); typecheck, build and demo build green. Checked in Chromium against
+the API with the real anonymized ING sample (232 questions after the upload): at 390 px in light by tapping (a one-way
+card in one tap, a two-way card in two), at 1280 px in dark by keyboard (1 and Enter): spending with a category went
+from 23% to 70% in a few answers; Skip and Back move between cards; "See all" shows the list; no console errors.
+
+- **What:** the user's complaint (2026-11-09): classifying after an upload meant scrolling a long list of cards, each
+  with a dropdown and an Apply button.
+- **Review, one question at a time** (the default; "See all" shows the list as before): the card on screen,
+  "N left · M answered", a "Spending with a category" bar that moves with each answer, Back and "Skip for now" (to the
+  end of the line, this visit only; the list's Skip still hides a card until the next upload). The answered inbox
+  stays on screen while the next loads. Keys on desktop: 1-9 answer, Enter "Right", S skip, B back (hints show only
+  with a mouse or trackpad). `lib/reviewQueue.ts` holds the queue logic (pure, tested).
+- **One-tap categories** (`review/CategoryButtons.tsx`): uncategorized merchants and "No, it is…" on "Is this right?"
+  show category buttons, the most used first (8, then "More…"), the kinds that fit the direction first (spending and
+  transfers for money sent, income and transfers for money received). One tap answers a one-way card; a two-way card
+  takes one tap per direction ("Paying me back" stays, as does "Both ways are a transfer").
+- **Inbox** gains `categoryOrder` (category ids, most transactions first) and `categorizedPct` (share of all spending
+  in the main currency with a category, by `Scope.SPEND` and `Scope.MINE`).
+- **After an upload** the main button is "Answer N questions" when there are any, then "See where your money went".
+- **Tests:** `ReviewProgressTest` (3): category order, the share moving with an answer, none left with no spending.
+  Web `reviewQueue.test.mjs` (4): order, skip to the end, back, category order by direction.
 
 ## CP7.1 — done
 

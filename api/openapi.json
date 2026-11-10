@@ -686,6 +686,19 @@
             },
             "type" : "array"
           },
+          "categorizedPct" : {
+            "description" : "Share of all spending in the main currency that has a category, 0-100",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "categoryOrder" : {
+            "description" : "Category ids, the most used first: the order of the one-tap answers",
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
           "count" : {
             "description" : "Number of cards, for the home badge",
             "format" : "int32",
@@ -699,7 +712,7 @@
             "type" : "array"
           }
         },
-        "required" : [ "cards", "count", "possible" ],
+        "required" : [ "cards", "categorizedPct", "categoryOrder", "count", "possible" ],
         "type" : "object"
       },
       "Insight" : {

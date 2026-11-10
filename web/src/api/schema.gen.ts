@@ -993,6 +993,13 @@ export interface components {
             cards: components["schemas"]["ReviewCard"][];
             /**
              * Format: int32
+             * @description Share of all spending in the main currency that has a category, 0-100
+             */
+            categorizedPct: number;
+            /** @description Category ids, the most used first: the order of the one-tap answers */
+            categoryOrder: number[];
+            /**
+             * Format: int32
              * @description Number of cards, for the home badge
              */
             count: number;

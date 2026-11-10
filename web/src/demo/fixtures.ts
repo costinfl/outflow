@@ -142,6 +142,9 @@ export const fixtures: { [P in GetPath]: Fixture<GetResponse<P>> } = {
       },
     ],
     count: 7,
+    // Most used first, as the ledger has them: groceries, restaurants, transport, fuel, …
+    categoryOrder: [1, 2, 3, 4, 5, 10, 11, 15, 16, 6, 7, 8, 9, 12, 13, 14, 17, 18, 19],
+    categorizedPct: 94,
   },
   // A calendar file, not JSON: the demo never offers the download (no server), so there is nothing to answer.
   '/api/subscriptions/reminders.ics': () => {

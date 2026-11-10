@@ -94,5 +94,11 @@ public record ReviewCard(
                     description = "Subscription suggestions with confidence between 0.45 and 0.65")
             List<ReviewCard> possible,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Number of cards, for the home badge")
-            int count) {}
+            int count,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "Category ids, the most used first: the order of the one-tap answers")
+            List<Long> categoryOrder,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "Share of all spending in the main currency that has a category, 0-100")
+            int categorizedPct) {}
 }

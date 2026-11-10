@@ -7,6 +7,7 @@ import dev.costinfl.outflow.recurring.RecurrenceDetector;
 import dev.costinfl.outflow.recurring.ReminderService;
 import dev.costinfl.outflow.review.ReviewCard.Inbox;
 import dev.costinfl.outflow.review.ReviewCard.Kind;
+import dev.costinfl.outflow.txn.Currencies;
 import dev.costinfl.outflow.txn.Scope;
 import dev.costinfl.outflow.txn.TransferService;
 import java.math.BigDecimal;
@@ -35,11 +36,13 @@ public class ReviewService {
     private final JdbcTemplate jdbc;
     private final ReminderService reminders;
     private final TransferService transfers;
+    private final Currencies currencies;
 
-    public ReviewService(JdbcTemplate jdbc, ReminderService reminders, TransferService transfers) {
+    public ReviewService(JdbcTemplate jdbc, ReminderService reminders, TransferService transfers, Currencies currencies) {
         this.jdbc = jdbc;
         this.reminders = reminders;
         this.transfers = transfers;
+        this.currencies = currencies;
     }
 
     public Inbox inbox() {
@@ -170,7 +173,7 @@ public class ReviewService {
                 .thenComparing(ReviewCard::key);
         cards.sort(byImpact);
         possible.sort(byImpact);
-        return new Inbox(cards, possible, cards.size());
+        return new Inbox(cards, possible, cards.size(), categoryOrder(), categorizedPct());
     }
 
     private ReviewCard tieCard(TransferService.Tie tie) {
@@ -195,6 +198,29 @@ public class ReviewService {
                 t.merchantId(), t.name(), null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, t.amountMinor() < 0 ? Direction.OUT : Direction.IN,
                 null, null, new ReviewCard.TransferTie(t.id(), t.account(), t.date(), t.amountMinor(), options), null, null);
+    }
+
+    /** Category ids, the ones holding the most transactions first (ties: the seeded order), for one-tap answers. */
+    List<Long> categoryOrder() {
+        return jdbc.queryForList("""
+                SELECT c.id FROM category c
+                LEFT JOIN transaction t ON t.category_id = c.id AND t.superseded_by IS NULL
+                GROUP BY c.id ORDER BY count(t.id) DESC, c.id""", Long.class);
+    }
+
+    /**
+     * How much of all spending (every month) in the main currency has a category, in whole percent: the progress of a
+     * review session. Same predicates as the home screen ({@link Scope#SPEND}, {@link Scope#MINE}).
+     */
+    int categorizedPct() {
+        String currency = currencies.slice(null, List.of()).currency();
+        var r = jdbc.queryForMap("SELECT coalesce(sum(-" + Scope.MINE + "), 0) AS total, "
+                + "coalesce(sum(-" + Scope.MINE + ") FILTER (WHERE t.category_id IS NOT NULL), 0) AS categorized "
+                + "FROM transaction t LEFT JOIN category c ON c.id = t.category_id "
+                + "WHERE " + Scope.SPEND + " AND t.superseded_by IS NULL AND t.currency = ?", currency);
+        long total = ((Number) r.get("total")).longValue();
+        long categorized = ((Number) r.get("categorized")).longValue();
+        return total <= 0 ? 100 : (int) Math.max(0, Math.min(100, Math.round(100.0 * categorized / total)));
     }
 
     /** Hides a card until the next upload. */
